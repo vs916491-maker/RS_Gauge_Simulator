@@ -42,6 +42,7 @@ with sync_playwright() as pw:
         page.screenshot(path=os.path.join(out, '%02d-%s.png' % (i + 1, t)), full_page=True)
     page.click('#tabbtn-bogie'); page.wait_for_timeout(200)
     ok('REVIEW' not in page.locator('#calc-body').text_content(), 'theoretical s plausible on the sample')
+    ok(page.locator('#t-lower tbody tr').count() == 3, 'EN lower-parts table shows the 3 sample rows')
     page.click('#tabbtn-method'); page.wait_for_timeout(200)
     ok(page.locator('#method-toc button').count() > 15, 'method table of contents built')
 
@@ -85,6 +86,8 @@ with sync_playwright() as pw:
     ok(page.evaluate("!!Chart.getChart('chart-en')"), 'EN maximum construction gauge chart drawn')
     page.select_option('#sres-en-sec', 'end'); page.wait_for_timeout(300)
     ok(page.locator('#sres-en-check tbody tr.selrow').count() == 1, 'EN check table marks the governing point')
+    ok(page.locator('#sres-en-lower tbody tr').count() == 3 and 'Obstacle deflector' in page.locator('#sres-en-lower').text_content(), 'EN lower parts of DMC listed (A.3.4)')
+    ok(page.locator('#sres-en-upper tbody tr').count() == 3, 'EN maximum heights per section listed')
     page.locator('#sres-en').screenshot(path=os.path.join(out, '20b-static-en.png'))
     with page.expect_download() as d:
         page.click('#btn-export-static')

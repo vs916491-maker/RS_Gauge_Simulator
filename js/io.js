@@ -29,7 +29,7 @@
   };
   var TAB_SHEETS = {
     train: ['Train', 'CarTypes'],
-    bogie: ['Bogies', 'CarBodies'],
+    bogie: ['Bogies', 'CarBodies', 'EN_Lower_Parts'],
     ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params'],
     rs: ['RSProfile'],
     track: ['TrackParams', 'Track'],
@@ -92,6 +92,7 @@
       case 'CarTypes': return gridRows(p.train.carTypes, S.carType);
       case 'Bogies': return gridRows(p.bogies, S.bogie);
       case 'CarBodies': return gridRows(p.bodies, S.body);
+      case 'EN_Lower_Parts': return tableRows(p.lowerParts || [], S.lowerPart);
       case 'KE': return profileRows(p.ke.profiles, S.keProfile);
       case 'CustomerLimits': return paramRows(p.ke.limits, S.customerLimits);
       case 'EN_Params': return paramRows(p.ke.en, S.enParams);
@@ -110,10 +111,11 @@
     Train: 'Train description, configuration, load labels and wind constants. Edit the Value column only.',
     CarTypes: 'One column per car type (add columns to the right for more types): body length, overhangs, shared ends, section positions, masses, CG, bogie types and the RS profile of each section. Key column must stay unchanged.',
     Bogies: 'One column per bogie type (e.g. M, T): plays, vertical travels, mass, suspension stiffness (theoretical s and hc) and the play calculator. Car types refer to these names.',
-    CarBodies: 'One column per car type: wind-exposed side, lower parts, specified flexibility coefficient and roll-centre height.',
+    CarBodies: 'One column per car type: wind-exposed side, lower parts, specified flexibility coefficient and roll-centre height, EN 15273-2 A.3.4 vertical data.',
+    EN_Lower_Parts: 'Lower parts checked by EN 15273-2 A.3.4.1 (static option): one row per part with car type, mounting (body / bogie), position (between / beyond the pivots or axles), distance n, half-width b, height above rail (tare, new wheels) and the lower limit at that position (blank = customer minimum clearance). A car type without rows uses the lower parts of the car body inputs.',
     KE: 'Customer kinematic envelope(s): one row per point, right half (Y >= 0) from the top centre round the outside to rail level, in mm. Repeat the profile name (and n_up = points of the upper envelope) on every row; several profiles may follow each other.',
     CustomerLimits: 'Customer limits and SOD curve-allowance rule, dynamic reference heights.',
-    EN_Params: 'EN 15273-2 reference parameters (kept for a later phase; not used by the current method).',
+    EN_Params: 'Rules of the EN 15273-2:2009 kinematic check (customer KE as reference profile, G1 values as defaults).',
     SOD: 'Structure gauge / SOD profile(s): same layout as KE.',
     SOD_Settings: 'Frame of the SOD and the required minimum clearance.',
     SOD_Items: 'Point items to clear: third rail, platform edge, walkway, equipment. One row per item.',
@@ -258,6 +260,7 @@
         case 'CarTypes': v = readGrid(rows, S.carType, msgs, n); if (v) { raw.train.carTypes = v; } break;
         case 'Bogies': v = readGrid(rows, S.bogie, msgs, n); if (v) { raw.bogies = v; } break;
         case 'CarBodies': v = readGrid(rows, S.body, msgs, n); if (v) { raw.bodies = v; } break;
+        case 'EN_Lower_Parts': v = readTable(rows, S.lowerPart, msgs, n); if (v) { raw.lowerParts = v; } break;
         case 'EN_Params': v = readParams(rows, S.enParams, msgs, n); Object.keys(v).forEach(function (k) { raw.ke.en[k] = v[k]; }); break;
         case 'CustomerLimits': v = readParams(rows, S.customerLimits, msgs, n); Object.keys(v).forEach(function (k) { raw.ke.limits[k] = v[k]; }); break;
         case 'SOD_Settings': v = readParams(rows, S.sodSettings, msgs, n); Object.keys(v).forEach(function (k) { raw.sod[k] = v[k]; }); break;
@@ -323,6 +326,13 @@
       res.cars.forEach(function (c) { if (c.en) { ['int', 'ext', 'end'].forEach(function (k) { var ck = c.en.checks[k]; ck.points.forEach(function (q) {
         ec.push([c.car, k, ck.profile, r2(q.h, 0), r2(q.x), r2(q.W), r2(q.E, 2), r2(q.z, 2), q.branch, q.load, r2(q.max), r2(q.margin, 2), q.ok ? 'OK' : 'EXCEEDS']); }); }); } });
       add('EN15273_Check', ec, 10);
+      var ZN = { A: 'A', B: 'B', C: 'C', D: 'D', bogie: 'Bogie' }, SEC = { int: 'Interior', ext: 'Exterior', end: 'Car end' };
+      var ev = [['Car type', 'Check', 'Part / section', 'Mounted', 'Position', 'Zone', 'n (m)', 'b (mm)', 'Height (mm)', 'Suspension (mm)', 'Wheel wear (mm)', 'Extension (mm)', 'Gradient A.16–A.19 (mm)', 'Value (mm)', 'Limit (mm)', 'Margin (mm)', 'Status']];
+      res.cars.forEach(function (c) { var v = c.en && c.en.vertical; if (!v) { return; }
+        v.lower.forEach(function (q) { ev.push([c.car, 'Minimum height (A.3.4.1)', q.name, q.mount, q.pos, ZN[q.zone], r2(q.n, 3), r2(q.b, 0), r2(q.h, 1), r2(q.susp, 2), r2(q.wear, 2), '', r2(q.grad, 2), r2(q.hmin, 2), r2(q.req, 2), r2(q.margin, 2), q.ok ? 'OK' : 'BELOW MIN']); });
+        v.upper.forEach(function (q) { ev.push([c.car, 'Maximum height (A.3.4.2)', SEC[q.section] + ' – ' + q.profile, 'body', q.section === 'int' ? 'between' : 'beyond', '', r2(q.n, 3), '', r2(q.top, 1), '', '', r2(q.ext, 0), r2(q.grad, 2), r2(q.value, 2), r2(q.lim, 1), r2(q.margin, 2), q.ok ? 'OK' : 'INFRINGES']); });
+      });
+      add('EN15273_Vertical', ev, 10);
     }
     var vc = [['Car type', 'Check', 'Value (mm)', 'Limit (mm)', 'Margin (mm)', 'Status']];
     res.cars.forEach(function (c) { c.vertical.forEach(function (v) { vc.push([c.car, v.label, r2(v.value, 2), v.info ? '' : r2(v.limit, 1), v.info ? '' : r2(v.margin, 2), v.info ? '' : (v.ok ? 'OK' : 'BELOW MIN / INFRINGES')]); }); });

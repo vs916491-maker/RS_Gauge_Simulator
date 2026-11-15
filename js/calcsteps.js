@@ -155,10 +155,13 @@
     add({ part: 'B. Static check', id: 'vertical', title: 'B10. Vertical checks',
       refs: [ref('en2', 'Annex A.3.4 heights above the running surface, A.3.4.1.5 gradient transitions'), ref('uic1')],
       text: [
-        'The roof plus the upward suspension movement must stay below the KE top; underframe equipment, after all downward movements (wheel wear, suspension deflection, roll of the body on the low side and the vertical-curve effect at mid-car / car end), must keep the customer\'s minimum height above the rail.'
+        'The roof plus the upward suspension movement must stay below the KE top; underframe equipment, after all downward movements (wheel wear, suspension deflection, roll of the body on the low side and the vertical-curve effect at mid-car / car end), must keep the customer\'s minimum height above the rail.',
+        'With the EN 15273-2 option the heights of A.3.4 are checked as well. Each lower part lies in a body zone of Figure A.7: A (between the bogies, inside the air springs b2), B (between, outside b2), C (beyond the bogies, outside b2) or D (beyond, inside b2). Table A.1 gives its downward displacement: the suspension displacement Aff (air springs deflated), the difference ΔAff between the bogies weighted by n/a, a roll term 0,1·s·(b − b2) outside the springs, and the wheel wear Usr with the radius difference ΔUsr weighted by n/a. Bogie-mounted parts move with the primary suspension and the wheels only. On a vertical curve of 500 m the lower limit rises by the part of the sagitta above the 80 mm already in the reference profile (A.16 / A.17). For the roof, EN adds 10 mm per suspension level for the extension and reduces the allowed height by A.18 / A.19.'
       ],
-      formulas: ['crest at mid-car:  a² / (8·Rv)', 'sag at the car end:  (a·n + n²) / (2·|Rv|)'],
-      example: c ? ex(['Check', 'Value / limit / margin (mm)'], c.vertical.map(function (v) { return [v.label, fmt(v.value, 1) + (v.info ? '' : ' / ' + fmt(v.limit, 1) + ' / ' + fmt(v.margin, 1))]; })) : null, nodata: noStatic });
+      formulas: ['crest at mid-car:  a² / (8·Rv)', 'sag at the car end:  (a·n + n²) / (2·|Rv|)', 'EN zone C:  Aff + ΔAff·n/a + 0,1·s·(b − b2) + Usr + ΔUsr·n/a', 'EN gradient between / beyond (m):  [(a·n − n² + p²/4)/1000 − 0,08]>0  /  [(a·n + n² − p²/4)/1000 − 0,08]>0'],
+      example: c ? ex(['Check', 'Value / limit / margin (mm)'], c.vertical.map(function (v) { return [v.label, fmt(v.value, 1) + (v.info ? '' : ' / ' + fmt(v.limit, 1) + ' / ' + fmt(v.margin, 1))]; }).concat(
+        c.en && c.en.vertical ? c.en.vertical.lower.map(function (q) { return ['EN lower part ' + q.name + ' (zone ' + (q.zone === 'bogie' ? 'bogie' : q.zone) + ')', fmt(q.hmin, 1) + ' / ' + fmt(q.req, 1) + ' / ' + fmt(q.margin, 1)]; }).concat(
+          c.en.vertical.upper.map(function (q) { return ['EN maximum height ' + SEC[q.section], fmt(q.value, 1) + ' / ' + fmt(q.lim, 1) + ' / ' + fmt(q.margin, 1)]; })) : [])) : null, nodata: noStatic });
 
     // ================================================================ C. Dynamic
     var dc = d ? (d.cars.filter(function (x) { return x.car === (c ? c.car : ctx.car); })[0] || d.cars[0]) : null, r = null;

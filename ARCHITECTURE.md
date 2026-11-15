@@ -135,5 +135,6 @@ reads every known sheet.
 | 6 | Dynamic: whole-profile check against the SOD outline (widened on curves) and point items | Done (PR #6) |
 | 7 | Tests tab: sway-test evaluation and kinematic gauge test plan | Done (PR #7) |
 | 8 | Calculation Method tab: step-by-step explanation with standard references and live examples | Done (PR #8) |
-| 9 | EN 15273-2: motor-coach formulae A.3.9.2, w varying with the radius, variable stops | **This pull request** |
-| 10+ | EN 15273-2: lower parts / vertical, bogie parts, static gauge, doors and steps, pantograph, other profiles, dynamic method | Next, one PR each |
+| 9 | EN 15273-2: motor-coach formulae A.3.9.2, w varying with the radius, variable stops | Done |
+| 10 | EN 15273-2: heights above the running surface A.3.4 (lower parts by Table A.1 zones, A.16–A.19), lower-parts table | **This pull request** |
+| 11+ | EN 15273-2: bogie parts, static gauge, doors and steps, pantograph, other profiles, dynamic method | Next, one PR each |
