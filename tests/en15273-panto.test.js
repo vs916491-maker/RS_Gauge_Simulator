@@ -72,14 +72,14 @@ tests.push({ name: 'Sample MC with a fictional pantograph near the bogie centre:
   var raw = JSON.parse(JSON.stringify(require('../samples/sample-project.json')));
   raw.pantographs = [{ car: 'MC', name: 'Pantograph 1', pos: 'between', n_m: 0.3, ht_mm: 3900, t_mm: 30, theta_mrad: 2.5, tau_mm: 10, bw_mm: 800, h_low_mm: null, ins_mm: 0, note: '' }];
   var p = M.normalizeProject(raw), mc = E.staticRun(p, p.settings['static']).cars[2], pg = mc.en.pantographs.rows[0];
-  assert.strictEqual(pg.cases.length, 2 * 2 * 1);                 // straight + 150 m, tare + crush, one bogie type (M/M)
+  assert.strictEqual(pg.cases.length, 2 * 4 * 1);                 // straight + 150 m, four load cases AW0–AW4, one bogie type (M/M)
   // straight track, tare (s 0,3 > 0,225, hc 0,55 m): j' = 0,005 + 0,030 − 0,0375
   var hc = 0.55, s = 0.3, j = 0.005 + 0.030 - 0.0375;
   var zo = 0.2 * (6.5 - hc) / 1.5 * s + Math.sqrt(sq(0.03) + sq(0.01) + sq(0.0025 * (6.5 - hc))) - 0.2375;
-  var st = pg.cases.filter(function (x) { return x.R === null && x.load === 'tare'; })[0];
+  var st = pg.cases.filter(function (x) { return x.R === null && x.role === 'tare'; })[0];
   assert.ok(Math.abs(st.Po - (j + zo) * 1000) < 1e-9, st.Po);
   // 150 m: a = 14,6 m, n = 0,3 m, p = 2,3 m → (4,38 − 0,09 + 1,3225 − 5)/300
-  var c150 = pg.cases.filter(function (x) { return x.R === 150 && x.load === 'tare'; })[0];
+  var c150 = pg.cases.filter(function (x) { return x.R === 150 && x.role === 'tare'; })[0];
   assert.ok(Math.abs(c150.geo - (14.6 * 0.3 - 0.09 + 2.3 * 2.3 / 4 - 5) / 300 * 1000) < 1e-9);
   assert.strictEqual(pg.ok, pg.worstO.Po <= 1e-9 && pg.worstU.Pu <= 1e-9);
   // at mid-car the overthrow on 150 m is far too large: the check fails and enters the verdict

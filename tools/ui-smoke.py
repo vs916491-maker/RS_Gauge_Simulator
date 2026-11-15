@@ -30,7 +30,7 @@ with sync_playwright() as pw:
     page.reload()
     page.wait_for_timeout(400)
     ok('Fictional example' in page.locator('#data-banner').text_content(), 'fictional banner shown')
-    ok(page.locator('#g-cartypes input, #g-cartypes select').count() >= 50, 'car type grid rendered')
+    ok(page.locator('#g-cartypes input, #g-cartypes select').count() >= 36, 'car type grid rendered (13 rows × 3 car types)')
     ok(page.locator('#train-drawing svg rect.car-body').count() == 6, 'train drawing has 6 cars')
     # Load definition: bogie ends per car type, joints in the drawing
     ok(page.locator('#t-ends tbody tr').count() == 3 and 'Two own bogies' in page.locator('#t-ends').text_content(), 'bogie ends table: one row per car type')
@@ -44,6 +44,16 @@ with sync_playwright() as pw:
     page.locator('#t-ends tbody tr').nth(1).locator('select').nth(2).select_option('free')
     page.locator('#t-ends tbody tr').nth(2).locator('select').nth(0).select_option('free'); page.wait_for_timeout(300)
     ok(page.locator('#train-drawing .joint-shared').count() == 0, 'ends set back to own bogies')
+    # Load definition: load cases and masses
+    ok(page.locator('#t-loadcases tbody tr').count() == 4 and page.locator('#t-carloads tbody tr').count() == 12, 'load cases AW0–AW4 and 12 mass rows')
+    ok(page.locator('#calc-loads tbody tr').count() == 12 and 'other' in page.locator('#calc-loads').text_content(), 'values used per load case listed')
+    page.locator('#t-loadcases').get_by_role('button', name='Add load case').click(); page.wait_for_timeout(300)
+    ok(page.locator('#t-loadcases tbody tr').count() == 5 and page.locator('#t-carloads tbody tr').count() == 15, 'new load case adds a mass row per car type')
+    ok('no mass' in page.locator('[data-msgs="train"]').text_content() or 'mass is empty' in page.locator('[data-msgs="train"]').text_content(), 'empty masses reported')
+    page.locator('#t-loadcases tbody tr').nth(4).get_by_role('button', name='×').click(); page.wait_for_timeout(300)
+    page.click('#tabbtn-ke'); page.click('#tabbtn-train'); page.wait_for_timeout(300)
+    ok(page.locator('#t-loadcases tbody tr').count() == 4 and page.locator('#t-carloads tbody tr').count() == 12, 'deleted load case: its mass rows removed')
+    page.locator('#load-def').screenshot(path=os.path.join(out, '01c-load-cases.png'))
     ok('14.8' in page.locator('#calc-geometry').text_content(), 'calculated pivot distance shown')
 
     tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'endyn', 'tests', 'summary', 'calc', 'method']
@@ -106,6 +116,8 @@ with sync_playwright() as pw:
     ok(gov and gov['car'] == 'TC' and abs(gov['c'] - 39.65) < 0.05, 'governing case TC exterior tare 39.65 mm (%s)' % gov)
     ok(page.evaluate("!!Chart.getChart('chart-sec-int') && !!Chart.getChart('chart-sec-end') && !!Chart.getChart('chart-methodA')"), 'section and Method A charts drawn')
     ok(page.locator('#sres-table tbody tr').count() == 3, 'one result row per car type')
+    ok(page.locator('#sres-table thead th').count() == 1 + 12 + 3 and 'Exterior – AW2' in page.locator('#sres-table thead').text_content(), 'result columns: 3 sections × 4 load cases')
+    ok(page.locator('#sres-case option').count() == 12, 'case selector lists all 12 cases')
     page.screenshot(path=os.path.join(out, '20-static-results.png'), full_page=True)
     page.select_option('#sres-car', 'DMC'); page.wait_for_timeout(300)
     page.select_option('#sres-case', 'int_c'); page.wait_for_timeout(300)
@@ -195,7 +207,7 @@ with sync_playwright() as pw:
     ok(page.locator('#cm-body section.step').count() == 20 and page.locator('#cm-body .step .example table').count() == 18, 'calculation method: 20 steps, 18 with project numbers')
     ok('39.65' in page.locator('#cm-methodB').text_content(), 'step B7 shows the governing clearance 39.65 mm')
     page.select_option('#calc-car', 'DMC'); page.wait_for_timeout(300); page.select_option('#calc-case', 'int_t'); page.wait_for_timeout(300)
-    ok('DMC / Interior – Tare' in page.locator('#cm-geometry').text_content(), 'car type and case selectors drive the examples')
+    ok('DMC / Interior – AW0' in page.locator('#cm-geometry').text_content(), 'car type and case selectors drive the examples')
     page.fill('#calc-ch', '1990'); page.dispatch_event('#calc-ch', 'change'); page.wait_for_timeout(400)
     ok('1990.0 m' in page.locator('#cm-track').text_content() and 'Tunnel' in page.locator('#cm-outline').text_content(), 'chainage drives the dynamic examples (tunnel SOD at 1990 m)')
     page.screenshot(path=os.path.join(out, '26-calc.png'), full_page=True)

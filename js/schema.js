@@ -40,9 +40,29 @@
     f('ebo_use', 'EBO: vehicle use (§22)', 'sel', '', { o: [['g1', 'Cross-border traffic – reference line G1 (Anlage 7)'], ['g2', 'Other vehicles – reference line G2 (Anlage 8)']], d: 'g2' }),
     f('bostrab_street', 'BOStrab: street-running vehicle (straßenabhängig, §34(3))', 'sel', '', { o: YN, d: 'no' })
   ];
-  var trainLoad = [
-    f('tare_label', 'Tare load condition', 'text', '', { d: 'AW0', h: 'Empty: highest body, largest wind roll' }),
-    f('laden_label', 'Crush load condition', 'text', '', { d: 'AW4', h: 'Crush: lowest body' })
+  // ---------------------------------------------------------------- Load definition (METHOD §4.1a)
+  var LOAD_ROLES = [['tare', 'Tare – empty car (reference)'], ['crush', 'Crush – fully loaded'], ['other', 'Other']];
+  var loadCase = [
+    f('name', 'Load case', 'text', '', { d: '', h: 'e.g. AW0, AW2, AW3, AW4' }),
+    f('role', 'Role', 'sel', '', { o: LOAD_ROLES, d: 'other', h: 'Exactly one tare (highest body, largest wind roll) and one crush (lowest body: vertical and underframe checks)' }),
+    f('note', 'Description', 'text', '', { d: '', h: 'e.g. seated + 4 standing passengers/m²' })
+  ];
+  var carLoad = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('load', 'Load case', 'text', '', { d: '' }),
+    f('mass_t', 'Sprung car-body mass m', 'num', 't', { min: 1, max: 160 }),
+    f('cg_mm', 'CG height of body hG', 'num', 'mm', { min: 200, max: 3000 }),
+    f('dz_mm', 'Body lowering from tare Δz', 'num', 'mm', { min: 0, max: 150, opt: true, h: 'Tare 0; crush required; other cases blank = interpolated by mass' }),
+    f('s', 'Flexibility coefficient s', 'num', '', { min: 0, max: 1, opt: true, h: 'Other cases only (tare / crush: Car body tab); blank = interpolated by mass' }),
+    f('hc_mm', 'Roll-centre height hc', 'num', 'mm', { min: 0, max: 3000, opt: true, h: 'Other cases only (tare / crush: Car body tab); blank = interpolated by mass' })
+  ];
+  // Mass fields of the car type before the load definition (older files; migrated to load cases AW0 / AW4)
+  var legacyCarMass = [
+    f('mass_tare_t', 'Car body mass tare, sprung m0', 'num', 't', { opt: true }),
+    f('mass_crush_t', 'Car body mass crush, sprung m4', 'num', 't', { opt: true }),
+    f('cg_tare_mm', 'CG height of body tare hG0', 'num', 'mm', { opt: true }),
+    f('cg_crush_mm', 'CG height of body crush hG4', 'num', 'mm', { opt: true }),
+    f('drop_crush_mm', 'Body lowering tare to crush Δz', 'num', 'mm', { opt: true })
   ];
   var trainWind = [
     f('rho_air', 'Air density ρ', 'num', 'kg/m³', { min: 0.5, max: 2, d: 1.2 }),
@@ -62,11 +82,6 @@
     f('width_mm', 'Maximum body width', 'num', 'mm', { min: 1000, max: 4000, d: 2880 }),
     f('floor_mm', 'Floor / door-sill height above rail hf', 'num', 'mm', { min: 100, max: 2000, d: 1100 }),
     f('sill_hw_mm', 'Door-sill half-width bs', 'num', 'mm', { min: 500, max: 2000, d: 1440 }),
-    f('mass_tare_t', 'Car body mass tare, sprung m0', 'num', 't', { min: 1, max: 120, d: 24 }),
-    f('mass_crush_t', 'Car body mass crush, sprung m4', 'num', 't', { min: 1, max: 160, d: 42 }),
-    f('cg_tare_mm', 'CG height of body tare hG0', 'num', 'mm', { min: 200, max: 3000, d: 1600 }),
-    f('cg_crush_mm', 'CG height of body crush hG4', 'num', 'mm', { min: 200, max: 3000, d: 1720 }),
-    f('drop_crush_mm', 'Body lowering tare to crush Δz', 'num', 'mm', { min: 0, max: 100, d: 22 }),
     f('bogie1', 'Bogie type at end 1', 'text', '', { d: 'T', h: 'Name of a bogie type on the Car body & Bogie tab' }),
     f('bogie2', 'Bogie type at end 2', 'text', '', { d: 'T' }),
     f('prof_int', 'Profile – interior section', 'text', '', { d: '', h: 'RS profile checked between the pivots' }),
@@ -502,7 +517,7 @@
   ];
   var dynamicOptions = [
     f('ov_meth', 'Overthrow method', 'sel', '', { o: [['max', 'Max curvature within the car length (conservative)'], ['local', 'Local radius']], d: 'max', h: 'Conservative covers transitions and reverse curves' }),
-    f('load', 'Load case for the dynamic calculation', 'sel', '', { o: [['tare', 'Tare (AW0)'], ['crush', 'Crush (AW4)']], d: 'tare', h: 'Tare normally governs (larger wind roll)' }),
+    f('load', 'Load case for the dynamic calculation', 'text', '', { d: 'tare', h: 'A load case of the Load definition; tare normally governs (larger wind roll)' }),
     f('profile', 'Profile for the dynamic gauge', 'text', '', { d: '', h: 'Blank = car-end section profile of each car type' }),
     f('ch_from_m', 'Start chainage', 'num', 'm', { min: -1e6, max: 1e7, opt: true, h: 'Blank = start of the track data' }),
     f('ch_to_m', 'End chainage', 'num', 'm', { min: -1e6, max: 1e7, opt: true, h: 'Blank = end of the track data' }),
@@ -549,8 +564,9 @@
   function byKey(fields, k) { for (var i = 0; i < fields.length; i++) { if (fields[i].k === k) { return fields[i]; } } return null; }
 
   return {
-    trainDescription: trainDescription, trainConfig: trainConfig, trainLoad: trainLoad, trainWind: trainWind,
-    trainFields: trainDescription.concat(trainConfig, trainLoad, trainWind),
+    trainDescription: trainDescription, trainConfig: trainConfig, trainWind: trainWind,
+    trainFields: trainDescription.concat(trainConfig, trainWind),
+    loadCase: loadCase, carLoad: carLoad, legacyCarMass: legacyCarMass, LOAD_ROLES: LOAD_ROLES,
     carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep, pantograph: pantograph, ccd: ccd, ccdPoint: ccdPoint, thirdRail: thirdRail, trPart: trPart,
     simSettings: simSettings, simCar: simCar, simTransient: simTransient, simCurving: simCurving, valWeigh: valWeigh, valRot: valRot, valSway: valSway, valRide: valRide,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,

@@ -38,7 +38,7 @@ test('Report blocks: all chapters with static, EN and dynamic results', function
   ['1. Purpose and scope', '2. Summary of results', '3. Input data', '4. Method and options', '5. Static results', '6. EN 15273-2:2009 kinematic method', '7. Dynamic results',
     '8. Test calculations', '9. Assumptions and limitations', 'Appendix A – Track data', 'Appendix B – Points of the governing static cases'].forEach(function (t) { assert.ok(h1.indexOf(t) >= 0, 'missing ' + t); });
   var sum = bl.filter(function (b) { return b.type === 'table' && b.head[0] === 'Check'; })[0];
-  assert.ok(/39\.7 mm/.test(sum.rows[0][1]) && /TC, Exterior – Tare/.test(sum.rows[0][2]), 'governing static result in the summary: ' + sum.rows[0]);
+  assert.ok(/39\.7 mm/.test(sum.rows[0][1]) && /TC, Exterior – AW0/.test(sum.rows[0][2]), 'governing static result in the summary: ' + sum.rows[0]);
   assert.ok(sum.rows.some(function (r) { return /SOD outline/.test(r[0]) && r[3] === 'OK'; }) && sum.rows.some(function (r) { return /point-item margin/.test(r[0]); }), 'SOD outline and item rows in the summary');
   var a11 = bl.filter(function (b) { return b.type === 'list' && b.ordered; })[0];
   assert.strictEqual(a11.items.length, RP.methodSection(MD, 11).items.length);

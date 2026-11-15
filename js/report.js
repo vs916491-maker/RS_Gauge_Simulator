@@ -77,7 +77,7 @@
     h1('1. Purpose and scope');
     para('This report gives the gauging of the ' + (t.name || 'train') + (t.formation ? ' (' + t.formation + ')' : '') + ', car types ' + carNames.join(', ') +
       ', against the customer kinematic envelope ' + (s ? '**' + s.ke.name + '**' : '') + '. It covers:');
-    var scope = ['the static check of the RS profiles with all vehicle movements against the customer KE (Method B, six cases per car type);',
+    var scope = ['the static check of the RS profiles with all vehicle movements against the customer KE (Method B, three sections × ' + ((p.loads || {}).cases || []).length + ' load cases per car type);',
       'the maximum static half-width allowed by the customer KE (Method A) and the vertical checks;'];
     var FWN = { customer: 'customer KE (metro practice)', en: 'EN 15273-2', ebo: 'EBO (German main line, reference line ' + (t.ebo_use === 'g1' ? 'G1' : 'G2') + ')', bostrab: 'BOStrab (German tram, light rail, U-Bahn)' };
     scope.unshift('applicable rules: ' + (FWN[t.framework] || FWN.customer) + (t.framework === 'ebo' || t.framework === 'bostrab' ? ' – the ' + (t.framework === 'ebo' ? 'EBO Anlage 9 specifics' : 'BOStrab-Lichtraum-Richtlinien') + ' are not yet included;' : ';'));
@@ -136,6 +136,13 @@
     table(['Parameter'].concat(ct.map(function (c) { return c.name; })), S.carType.filter(function (fd) { return fd.k !== 'name'; }).map(function (fd) {
       return [fd.l + unit(fd)].concat(ct.map(function (c) { return fieldVal(fd, c[fd.k]); }));
     }));
+    h2('3.2a Load cases and masses');
+    var LC = (p.loads || {}).cases || [], RL = { tare: 'Tare', crush: 'Crush', other: 'Other' };
+    table(['Load case', 'Role', 'Description'], LC.map(function (x) { return [x.name, RL[x.role] || x.role, x.note || '']; }), [0.2, 0.2, 0.6]);
+    table(['Car type', 'Load case', 'Mass m [t]', 'CG hG [mm]', 'Δz from tare [mm]', 's', 'hc [mm]'], ((p.loads || {}).cars || []).map(function (r) {
+      function v(x, d) { return x === null || x === undefined || x === '' ? 'interp.' : fmt(x, d); }
+      return [r.car, r.load, fmt(r.mass_t, 2), fmt(r.cg_mm, 0), v(r.dz_mm, 1), v(r.s, 3), v(r.hc_mm, 0)];
+    }));
     h2('3.3 Bogies');
     table(['Parameter'].concat(p.bogies.map(function (b) { return b.name; })), S.bogieMain.filter(function (fd) { return fd.k !== 'name'; }).map(function (fd) {
       return [fd.l + unit(fd)].concat(p.bogies.map(function (b) { return fieldVal(fd, b[fd.k]); }));
@@ -172,7 +179,7 @@
     h1('4. Method and options');
     para('Static check (Method B): each RS profile point is displaced by the lateral and vertical movements of the case (geometric overthrow at the static radius, ' +
       'wheel–rail and suspension plays with the yaw factor, quasi-static roll from cant and wind, random terms) and its clearance to the customer KE is measured. ' +
-      'Six cases per car type: interior, exterior and car end, each in tare and crush. Method A gives the largest static half-width the KE allows at each height. ' +
+      'Cases per car type: interior, exterior and car end, each with every load case (' + ((p.loads || {}).cases || []).map(function (c) { return c.name; }).join(', ') + '). Method A gives the largest static half-width the KE allows at each height. ' +
       'The dynamic check sweeps every car type along the track data and keeps the worst car type at each chainage; it also checks the whole displaced profile against ' +
       'the SOD outline of each track element (tangent SOD widened by the curve allowance) and against the point items.');
     if (st) { h2('4.1 Static options'); table(['Option', 'Value'], S.staticOptions.map(function (fd) { return [fd.l, fieldVal(fd, st[fd.k])]; }), [0.65, 0.35]); }

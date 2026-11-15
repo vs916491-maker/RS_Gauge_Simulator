@@ -23,10 +23,10 @@ tests.push({ name: 'Track series: curvature linear in transitions (left +, right
 } });
 tests.push({ name: 'Static result datasets: KE, static profile, generated KE tare and crush, governing points; Method A lines', fn: function () {
   var r = E.staticRun(p, p.settings['static']), ds = P.sectionDatasets(r, 'TC', 'ext');
-  assert.deepStrictEqual(ds.map(function (d) { return d.label.split(':')[0].split(' (')[0]; }), ['Customer KE', 'Static profile', 'Generated KE – tare', 'Generated KE – crush', 'Governing point – tare', 'Governing point – crush']);
-  var gen = ds[2].data, n = r.cars[1].cases[2].points.length;
+  assert.deepStrictEqual(ds.map(function (d) { return d.label.split(':')[0].split(' (')[0]; }), ['Customer KE', 'Static profile', 'Generated KE – AW0', 'Generated KE – AW2', 'Generated KE – AW3', 'Generated KE – AW4', 'Governing point – AW0', 'Governing point – AW2', 'Governing point – AW3', 'Governing point – AW4']);
+  var gen = ds[2].data, ex = r.cars[1].cases.filter(function (k) { return k.section === 'ext'; })[0], n = ex.points.length;
   assert.strictEqual(gen.length, 2 * n + 1, 'right side + mirrored left side + closing point');
-  assert.strictEqual(gen[0].x, r.cars[1].cases[2].points[0].x); assert.strictEqual(gen[n].x, -r.cars[1].cases[2].points[n - 1].x);
+  assert.strictEqual(gen[0].x, ex.points[0].x); assert.strictEqual(gen[n].x, -ex.points[n - 1].x);
   assert.strictEqual(P.methodADatasets(r, 'TC').length, 6);
 } });
 module.exports = tests;

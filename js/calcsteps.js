@@ -124,7 +124,7 @@
       refs: [ref('metro', 'generated KE vs customer KE'), ref('tool', '§6.4')],
       text: [
         'At the displaced point the horizontal distance to the KE (ΔX, at the point\'s height) and the vertical distance (ΔH, at its half-width) are taken. Near a sloping KE edge the true distance is smaller than either; the tool uses the distance to the straight line through both KE points, which is exact on a straight KE segment and conservative near corners. Negative = the point is outside the KE.',
-        'All six cases (interior, exterior, car end × tare, crush) and all points are checked; the smallest value governs.'
+        'All cases (interior, exterior and car end × every load case of the Load definition, e.g. AW0, AW2, AW3, AW4) and all points are checked; the smallest value governs.'
       ],
       formulas: ['c = ΔX·ΔH / √(ΔX² + ΔH²)'],
       example: c ? ex(null, [['KE half-width at h / ΔX', fmt(q.W, 1) + ' / ' + fmt(q.dX, 1) + ' mm'], ['KE height at x / ΔH', fmt(q.H, 1) + ' / ' + fmt(q.dH, 1) + ' mm'],
@@ -136,7 +136,7 @@
       text: [
         'Turned round, the same movements give the largest **static** half-width the KE allows at each height: the KE half-width minus the movement E(h) of the worst load case of the section. This is how a car body profile is derived from the customer KE at the start of a design.'
       ],
-      formulas: ['W_max(h) = W_KE(h) − max(E_tare(h), E_crush(h))'],
+      formulas: ['W_max(h) = W_KE(h) − max over the load cases of E_load(h)'],
       example: ma ? ex(null, [['Height h', fmt(ma.h, 0) + ' mm'], ['KE half-width', fmt(ma.W, 1) + ' mm'], ['Max static half-width – interior / exterior / car end', fmt(ma.max_int, 1) + ' / ' + fmt(ma.max_ext, 1) + ' / ' + fmt(ma.max_end, 1) + ' mm'],
         ['Margin of the RS profile – interior / exterior / car end', fmt(ma.margin_int, 1) + ' / ' + fmt(ma.margin_ext, 1) + ' / ' + fmt(ma.margin_end, 1) + ' mm']]) : null, nodata: noStatic });
 

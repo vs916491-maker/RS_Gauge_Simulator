@@ -65,7 +65,8 @@ test('Version-1 project files are migrated (renamed fields, track elements)', fu
     track: { params: { gauge_tol_mm: 4, crosslevel_tol_mm: 7 }, segments: [{ from_m: 0, to_m: 100, element: 'C1', R_m: 400, side: 'R', cant_mm: 90, section: 'elevated' }] } };
   var p = M.normalizeProject(v1), c = p.train.carTypes[0], s = p.track.segments[0];
   assert.strictEqual(p.version, 2);
-  assert.deepStrictEqual([c.n_free_m, c.mass_crush_t, c.cg_crush_mm], [3, 50, 1700]);
+  var crush = p.loads.cars.filter(function (r) { return r.car === 'A' && r.load === 'AW4'; })[0];
+  assert.deepStrictEqual([c.n_free_m, crush.mass_t, crush.cg_mm, c.mass_crush_t], [3, 50, 1700, undefined], 'v1 laden mass → crush load row');
   assert.deepStrictEqual([p.bodies[0].s_crush, p.bodies[0].hc_tare_mm, p.bodies[0].hc_crush_mm, p.bogies[0].up_sec_mm], [0.33, 600, 600, 25]);
   assert.deepStrictEqual([p.track.params.g_tol_mm, p.track.params.cl_err_mm], [4, 7]);
   assert.deepStrictEqual([s.element, s.R_start_m, s.R_end_m, s.cant_start_mm, s.location, s.remarks], ['circular', 400, 400, 90, 'open', 'C1']);

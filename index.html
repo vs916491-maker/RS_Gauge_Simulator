@@ -72,8 +72,17 @@
         The drawing below lines up the formation and marks each joint.</p>
       <div id="t-ends" class="tablewrap"></div>
       <div id="train-drawing" class="drawing tablewrap"></div>
-      <h4>Load conditions</h4>
-      <div id="f-train-load" class="fields"></div>
+      <h4>Load cases</h4>
+      <p class="hint">One row per load case (e.g. AW0 empty, AW2 seated + 4 passengers/m², AW3 6/m², AW4 crush 8/m²). Exactly one case is the
+        <strong>tare</strong> (highest body, largest wind roll) and one the <strong>crush</strong> (lowest body: vertical and underframe checks, axle load);
+        every case is calculated (3 sections × the load cases).</p>
+      <div id="t-loadcases" class="tablewrap"></div>
+      <h4>Masses per car type and load case</h4>
+      <p class="hint">Sprung car-body mass and CG height for every car type and load case. Body lowering Δz from tare: 0 for the tare, required for the crush;
+        for the other cases, and their s and hc, a blank is interpolated by mass between tare and crush (tare / crush s and hc are on the Car body &amp; Bogie tab).</p>
+      <div id="t-carloads" class="tablewrap"></div>
+      <h4>Values used per load case</h4>
+      <div id="calc-loads" class="tablewrap"></div>
     </div>
     <div class="card">
       <div class="row"><h3>Car types</h3><span class="muted">One column per car type</span></div>
@@ -215,7 +224,7 @@
     <div class="messages" data-msgs="ssim" aria-live="polite"></div>
     <div class="grid2">
       <div class="card"><h3>Calculation options</h3>
-        <p class="hint">Six cases per car type: interior (train stopped, cant excess), exterior and car end (train at speed, cant deficiency), each tare and crush, on the track of the
+        <p class="hint">Cases per car type: interior (train stopped, cant excess), exterior and car end (train at speed, cant deficiency), each with every load case of the Load definition (Train Configuration), on the track of the
           Track Data tab (tangent unless a static radius is set). Default options reproduce the reference workbook method.</p>
         <div id="f-static" class="fields"></div></div>
       <div>
