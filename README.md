@@ -34,7 +34,9 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 8. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
 9. The **Overall Summary** tab shows what still needs fixing and writes the **Word gauging report** (document number,
    revision, prepared / checked / approved, then inputs, method, static, EN and dynamic results with charts, assumptions
-   and appendices); the **Method & Assumptions** tab is the full method.
+   and appendices); the **Calculation Method** tab explains every calculation step with its EN 15273 / UIC 505 / metro SOD
+   references and the numbers of the loaded project (car type, case and chainage selectable); the **Method & Assumptions**
+   tab is the full formal specification.
 
 ## Status
 
@@ -47,6 +49,7 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 5 | Word gauging report | Done |
 | 6 | SOD outline and point-item checks (dynamic) | Done |
 | 7 | Tests: sway-test evaluation and kinematic gauge test plan | Done |
+| 8 | Calculation Method tab (step-by-step, standards, live examples) | Done |
 
 ## For developers
 

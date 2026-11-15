@@ -280,3 +280,12 @@ ul.errlist { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--err-text); fo
 #dres-summary td.l, #dres-xs td.l { min-width: 17rem; }
 #dres-summary table, #dres-xs table { width: 100%; }
 .offscreen { position: absolute; left: -12000px; top: 0; width: 1200px; height: 1px; overflow: hidden; }
+.calc .step { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1.1rem; margin-bottom: 14px; }
+.calc h2.part { margin: 1.2rem 0 .6rem; font-size: 1.15rem; }
+.calc h3 { margin: 0 0 .5rem; }
+.calc .refs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 .6rem; }
+.calc .ref { background: var(--accent-soft); border-radius: 999px; padding: .15rem .6rem; font-size: .78rem; }
+.calc .ref b { font-weight: 600; }
+.calc pre.formula { background: var(--bg); border-left: 3px solid var(--accent); padding: .5rem .7rem; margin: .5rem 0; white-space: pre-wrap; font-size: .85rem; }
+.calc .example h4 { margin: .7rem 0 .3rem; font-size: .9rem; }
+.calc .nodata { font-style: italic; }

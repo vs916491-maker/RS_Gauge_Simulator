@@ -371,7 +371,7 @@
     var o = staticOpts(), cars = state.p.train.carTypes, ds = cars.map(function (c) { return E.deriveCar(state.p, c, o); });
     function row(label, unit, fn, d) { return [label, unit].concat(ds.map(function (x) { var v = fn(x); return typeof v === 'object' && v !== null ? v : fmt(v, d); })); }
     function chk(v) { return { v: v, cls: v === 'OK' ? 'okcell' : 'badcell' }; }
-    roTable($('calc-body'), ['Quantity', 'Unit'].concat(cars.map(function (c) { return c.name; })), [
+    roTable($('cm-body'), ['Quantity', 'Unit'].concat(cars.map(function (c) { return c.name; })), [
       row('Wind-exposed area Aw', 'm²', function (d) { return d.wind.Aw; }, 2),
       row('Wind coefficient tare Cw0 (D = Cw·V²)', 'mm/(km/h)²', function (d) { return d.wind.Cw_t; }, 6),
       row('Wind coefficient crush Cw4', 'mm/(km/h)²', function (d) { return d.wind.Cw_c; }, 6),
@@ -939,6 +939,53 @@
     }, function (e) { st.textContent = 'Could not write the Word file: ' + e; });
   }
 
+  // ---------------------------------------------------------------- Calculation Method tab
+  function rich(text) {   // **bold** inline
+    return String(text).split(/(\*\*[^*]+\*\*)/).filter(function (x) { return x; }).map(function (x) {
+      return /^\*\*[^*]+\*\*$/.test(x) ? el('strong', { text: x.slice(2, -2) }) : doc.createTextNode(x);
+    });
+  }
+  function renderCalc() {
+    var sres = null, note = [];
+    if (state.run && !stale()) { sres = state.run; }
+    else { try { sres = E.staticRun(state.p, staticOpts()); note.push('Static numbers calculated now from the current inputs.'); } catch (e) { sres = null; note.push('Static numbers not available: ' + e.message); } }
+    var dres = state.drun || null;
+    if (dres && dstale()) { note.push('Dynamic numbers are from the last dynamic run (inputs changed since).'); }
+    if (!dres) { note.push('Run the dynamic simulation for the dynamic examples.'); }
+    $('cm-status').textContent = note.join(' ');
+    var cs = clear($('calc-car')), cars = sres ? sres.cars.map(function (c) { return c.car; }) : [];
+    if (cars.indexOf(state.calcCar) < 0) { state.calcCar = sres && sres.governing ? sres.governing.car : cars[0]; }
+    cars.forEach(function (n) { cs.appendChild(el('option', { value: n, text: n, selected: n === state.calcCar })); });
+    var kc = clear($('calc-case')), car = sres ? sres.cars.filter(function (c) { return c.car === state.calcCar; })[0] : null;
+    if (car && !car.cases.some(function (k) { return k.id === state.calcCase; })) { state.calcCase = car.governing ? car.governing.id : car.cases[0].id; }
+    (car ? car.cases : []).forEach(function (k) { kc.appendChild(el('option', { value: k.id, text: k.label + (car.governing && car.governing.id === k.id ? ' (governing)' : ''), selected: k.id === state.calcCase })); });
+    var sw = swayResults(), ch = $('calc-ch').value === '' ? null : Number($('calc-ch').value);
+    var list = R.calcsteps.steps({ p: state.p, sres: sres, dres: dres, car: state.calcCar, caseId: state.calcCase, ch: ch, sway: sw, plan: sres ? E.gaugeTestPlan(state.p, sres, sw) : [] });
+    var body = clear($('cm-body')), toc = clear($('cm-toc')), part = null;
+    list.forEach(function (st) {
+      if (st.part !== part) {
+        part = st.part;
+        var pid = 'cm-part-' + part.charAt(0);
+        body.appendChild(el('h2', { class: 'part', id: pid, text: part }));
+        toc.appendChild(el('button', { type: 'button', text: part, on: { click: function () { $(pid).scrollIntoView({ behavior: 'smooth', block: 'start' }); } } }));
+      }
+      var box = el('section', { class: 'step', id: 'cm-' + st.id });
+      box.appendChild(el('h3', { text: st.title }));
+      box.appendChild(el('div', { class: 'refs' }, (st.refs || []).map(function (r) { return el('span', { class: 'ref', title: r.what }, [el('b', { text: r.doc }), r.clause ? ' · ' + r.clause : '']); })));
+      (st.text || []).forEach(function (t) { box.appendChild(el('p', {}, rich(t))); });
+      if (st.formulas && st.formulas.length) { box.appendChild(el('pre', { class: 'formula', text: st.formulas.join('\n') })); }
+      if (st.example || st.nodata) {
+        var ex = el('div', { class: 'example' });
+        ex.appendChild(el('h4', { text: 'In this project' }));
+        if (st.example) { var tw = el('div', { class: 'tablewrap' }); ex.appendChild(tw); roTable(tw, st.example.head, st.example.rows); }
+        else { ex.appendChild(el('p', { class: 'muted nodata', text: st.nodata })); }
+        box.appendChild(ex);
+      }
+      body.appendChild(box);
+      toc.appendChild(el('button', { type: 'button', class: 'sub', text: st.title, on: { click: function () { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } } }));
+    });
+  }
+
   var methodDone = false;
   function renderMethod() {
     if (methodDone) { return; }
@@ -955,7 +1002,7 @@
     methodDone = true;
   }
   var RENDER = { train: renderTrain, bogie: renderBogie, ke: renderKE, rs: renderRS, track: renderTrack, ssim: renderSsim, sres: renderSres,
-    summary: renderSummary, method: renderMethod, dsim: renderDsim, dres: renderDres, tests: renderTests };
+    summary: renderSummary, method: renderMethod, dsim: renderDsim, dres: renderDres, tests: renderTests, calc: renderCalc };
   function renderTab(tab) {
     if (!state.validation) { state.validation = M.validate(state.p); }
     RENDER[tab]();
@@ -1080,7 +1127,7 @@
   }
 
   // ---------------------------------------------------------------- tab switching
-  var TABS = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'method'];
+  var TABS = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'calc', 'method'];
   function activate(tab) {
     state.tab = tab;
     TABS.forEach(function (t) {
@@ -1166,6 +1213,9 @@
     $('sres-case').addEventListener('change', function () { state.resCase = this.value; renderSres(); });
     $('sres-en-sec').addEventListener('change', function () { renderSres(); });
     $('btn-report').addEventListener('click', downloadReport);
+    $('calc-car').addEventListener('change', function () { state.calcCar = this.value; state.calcCase = null; renderCalc(); });
+    $('calc-case').addEventListener('change', function () { state.calcCase = this.value; renderCalc(); });
+    $('calc-ch').addEventListener('change', function () { renderCalc(); });
     $('tests-sway-sel').addEventListener('change', function () { state.swaySel = Number(this.value); renderTestsResults(); });
     $('tests-car').addEventListener('change', function () { state.testCar = this.value; renderTestsResults(); });
     $('tests-case').addEventListener('change', function () { state.testCase = this.value; renderTestsResults(); });
