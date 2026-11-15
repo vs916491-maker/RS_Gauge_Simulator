@@ -222,6 +222,32 @@
           }
         ]
       },
+      "sections": [
+        {
+          "car": "DMC",
+          "name": "Cab door",
+          "ref_end": "end1",
+          "dist_m": 1,
+          "profile": "Roof section",
+          "note": "Fictional: cab side door, beyond pivot 1"
+        },
+        {
+          "car": "TC",
+          "name": "Door 2",
+          "ref_end": "end1",
+          "dist_m": 7,
+          "profile": "Roof section",
+          "note": "Fictional: saloon door between the pivots"
+        },
+        {
+          "car": "MC",
+          "name": "Gangway",
+          "ref_end": "end2",
+          "dist_m": 0.3,
+          "profile": "Roof section",
+          "note": "Fictional: gangway frame near end 2"
+        }
+      ],
       "bogies": [
         {
           "name": "M",

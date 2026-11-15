@@ -242,6 +242,21 @@ Case parameters:
 | Body lowering | `Δz` of the load case (0 for tare, §4.1a) |
 | Upward movement with roll | `Σu` if selected, else 0 |
 
+### 6.1a Additional sections
+
+Optional, per car type (Train Configuration → *Additional sections*): name, reference end (end 1 or end 2), distance
+`d` from that body end [m] and the RS profile of the section. Position from body end 1: `x = d` (end 1) or
+`x = Lb − d` (end 2), `0 ≤ x ≤ Lb`; the pivots are at `n1` and `Lb − n2` (§5.1).
+
+* **Between the pivots** (`n1 ≤ x ≤ Lb − n2`): the interior rules of §6.1 with `n = x − n1` (the overthrow
+  `a·n − n²` is the same from either pivot), `A = 1`, cant excess `Ie`, gauge tolerance `Δl`.
+* **Beyond a pivot**: the exterior rules of §6.1 with `n = n1 − x` (end 1 side) or `n = x − (Lb − n2)` (end 2 side),
+  `A = (a + 2n)/a`, cant deficiency `I`, gauge tolerance `Δl·A` only if selected.
+
+Each additional section is checked for every load case (Method B, §6.4; it takes part in the governing case), gets its
+own Method A column (§7.1) and a profile-top row in the vertical checks (§7.2). It is not part of the EN 15273-2
+checks (§10), the BOStrab check (§16) or the dynamic sweep (§8).
+
 ### 6.2 Lateral movement at height h (mm)
 
 * Linear: `E(h) = T + θq·(h − hc) + Δl* + al* + θr·(h − hc) + θt·h`

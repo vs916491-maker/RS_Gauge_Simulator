@@ -121,7 +121,10 @@
       line('Max static – car end', col('max_end'), colors.end || '#dc2626', { dash: [2, 2] }),
       line('Profile – interior', col('prof_int'), colors.pint || '#6b7280', { w: 1.2, points: true }),
       line('Profile – exterior / end', col('prof_ext'), colors.pext || '#a8a29e', { w: 1.2, dash: [4, 2] })
-    ];
+    ].concat((c.extraSections || []).map(function (q, i) {   // additional sections (METHOD §6.1a)
+      var pal = colors.extra || ['#0891b2', '#65a30d', '#db2777', '#ca8a04', '#4b5563'];
+      return line('Max static – ' + q.name, col('max_' + q.key), pal[i % pal.length], { dash: [8, 3, 2, 3] });
+    }));
   }
 
   // EN 15273-2 maximum construction gauge against the workbook Method A (x = half-width, y = height).

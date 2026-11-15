@@ -29,6 +29,7 @@
     if (typeof v === 'string' && v.trim() !== '') { var n = Number(v.trim().replace(',', '.')); return isFinite(n) ? n : null; }
     return null;
   }
+  function n0v(v) { return v === null || v === undefined || v === '' || !isFinite(v) ? 0 : Number(v); }
   function findBy(list, key, val) { for (var i = 0; i < (list || []).length; i++) { if (list[i][key] === val) { return list[i]; } } return null; }
   function blank(v) { return v === undefined || v === null || (typeof v === 'string' && v.trim() === ''); }
   // Fill one record from its field list: numbers converted, defaults applied (blank stays blank for optional fields).
@@ -174,6 +175,7 @@
     t.carTypes = ((p.train && p.train.carTypes) || []).map(function (c) { return record(c, S.carType); });
     out.train = t;
     out.loads = normalizeLoads(p);
+    out.sections = (p.sections || []).map(function (r) { return record(r, S.extraSection); });
     t.carTypes.forEach(function (c) { LEGACY_MASS.forEach(function (k) { delete c[k]; }); });
     delete t.tare_label; delete t.laden_label;
     out.bogies = (p.bogies || []).map(function (b) { return record(b, S.bogie); });
@@ -461,6 +463,16 @@
     }
     if (t.L_mm && t.gauge_mm && t.L_mm < t.gauge_mm) { m.add('train', 'warn', 'G (' + t.L_mm + ' mm) is smaller than the track gauge.'); }
     validateLoads(m, p, carNames);
+    (p.sections || []).forEach(function (r, i) {
+      var w = 'Additional section ' + (i + 1) + (r.name ? ' (' + r.name + ')' : ''), c = findBy(cars, 'name', r.car);
+      if (!c) { m.add('train', 'err', w + ': car type "' + r.car + '" is not defined.'); return; }
+      if (!r.name) { m.add('train', 'err', w + ': the section has no name.'); }
+      else if (p.sections.some(function (q, j) { return j < i && q.car === r.car && q.name === r.name; })) { m.add('train', 'err', w + ': the name is used twice for car type ' + r.car + '.'); }
+      if (r.dist_m === null) { m.add('train', 'err', w + ': the distance from the body end is empty.'); }
+      else if (r.dist_m > n0v(c.length_m)) { m.add('train', 'err', w + ': the distance ' + r.dist_m + ' m is beyond the body length ' + c.length_m + ' m.'); }
+      if (!r.profile) { m.add('train', 'err', w + ': no RS profile chosen.'); }
+      else if (!rsNames[r.profile]) { m.add('train', 'err', w + ': RS profile "' + r.profile + '" is not defined on the RS Profile tab.'); }
+    });
 
     // ---- bogies and bodies
     if (!p.bogies.length) { m.add('bogie', 'err', 'No bogie types defined.'); }

@@ -132,13 +132,32 @@
     if (role === 'tare') { return loads[0]; }
     return loads.reduce(function (a, b) { return b.m > a.m ? b : a; }, loads[0]);
   }
-  // Static cases of a car: 3 sections × the load cases (section-major, METHOD §6.1).
+  // Position of an additional section (METHOD §6.1a): x from body end 1, between / beyond the pivots, n and A.
+  function sectionPos(g, r) {
+    var d = n0(r.dist_m), x = r.ref_end === 'end2' ? g.Lb - d : d, p1 = g.n1, p2 = g.Lb - g.n2, n, beyond;
+    if (x < p1) { beyond = true; n = p1 - x; } else if (x > p2) { beyond = true; n = x - p2; } else { beyond = false; n = x - p1; }
+    return { x: x, pos: beyond ? 'beyond' : 'between', side: beyond ? (x < p1 ? 'end1' : 'end2') : '', n: n, A: beyond ? (g.a > 0 ? (g.a + 2 * n) / g.a : NaN) : 1, inner: !beyond };
+  }
+  // Additional sections of a car type with their keys (x1, x2 …) and positions.
+  function carSections(p, c, g) {
+    return (p.sections || []).filter(function (r) { return r.car === c.name && r.name; }).map(function (r, i) {
+      var sp = sectionPos(g, r);
+      return { key: 'x' + (i + 1), name: r.name, ref_end: r.ref_end, dist: n0(r.dist_m), profile: r.profile, x: sp.x, pos: sp.pos, side: sp.side, n: sp.n, A: sp.A, inner: sp.inner };
+    });
+  }
+  // Static cases of a car: 3 sections × the load cases (section-major, METHOD §6.1), then the additional sections (§6.1a).
   var SEC_LABEL = { int: 'Interior', ext: 'Exterior', end: 'Car end' };
-  function carCases(d) {
+  function carCases(d, extras) {
     var out = [];
+    function lid(L, i) { return L.role === 'tare' ? 't' : (L.role === 'crush' ? 'c' : 'L' + i); }
     ['int', 'ext', 'end'].forEach(function (sec) {
       d.loads.forEach(function (L, i) {
-        out.push({ id: sec + '_' + (L.role === 'tare' ? 't' : (L.role === 'crush' ? 'c' : 'L' + i)), section: sec, li: i, load: L.name, role: L.role, label: SEC_LABEL[sec] + ' – ' + L.name });
+        out.push({ id: sec + '_' + lid(L, i), section: sec, li: i, load: L.name, role: L.role, label: SEC_LABEL[sec] + ' – ' + L.name });
+      });
+    });
+    (extras || []).forEach(function (xs) {
+      d.loads.forEach(function (L, i) {
+        out.push({ id: xs.key + '_' + lid(L, i), section: xs.key, extra: true, n: xs.n, A: xs.A, inner: xs.inner, li: i, load: L.name, role: L.role, label: xs.name + ' – ' + L.name });
       });
     });
     return out;
@@ -243,9 +262,9 @@
   // ---------------------------------------------------------------- static cases (METHOD §6)
   function caseParams(p, d, cs, opt) {
     var tp = p.track.params, g = d.geo, bg = d.bogie, G = n0(p.train.L_mm, 1500);
-    var Rs = n0(tp.R_static_m), L = d.loads[cs.li || 0], inner = cs.section === 'int';
-    var n = cs.section === 'int' ? g.ni : (cs.section === 'ext' ? g.na : g.n_end);
-    var A = cs.section === 'int' ? 1 : (cs.section === 'ext' ? g.A_ext : g.A_end);
+    var Rs = n0(tp.R_static_m), L = d.loads[cs.li || 0], inner = cs.inner !== undefined ? cs.inner : cs.section === 'int';
+    var n = cs.n !== undefined ? cs.n : (cs.section === 'int' ? g.ni : (cs.section === 'ext' ? g.na : g.n_end));
+    var A = cs.A !== undefined ? cs.A : (cs.section === 'int' ? 1 : (cs.section === 'ext' ? g.A_ext : g.A_end));
     var pw = bg.p;
     var dg = Rs === 0 ? 0 : (inner ? (g.a * n - n * n + pw * pw / 4) : (g.a * n + n * n - pw * pw / 4)) / (2 * Rs) * 1000;
     var widen = (Rs > 0 && Rs < n0(tp.widen_R_m)) ? n0(tp.widen_mm) / 2 : 0;
@@ -285,7 +304,7 @@
       pts.push(r);
       if (!min || c < min.c) { min = r; }
     });
-    return { id: cs.id, label: cs.label, section: cs.section, load: cs.load, role: cs.role, li: cs.li, profile: prof.name, params: cp, points: pts, min: min, ok: min ? min.c >= 0 : true };
+    return { id: cs.id, label: cs.label, section: cs.section, extra: !!cs.extra, load: cs.load, role: cs.role, li: cs.li, profile: prof.name, params: cp, points: pts, min: min, ok: min ? min.c >= 0 : true };
   }
 
   function methodA(p, d, cases, ke, profs, opt) {
@@ -297,7 +316,7 @@
       if (h > to + 1e-9) { if (k === 0) { h = to; } else { break; } }
       var W = keWidth(ke, h), E = cases.map(function (cs) { return lateralE(cs.params, h, opt); });
       var r = { h: h * 1000, W: W * 1000, E: E };
-      ['int', 'ext', 'end'].forEach(function (sec, j) {
+      Object.keys(profs).forEach(function (sec) {
         var em = -Infinity;
         cases.forEach(function (cs, i) { if (cs.section === sec) { em = Math.max(em, E[i]); } });
         var mx = W - em / 1000, pw = profileWidth(profs[sec], h);
@@ -309,13 +328,17 @@
     return rows;
   }
 
-  function verticalChecks(p, d, cases, ke, profs) {
+  function verticalChecks(p, d, cases, ke, profs, extras) {
     var L = p.ke.limits || {}, tp = p.track.params, b = d.body || {};
     var Rv = n0(tp.Rv_static_m), a = d.geo.a;
     var rows = [];
     ['int', 'ext', 'end'].forEach(function (sec) {
       var v = profs[sec].top * 1000 + d.up_total;
       rows.push({ id: 'top_' + sec, label: { int: 'Interior', ext: 'Exterior', end: 'Car-end' }[sec] + ' profile top + upward movement', value: v, limit: ke.top * 1000, margin: ke.top * 1000 - v, unit: 'mm' });
+    });
+    var extraTops = (extras || []).map(function (xs) {   // additional sections (METHOD §6.1a), after the standard rows
+      var v = profs[xs.key].top * 1000 + d.up_total;
+      return { id: 'top_' + xs.key, label: xs.name + ' profile top + upward movement', value: v, limit: ke.top * 1000, margin: ke.top * 1000 - v, unit: 'mm' };
     });
     var vc = Rv === 0 ? 0 : a * a / (8 * Rv) * 1000;
     var roll = cases.filter(function (k) { return k.role === 'crush'; }).reduce(function (m, k) { return Math.max(m, k.params.thtot); }, 0) * n0(b.uf_hw_mm);
@@ -325,6 +348,7 @@
     rows.push({ id: 'roll', label: 'Roll lowering of underframe edge (largest crush θ)', value: roll, unit: 'mm', info: true });
     rows.push({ id: 'uf_body', label: 'Body-mounted equipment height in worst case', value: body, limit: n0(L.uf_min_body_mm), margin: body - n0(L.uf_min_body_mm), unit: 'mm' });
     rows.push({ id: 'uf_bog', label: 'Bogie-mounted equipment height in worst case', value: bog, limit: n0(L.uf_min_bog_mm), margin: bog - n0(L.uf_min_bog_mm), unit: 'mm' });
+    rows = rows.concat(extraTops);
     rows.forEach(function (r) { if (!r.info) { r.ok = r.margin >= 0; } });
     return rows;
   }
@@ -354,11 +378,14 @@
       if (!(d.geo.a > 0)) { warnings.push(c.name + ': pivot distance a ≤ 0 — check body length and overhangs.'); }
       if (!d.geo.na_ok) { warnings.push(c.name + ': exterior section na is beyond the car-end overhang.'); }
       var profs = { int: profileFor(p, c.prof_int), ext: profileFor(p, c.prof_ext), end: profileFor(p, c.prof_end) };
-      var cases = carCases(d).map(function (cs) { return runCase(p, d, cs, ke, profs[cs.section], opt); });
+      var extras = carSections(p, c, d.geo);
+      extras.forEach(function (xs) { profs[xs.key] = profileFor(p, xs.profile); xs.profile = profs[xs.key] ? profs[xs.key].name : ''; });
+      var cases = carCases(d, extras).map(function (cs) { return runCase(p, d, cs, ke, profs[cs.section], opt); });
       var worst = null;
       cases.forEach(function (r) { if (r.min && (!worst || r.min.c < worst.min.c)) { worst = r; } });
       var res = { car: c.name, count: c.count, derived: d, cases: cases, governing: worst ? { id: worst.id, label: worst.label, c: worst.min.c } : null,
-        methodA: methodA(p, d, cases, ke, profs, opt), vertical: verticalChecks(p, d, cases, ke, profs), profiles: { int: profs.int.name, ext: profs.ext.name, end: profs.end.name } };
+        methodA: methodA(p, d, cases, ke, profs, opt), vertical: verticalChecks(p, d, cases, ke, profs, extras), profiles: { int: profs.int.name, ext: profs.ext.name, end: profs.end.name },
+        extraSections: extras };
       if (yes(opt.en_check)) {
         res.en = enRun(p, d, ke, profs, opt, res.methodA);
         res.en.vertical = enVertical(p, d, c, ke, profs);
@@ -1753,7 +1780,7 @@
 
 
   return {
-    VERSION: VERSION, CASES: CASES, carLoads: carLoads, carCases: carCases, G_ACC: G_ACC, playCalc: playCalc,
+    VERSION: VERSION, CASES: CASES, carLoads: carLoads, carCases: carCases, sectionPos: sectionPos, carSections: carSections, G_ACC: G_ACC, playCalc: playCalc,
     trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,

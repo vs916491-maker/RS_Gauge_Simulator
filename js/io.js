@@ -28,7 +28,7 @@
     RSProfile: { group: 'rs', fields: S.rsProfile }
   };
   var TAB_SHEETS = {
-    train: ['Train', 'CarTypes', 'LoadCases', 'CarLoads'],
+    train: ['Train', 'CarTypes', 'LoadCases', 'CarLoads', 'Sections'],
     bogie: ['Bogies', 'CarBodies', 'EN_Lower_Parts', 'EN_Bogie_Parts', 'CCD', 'CCD_Points'],
     ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params', 'Third_Rail', 'Third_Rail_Parts'],
     rs: ['RSProfile', 'EN_Doors_Steps', 'EN_Pantographs'],
@@ -96,6 +96,7 @@
       case 'CarTypes': return gridRows(p.train.carTypes, S.carType);
       case 'LoadCases': return tableRows((p.loads || {}).cases || [], S.loadCase);
       case 'CarLoads': return tableRows((p.loads || {}).cars || [], S.carLoad);
+      case 'Sections': return tableRows(p.sections || [], S.extraSection);
       case 'Bogies': return gridRows(p.bogies, S.bogie);
       case 'CarBodies': return gridRows(p.bodies, S.body);
       case 'EN_Lower_Parts': return tableRows(p.lowerParts || [], S.lowerPart);
@@ -132,6 +133,7 @@
     Train: 'Train description, configuration and wind constants. Edit the Value column only.',
     CarTypes: 'One column per car type (add columns to the right for more types): body length, overhangs, shared ends, section positions, bogie types and the RS profile of each section. Key column must stay unchanged.',
     LoadCases: 'Load cases (Load definition): one row per case, e.g. AW0, AW2, AW3, AW4, with its role: exactly one tare (empty car) and one crush (fully loaded); every other case "Other".',
+    Sections: 'Additional sections checked per car type (optional): car type, section name, the body end it is measured from, the distance from that end and the RS profile. Between the pivots the interior rules apply, beyond a pivot the exterior rules with the yaw factor.',
     CarLoads: 'Masses per car type and load case: sprung car-body mass, CG height, body lowering from tare (tare 0; blank for other cases = interpolated), and for other cases optional s and hc (blank = interpolated by mass).',
     Bogies: 'One column per bogie type (e.g. M, T): plays, vertical travels, mass, suspension stiffness (theoretical s and hc) and the play calculator. Car types refer to these names.',
     CarBodies: 'One column per car type: wind-exposed side, lower parts, specified flexibility coefficient and roll-centre height, EN 15273-2 A.3.4 vertical data.',
@@ -316,6 +318,7 @@
           break;
         case 'LoadCases': v = readTable(rows, S.loadCase, msgs, n); if (v) { raw.loads = raw.loads || { cases: [], cars: [] }; raw.loads.cases = v; } break;
         case 'CarLoads': v = readTable(rows, S.carLoad, msgs, n); if (v) { raw.loads = raw.loads || { cases: [], cars: [] }; raw.loads.cars = v; } break;
+        case 'Sections': v = readTable(rows, S.extraSection, msgs, n); if (v) { raw.sections = v; } break;
         case 'Bogies': v = readGrid(rows, S.bogie, msgs, n); if (v) { raw.bogies = v; } break;
         case 'CarBodies': v = readGrid(rows, S.body, msgs, n); if (v) { raw.bodies = v; } break;
         case 'EN_Lower_Parts': v = readTable(rows, S.lowerPart, msgs, n); if (v) { raw.lowerParts = v; } break;
@@ -380,14 +383,32 @@
       ['rnd_gauge', 'Random: track gauge tolerance', 'mm', 2], ['rnd_align', 'Random: alignment tolerance', 'mm', 2], ['cant', 'Cant excess (int) / deficiency (ext, end)', 'mm', 1], ['wind', 'Wind equivalent cant', 'mm', 2],
       ['cl', 'Cross-level error', 'mm', 1], ['s', 'Flexibility coefficient s', '–', 4], ['hc', 'Roll-centre height hc', 'm', 4], ['thq', 'Roll angle quasi-static θq', 'rad', 5], ['thr', 'Roll angle cross-level θr', 'rad', 5],
       ['tht', 'Rigid tilt θt', 'rad', 5], ['thtot', 'Total angle for vertical shift', 'rad', 5], ['drop', 'Body lowering Δz from tare', 'mm', 1], ['up', 'Upward movement combined with roll', 'mm', 1]];
-    var bu = [['Car type', 'Quantity', 'Unit'].concat(res.cars[0] ? res.cars[0].cases.map(function (k) { return k.label; }) : [])];
-    res.cars.forEach(function (c) { keys.forEach(function (k) { bu.push([c.car, k[1], k[2]].concat(c.cases.map(function (cs) { return r2(cs.params[k[0]], k[3]); }))); }); });
+    // one block per car type with its own heading row (car types may have different additional sections)
+    var bu = [];
+    res.cars.forEach(function (c, i) {
+      if (i) { bu.push(['']); }
+      bu.push(['Car type', 'Quantity', 'Unit'].concat(c.cases.map(function (k) { return k.label; })));
+      keys.forEach(function (k) { bu.push([c.car, k[1], k[2]].concat(c.cases.map(function (cs) { return r2(cs.params[k[0]], k[3]); }))); });
+    });
+    if (!bu.length) { bu.push(['Car type', 'Quantity', 'Unit']); }
     add('Static_BuildUp', bu, 12);
     var pt = [['Car type', 'Case', 'Pt', 'x0 (mm)', 'h0 (mm)', 'Lateral E (mm)', 'x displaced (mm)', 'h displaced (mm)', 'KE width at h (mm)', 'ΔX (mm)', 'KE height at x (mm)', 'ΔH (mm)', 'Clearance (mm)', 'Status']];
     res.cars.forEach(function (c) { c.cases.forEach(function (k) { k.points.forEach(function (q) { pt.push([c.car, k.label, q.pt, r2(q.x0), r2(q.h0), r2(q.E, 2), r2(q.x, 2), r2(q.h, 2), r2(q.W, 2), r2(q.dX, 2), r2(q.H, 2), r2(q.dH, 2), r2(q.c, 2), q.ok ? 'OK' : 'INFRINGES']); }); }); });
     add('Static_Points', pt, 10);
-    var ma = [['Car type', 'h (mm)', 'KE width (mm)', 'E Int-T', 'E Int-C', 'E Ext-T', 'E Ext-C', 'E End-T', 'E End-C', 'Max static Int (mm)', 'Max static Ext (mm)', 'Max static End (mm)', 'Profile Int (mm)', 'Profile Ext (mm)', 'Profile End (mm)', 'Margin Int (mm)', 'Margin Ext (mm)', 'Margin End (mm)']];
-    res.cars.forEach(function (c) { c.methodA.forEach(function (r) { ma.push([c.car, r2(r.h, 0), r2(r.W)].concat(r.E.map(function (e) { return r2(e); }), [r2(r.max_int), r2(r.max_ext), r2(r.max_end), r2(r.prof_int), r2(r.prof_ext), r2(r.prof_end), r2(r.margin_int), r2(r.margin_ext), r2(r.margin_end)])); }); });
+    // Method A: E of every case (labels of the case list), then the half-widths and margins of the sections; one block per car type
+    var ma = [];
+    res.cars.forEach(function (c, i) {
+      var xs = c.extraSections || [], secs = ['int', 'ext', 'end'].concat(xs.map(function (q) { return q.key; }));
+      var nm = { int: 'Int', ext: 'Ext', end: 'End' }; xs.forEach(function (q) { nm[q.key] = q.name; });
+      if (i) { ma.push(['']); }
+      ma.push(['Car type', 'h (mm)', 'KE width (mm)'].concat(c.cases.map(function (k) { return 'E ' + k.label; }), secs.map(function (k) { return 'Max static ' + nm[k] + ' (mm)'; }),
+        secs.map(function (k) { return 'Profile ' + nm[k] + ' (mm)'; }), secs.map(function (k) { return 'Margin ' + nm[k] + ' (mm)'; })));
+      c.methodA.forEach(function (r) {
+        ma.push([c.car, r2(r.h, 0), r2(r.W)].concat(r.E.map(function (e) { return r2(e); }), secs.map(function (k) { return r2(r['max_' + k]); }),
+          secs.map(function (k) { return r2(r['prof_' + k]); }), secs.map(function (k) { return r2(r['margin_' + k]); })));
+      });
+    });
+    if (!ma.length) { ma.push(['Car type', 'h (mm)', 'KE width (mm)']); }
     add('Method_A', ma, 10);
     if (res.en) {
       var en = [['Car type', 'Formula set', 'h (mm)', 'KE width (mm)', 'Ei Int (mm)', 'Ea Ext (mm)', 'Ea End (mm)', 'z Int (mm)', 'z End (mm)', 'EN max Int (mm)', 'EN max Ext (mm)', 'EN max End (mm)',

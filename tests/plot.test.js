@@ -27,6 +27,6 @@ tests.push({ name: 'Static result datasets: KE, static profile, generated KE tar
   var gen = ds[2].data, ex = r.cars[1].cases.filter(function (k) { return k.section === 'ext'; })[0], n = ex.points.length;
   assert.strictEqual(gen.length, 2 * n + 1, 'right side + mirrored left side + closing point');
   assert.strictEqual(gen[0].x, ex.points[0].x); assert.strictEqual(gen[n].x, -ex.points[n - 1].x);
-  assert.strictEqual(P.methodADatasets(r, 'TC').length, 6);
+  assert.strictEqual(P.methodADatasets(r, 'TC').length, 7, '6 standard lines + the additional section Door 2');
 } });
 module.exports = tests;
