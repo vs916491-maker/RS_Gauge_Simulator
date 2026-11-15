@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.2.0';
+  var VERSION = '4.3.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -315,10 +315,15 @@
       if (!c.en) { return; }
       ['int', 'ext', 'end'].forEach(function (sec) { var m = c.en.checks[sec].min; if (m && (!enGov || m.margin < enGov.margin)) { enGov = { car: c.car, section: sec, margin: m.margin, h: m.h }; } });
     });
+    var enRes = null;
+    if (yes(opt.en_check)) {
+      var bp = enBogieParts(p, ke);
+      enRes = { governing: enGov, bogieParts: bp, ok: out.every(function (c) { return !c.en || c.en.ok; }) && bp.ok };
+    }
     return {
       engineVersion: VERSION, ke: { name: ke.name, top: ke.top * 1000, nUp: ke.nUp, points: keP.points },
-      cars: out, governing: gov, en: yes(opt.en_check) ? { governing: enGov, ok: out.every(function (c) { return !c.en || c.en.ok; }) } : null,
-      ok: out.every(function (r) { return r.ok; }), warnings: warnings
+      cars: out, governing: gov, en: enRes,
+      ok: out.every(function (r) { return r.ok; }) && (!enRes || enRes.bogieParts.ok), warnings: warnings
     };
   }
 
@@ -543,6 +548,52 @@
       out.upper.push(row);
     });
     return out;
+  }
+
+  /*
+   * EN 15273-2:2009 A.3.11 bogie parts (METHOD §10.8): the reduction formulae of vehicles with independent axles
+   * (A.3.10.1, A.56–A.59, w = 0) with a = distance between the end axles of the bogie. o = { side: i|a, low, n, a, d, q, z }.
+   */
+  function enBogieE(r, o) {
+    var Ck = o.low ? r.Ck_low : r.Ck_up, P = (r.lmax - o.d) / 2, k1 = 1 / (2 * r.R1), n = o.n, a = o.a, delta, straight, curve, A;
+    if (o.side === 'i') {      // A.56 / A.57
+      delta = a * n - n * n; A = 1;
+      straight = P + o.q + o.z - r.e0;
+      curve = delta * k1 + P + o.q + o.z - r.e0 - Ck / r.R1;
+    } else {                   // A.58 / A.59
+      delta = a * n + n * n; A = (2 * n + a) / a;
+      straight = (P + o.q) * A + o.z - r.e0;
+      curve = delta * k1 + (P + o.q) * A + o.z - r.e0 - Ck / r.R1;
+    }
+    var cond = delta <= 2 * Ck;
+    return { E: cond ? straight : curve, branch: cond ? 'straight' : 'curve', delta: delta, A: A, straight: straight, curve: curve, z: o.z, Ck: Ck };
+  }
+  // Smallest KE half-width over the whole outline between two heights (m): the part moves vertically between them.
+  function keMinWidth(ke, h1, h2) {
+    var hs = [h1, h2], w = Infinity;
+    ke.pts.forEach(function (q) { if (q.h > h1 && q.h < h2) { hs.push(q.h); } });
+    hs.forEach(function (h) { w = Math.min(w, lookup(ke.aseg, h)); });
+    return w;
+  }
+  function enBogieParts(p, ke) {
+    var r = enRules(p), rows = [], ok = true;
+    (p.bogieParts || []).forEach(function (bp) {
+      var b = findBy(p.bogies || [], 'name', bp.bogie);
+      if (!b) { return; }
+      var a = n0(b.p_m), beyond = bp.pos === 'beyond', n = blankOr(bp.n_m, beyond ? 0 : a / 2), side = beyond ? 'a' : 'i';
+      var dW = (n0(b.bb_mm) + 2 * n0(b.ef_worn_mm)) / 1000, q = n0(b.q_mm) / 1000, h = n0(bp.h_mm) / 1000, axle = bp.mount === 'axle';
+      var wear = Math.min((n0(b.wheel_new_mm) - n0(b.wheel_worn_mm)) / 2, n0(b.pack_step_mm)) / 1000;
+      var down = wear + (axle ? 0 : n0(b.dn_prim_mm) / 1000), up = axle ? 0 : n0(b.up_prim_mm) / 1000;
+      var s = axle ? 0 : n0(b.en_s_frame), hc = n0(b.en_hc_frame_mm) / 1000;
+      var z = axle ? 0 : enZ(r, h, s, hc, beyond ? r.D0 : r.I0, 0);
+      var e = enBogieE(r, { side: side, low: h <= r.h_low, n: n, a: a, d: dW, q: q, z: z });
+      var W = keMinWidth(ke, h - down, h + up), y = n0(bp.y_mm) / 1000;
+      var row = { bogie: b.name, name: bp.name, mount: bp.mount, pos: bp.pos, a: a, n: n, h: h * 1000, h_lo: (h - down) * 1000, h_hi: (h + up) * 1000, y: y * 1000,
+        d: dW * 1000, q: q * 1000, z: z * 1000, delta: e.delta, A: e.A, branch: e.branch, E: e.E * 1000, W: W * 1000, max: (W - e.E) * 1000, margin: (W - e.E - y) * 1000 };
+      row.ok = row.margin >= 0; if (!row.ok) { ok = false; }
+      rows.push(row);
+    });
+    return { rows: rows, ok: ok };
   }
 
   // ================================================================ TEST CALCULATIONS (METHOD §13)
@@ -1012,6 +1063,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));

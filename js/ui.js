@@ -365,10 +365,15 @@
     form($('f-wind'), S.trainWind, state.p.train);
     grid($('g-bogies'), state.p.bogies, S.bogie, {
       groups: { name: 'Bogie type', p_m: '1. Geometry and lateral plays', wheel_new_mm: '2. Vertical travels', mass_t: 'Mass and axles',
-        kz_prim: '3. Suspension stiffness (theoretical s and hc)', bb_mm: '4. Play calculator inputs (information)' },
+        kz_prim: '3. Suspension stiffness (theoretical s and hc)', en_s_frame: 'EN 15273-2 bogie parts (A.3.11)', bb_mm: '4. Play calculator inputs (information)' },
       addLabel: 'Add bogie type',
       newItem: function () { var b = M.record(S.defaults(S.bogie), S.bogie); b.name = uniqueName('B', state.p.bogies); return b; },
-      onChange: function (it, k, old) { if (k === 'name') { renameRefs(state.p.train.carTypes, ['bogie1', 'bogie2'], old, it.name); } }
+      onChange: function (it, k, old) { if (k === 'name') { renameRefs(state.p.train.carTypes, ['bogie1', 'bogie2'], old, it.name); renameRefs(state.p.bogieParts, ['bogie'], old, it.name); } }
+    });
+    table($('t-bogie-parts'), state.p.bogieParts, S.bogiePart, {
+      addLabel: 'Add bogie part',
+      refs: { bogie: function () { return state.p.bogies.map(function (b) { return b.name; }); } },
+      newRow: function () { var t = state.p.bogieParts, last = t[t.length - 1], r = S.defaults(S.bogiePart); r.bogie = last ? last.bogie : ((state.p.bogies[0] || {}).name || ''); return r; }
     });
     calcBody(); calcPlay();
   }
@@ -589,6 +594,11 @@
     roTable($('sres-en-check'), ['h', 'Profile half-width', 'KE half-width', 'E', 'z_kin', 'Branch', 'Load', 'EN max', 'Margin', 'Status'],
       ck.points.map(function (q) { return { cls: q === ck.min ? 'selrow' : '', cells: [fmt(q.h, 0), fmt(q.x, 1), fmt(q.W, 1), fmt(q.E, 2), fmt(q.z, 2), q.branch, q.load, fmt(q.max, 1), cCell(q.margin), q.ok ? 'OK' : 'EXCEEDS'] }; }));
     renderSresEnVertical(en.vertical);
+    var bp = r.en && r.en.bogieParts ? r.en.bogieParts.rows : [];
+    $('sres-en-bogie').hidden = !bp.length;
+    roTable($('sres-en-bogie-table'), ['Bogie', 'Part', 'Mounted', 'Position', 'n (m)', 'Height range', 'Half-width', 'z_kin', 'Branch', 'E', 'KE half-width', 'EN max', 'Margin', 'Status'],
+      bp.map(function (q) { return [q.bogie, q.name, q.mount === 'axle' ? 'Axle' : 'Frame', q.pos === 'beyond' ? 'Beyond' : 'Between', fmt(q.n, 2), fmt(q.h_lo, 0) + ' – ' + fmt(q.h_hi, 0), fmt(q.y, 0),
+        fmt(q.z, 2), q.branch, fmt(q.E, 2), fmt(q.W, 1), fmt(q.max, 1), cCell(q.margin), q.ok ? 'OK' : 'EXCEEDS']; }));
   }
   function renderSresEnVertical(v) {
     if (!v) { return; }
