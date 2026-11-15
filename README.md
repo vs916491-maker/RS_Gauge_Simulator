@@ -57,7 +57,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 13 | EN 15273-2: open doors and steps (A.3.14 / A.3.15) | Done |
 | 14 | EN 15273-2: pantograph gauge (A.3.12) | Done |
 | 15 | Third-rail current collector (CCD) checks | Done |
-| 16+ | EN 15273-2: other profiles, dynamic method | Next |
+| 16 | EN 15273-2: rules of gauges GA, GB, GC, GB1, GB2, G2, DE1–DE3 | Done |
+| 17 | EN 15273-2: dynamic method (§5.2, Annex O) | Next |
 
 ## For developers
 

@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.7.0';
+  var VERSION = '4.8.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -304,6 +304,9 @@
         res.en = enRun(p, d, ke, profs, opt, res.methodA);
         res.en.vertical = enVertical(p, d, c, ke, profs);
         if (!res.en.vertical.ok) { res.en.ok = false; }
+        if (res.en.gauge === 'DE1' && warnings.indexOf('DE1: the radius corrections Δs of L.1.2.2 are not applied (they reduce E); the reductions use the G1 formula structure with the DE1 roll rules – confirm with the infrastructure manager.') < 0) {
+          warnings.push('DE1: the radius corrections Δs of L.1.2.2 are not applied (they reduce E); the reductions use the G1 formula structure with the DE1 roll rules – confirm with the infrastructure manager.');
+        }
         if (d.geo.shared1 || d.geo.shared2) { warnings.push(c.name + ': EN 15273-2 formulae applied to an articulated unit by the Figure 1 equivalence (a = distance between the shared pivots).'); }
         if (n0(d.bogie.b1.n_axle, 2) !== 2 || n0(d.bogie.b2.n_axle, 2) !== 2) { warnings.push(c.name + ': EN 15273-2 formulae are written for two-axle bogies (§5.1.2); adapt them to the actual geometry.'); }
       }
@@ -348,17 +351,38 @@
       Lref: v('Lref_mm', 1500) / 1000, eta_lim: v('eta_lim_deg', 1) * Math.PI / 180,
       st_allow: v('st_allow_mm', 75) / 1000, st_Dmin: v('st_Dmin_m2', 7.5), st_smax: v('st_smax', 0.2), st_h_low: v('st_h_low_mm', 430) / 1000,
       dr_h: v('dr_h_mm', 1050) / 1000, dr_above: v('dr_above_mm', 200) / 1000, dr_wmax: v('dr_wmax_mm', 35) / 1000, dr_X: v('dr_X_mm', 20) / 1000,
-      gap_bq0i: blankOr(e.gap_bq0i_mm, null), gap_bq0a: blankOr(e.gap_bq0a_mm, null), gap_R: blankOr(e.gap_R_m, null)
+      gap_bq0i: blankOr(e.gap_bq0i_mm, null), gap_bq0a: blankOr(e.gap_bq0a_mm, null), gap_R: blankOr(e.gap_R_m, null),
+      gauge: e.en_gauge || 'G1', kin_h0: v('kin_k_h0_mm', 3250) / 1000, kin_span: v('kin_k_span_mm', 0) / 1000, st_h0: v('st_k_h0_mm', 3220) / 1000, st_span: v('st_k_span_mm', 0) / 1000,
+      kD: v('k_D_m2', 32.5), ks0: v('k_s0', 0.1), kXa: v('k_Xa_m2', 20), st_Xa_hi: blankOr(e.st_Xa_hi_m2, null),
+      zb_from: blankOr(e.zb_from_mm, null), zb_to: blankOr(e.zb_to_mm, null), zb_s0: v('zb_s0', 0.19), zb_hc0: v('zb_hc0_mm', 695) / 1000, zb_IorD: v('zb_IorD_mm', 150) / 1000, zb_extra: v('zb_extra_mm', 54) / 1000
     };
   }
   function pos(v) { return v > 0 ? v : 0; }
+  function copyR(r) { var o = {}, k; for (k in r) { if (Object.prototype.hasOwnProperty.call(r, k)) { o[k] = r[k]; } } return o; }
+  // Rules at height h (m) – height law k of GA / GB / GB1 / GB2 (Annexes B, C) and the roll band of DE1 / DE2 (Annex L).
+  // noK: motor coaches (B.3.4.1: A.3.9.2 used as it is).
+  function enRulesAt(r, h, noK) {
+    var o = copyR(r), k = (!noK && r.kin_span > 0 && h > r.kin_h0) ? Math.min(1, (h - r.kin_h0) / r.kin_span) : 0;
+    o.k = k; o.Ck_up0 = r.Ck_up;
+    if (k > 0) { o.Ck_up = r.Ck_up + r.kD / 2 * k; o.s0 = r.s0 - r.ks0 * k; o.Xa = r.Xa - r.kXa * k; }
+    if (r.zb_from !== null && r.zb_to !== null && h >= r.zb_from / 1000 - 1e-12 && h <= r.zb_to / 1000 + 1e-12) {
+      o.zband = true; o.s0 = r.zb_s0; o.hc0 = r.zb_hc0;
+    }
+    return o;
+  }
+  function enStaticRulesAt(r, h) {
+    var o = copyR(r), k = (r.st_span > 0 && h > r.st_h0) ? Math.min(1, (h - r.st_h0) / r.st_span) : 0;
+    o.k = k;
+    if (r.st_span > 0 && h > r.st_h0) { o.st_Dmin = r.st_Dmin + r.kD * k; o.st_allow = r.st_allow + r.kD * k / (2 * r.R1); if (r.st_Xa_hi !== null) { o.Xa = r.st_Xa_hi; } }
+    return o;
+  }
   // Quasi-static term z_kin (A.24 and its special cases), C0 = I0 (inside) or D0 (outside); all in m.
   function enZ(r, h, s, hc, C0, eta) {
     if (eta <= r.eta_lim) {
       if (h < r.hc0) { return 0; }
       if (s <= r.s0) { return s * C0 / r.Lref * pos(h - hc); }
     }
-    var k2 = (r.Dlim - C0) / r.Lref;
+    var k2 = r.zband ? (r.zb_IorD - C0 + r.zb_extra) / r.Lref : (r.Dlim - C0) / r.Lref;
     return s * C0 / r.Lref * pos(h - hc) + Math.tan(pos(eta - r.eta_lim)) * Math.abs(h - hc) + pos(s * k2 * pos(h - hc) - r.s0 * k2 * pos(h - r.hc0));
   }
   // General reduction (A.3.9.1, A.3.9.2, A.3.9.3), literal switching conditions, lengths in m.
@@ -396,7 +420,7 @@
         cond = delta - 2 * r.R1 * (N.winf - N.w250) <= 2 * Ck;
         curve = delta * k1 + P + q + N.w250 + z + pos(x) - r.e0 - Ck / r.R1;
       } else {                      // A.46–A.48
-        cond = delta - 2 * r.R1 * (N.winf - N.w250) <= r.R1 * (r.lmax - o.d) - 2 * (r.Ck_up - Ck);
+        cond = delta - 2 * r.R1 * (N.winf - N.w250) <= r.R1 * (r.lmax - o.d) - 2 * ((r.Ck_up0 !== undefined ? r.Ck_up0 : r.Ck_up) - Ck);
         curve = delta * k1 + q + N.w250 + z + pos(x) - Ck / r.R1;
       }
       res = { E: cond ? straight : curve, branch: cond ? 'straight' : 'curve' };
@@ -430,8 +454,8 @@
     return enE(r, { set: set, side: side, low: h <= r.h_low, n: n, a: a, d: d, q: q, z: z, near: b, far: b });
   }
   // EN reductions per section: worst of tare and crush, of the bogie orientations and (motor coach) of the formula pairs.
-  function enSectionE(r, en, sec, h) {
-    var best = null, side = sec === 'int' ? 'i' : 'a', B = en.bogies;
+  function enSectionE(r0, en, sec, h) {
+    var r = enRulesAt(r0, h, en.set === 'motor'), best = null, side = sec === 'int' ? 'i' : 'a', B = en.bogies;
     en.loads.forEach(function (ld) {
       var z = enZ(r, h, ld.s, ld.hc, side === 'i' ? r.I0 : r.D0, en.eta), cands = [];
       var base = { set: en.set, side: side, low: h <= r.h_low, a: en.a, d: en.d, q: en.q, z: z };
@@ -443,6 +467,7 @@
       } else { c(en.n[sec], B[0], B[1]); c(en.n[sec], B[1], B[0]); }
       cands.forEach(function (o) { var e = enE(r, o); if (!best || e.E > best.E) { best = e; best.load = ld.load; } });
     });
+    if (best) { best.k = r.k; }
     return best;
   }
   function enRun(p, d, ke, profs, opt, ma) {
@@ -462,7 +487,7 @@
     };
     var varW = en.bogies.some(function (b) { return b.w250 !== b.winf || b.w150 !== b.w250; }), nonlin = en.bogies.some(function (b) { return b.Rv > 0; });
     var clause = set === 'motor' ? 'A.3.9.2' : (set === 'traction' ? (nonlin ? 'A.3.9.1.1 + A.3.9.1.2' : 'A.3.9.1.1') : (nonlin ? 'A.3.9.3.1 + A.3.9.3.2' : 'A.3.9.3.1'));
-    var secs = ['int', 'ext', 'end'], out = { rules: r, set: en.set, clause: clause, varW: varW, nonlin: nonlin, bogies: en.bogies, d: dW * 1000, q: bg.q, w: d.w_use,
+    var secs = ['int', 'ext', 'end'], out = { rules: r, gauge: r.gauge, set: en.set, clause: clause, varW: varW, nonlin: nonlin, bogies: en.bogies, d: dW * 1000, q: bg.q, w: d.w_use,
       eta_deg: n0(d.body.eta0_deg), P: (r.lmax - dW) / 2 * 1000, sections: {}, rows: [], checks: {}, ok: true };
     secs.forEach(function (sec) {
       var hi = enSectionE(r, en, sec, ke.top), lo = enSectionE(r, en, sec, Math.min(r.h_low, ke.top));
@@ -635,9 +660,9 @@
     var dW = Math.min(n0(b1.bb_mm) + 2 * n0(b1.ef_worn_mm), n0(b2.bb_mm) + 2 * n0(b2.ef_worn_mm)) / 1000;
     var pMax = Math.max(n0(b1.p_m), n0(b2.p_m)), pMin = Math.min(n0(b1.p_m), n0(b2.p_m));
     var s = Math.max(d.s_t, d.s_c), N = { int: g.ni, ext: g.na, end: g.n_end };
-    var out = { ref: ref.name, d: dW * 1000, P: (r.lmax - dW) / 2 * 1000, q: bg.q, w: d.w_use, s: s, smax: r.st_smax, sOk: s <= r.st_smax + 1e-12, sections: {}, checks: {}, lower: [], ok: true };
+    var out = { gauge: r.gauge, ref: ref.name, d: dW * 1000, P: (r.lmax - dW) / 2 * 1000, q: bg.q, w: d.w_use, s: s, smax: r.st_smax, sOk: s <= r.st_smax + 1e-12, sections: {}, checks: {}, lower: [], ok: true };
     ['int', 'ext', 'end'].forEach(function (sec) {
-      var beyond = sec !== 'int', e = enStaticE(r, { side: beyond ? 'a' : 'i', n: N[sec], a: g.a, p: beyond ? pMin : pMax, d: dW, q: bg.q / 1000, w: d.w_use / 1000 });
+      var beyond = sec !== 'int', so = { side: beyond ? 'a' : 'i', n: N[sec], a: g.a, p: beyond ? pMin : pMax, d: dW, q: bg.q / 1000, w: d.w_use / 1000 }, e = enStaticE(r, so);
       out.sections[sec] = { n: N[sec], raw: e.raw, delta: e.delta, x: e.x * 1000, A: e.A, E: e.E * 1000 };
       var pr = profs[sec], hs = [], seen = {}, lo = Infinity, hi = -Infinity, pts = [], min = null;
       pr.pts.forEach(function (q) { lo = Math.min(lo, q.h); hi = Math.max(hi, q.h); hs.push(q.h); });
@@ -646,8 +671,9 @@
       hs.forEach(function (h) {
         var key = Math.round(h * 1e6); if (seen[key]) { return; } seen[key] = 1;
         var xw = profileWidth(pr, h); if (!(xw > 0)) { return; }
-        var W = keWidth(ref, Math.max(h, ref.hUpBottom)), mg = (W - e.E - xw) * 1000;
-        var row = { h: h * 1000, x: xw * 1000, W: W * 1000, E: e.E * 1000, max: (W - e.E) * 1000, margin: mg, ok: mg >= 0 };
+        var rh = enStaticRulesAt(r, h), eh = rh.k > 0 || rh.Xa !== r.Xa ? enStaticE(rh, so) : e;
+        var W = keWidth(ref, Math.max(h, ref.hUpBottom)), mg = (W - eh.E - xw) * 1000;
+        var row = { h: h * 1000, x: xw * 1000, W: W * 1000, E: eh.E * 1000, k: rh.k, max: (W - eh.E) * 1000, margin: mg, ok: mg >= 0 };
         pts.push(row);
         if (!min || mg < min.margin) { min = row; }
       });
@@ -1405,6 +1431,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));
