@@ -139,5 +139,7 @@ reads every known sheet.
 | 10 | EN 15273-2: heights above the running surface A.3.4 (lower parts by Table A.1 zones, A.16–A.19), lower-parts table | Done |
 | 11 | EN 15273-2: bogie parts A.3.11 (independent-axle formulae A.56–A.59), bogie-parts table | Done |
 | 12 | EN 15273-2: static gauge method A.2 (A.2–A.5, s limit, lower parts A.2.3.2) | Done |
-| 13 | EN 15273-2: open doors and deployed steps A.3.14, step position A.3.15.2 | **This pull request** |
-| 14+ | EN 15273-2: pantograph, other profiles, dynamic method | Next, one PR each |
+| 13 | EN 15273-2: open doors and deployed steps A.3.14, step position A.3.15.2 | Done |
+| 14 | EN 15273-2: pantograph gauge A.3.12 (A.66–A.85, lowered position) | **This pull request** |
+| 15 | Third-rail current collector (CCD): shoe gear vs KE, shoe–rail contact range, clearance to rail supports / shroud, along the line | Next |
+| 16+ | EN 15273-2: other reference profiles, dynamic method | Next, one PR each |
