@@ -62,7 +62,7 @@ test('Vendor files are classic (non-module) builds with licences present', funct
 });
 
 test('Model, schema, IO and plot files are DOM-free and load in Node', function () {
-  ['js/schema.js', 'js/model.js', 'js/plot.js', 'js/report.js'].forEach(function (f) {
+  ['js/schema.js', 'js/model.js', 'js/plot.js', 'js/report.js', 'js/calcsteps.js'].forEach(function (f) {
     // comments and string literals removed: Word part names such as 'word/document.xml' are text, not DOM access
     var s = read(f).replace(/'(?:[^'\\\n]|\\.)*'/g, "''").replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     assert.ok(!/\b(document|window|localStorage|alert)\b/.test(s), f + ' touches the DOM');
