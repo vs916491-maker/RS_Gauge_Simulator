@@ -248,7 +248,10 @@
     f('h_ref1_mm', 'Reference height 1 (floor / platform level) h1', 'num', 'mm', { min: 0, max: 3000, d: 1100 }),
     f('h_ref2_mm', 'Reference height 2 (cantrail) h2', 'num', 'mm', { min: 0, max: 6000, d: 3000 })
   ];
+  var GAUGES = [['G1', 'G1 (Annex A)'], ['GA', 'GA (Annex B)'], ['GB', 'GB (Annex B)'], ['GC', 'GC (Annex B)'], ['GB1', 'GB1 (Annex C)'], ['GB2', 'GB2 (Annex C)'],
+    ['G2', 'G2 (Annex E)'], ['DE1', 'DE1 (Annex L)'], ['DE2', 'DE2 (Annex L)'], ['DE3', 'DE3 (Annex L)'], ['custom', 'Custom (values below)']];
   var enParams = [
+    f('en_gauge', 'Reference gauge of the associated rules', 'sel', '', { o: GAUGES, d: 'G1', h: 'Choosing a gauge loads its rules into the fields below; the reference profile itself is a KE profile you enter' }),
     f('lmax_mm', 'Max track gauge in the rules l_max (1,465 m in G1)', 'num', 'mm', { min: 600, max: 1800, d: 1465 }),
     f('e0_mm', 'Lateral allowance in the reference profile (0,015 m)', 'num', 'mm', { min: 0, max: 100, d: 15 }),
     f('R1_m', 'Reference radius R1 (250 m)', 'num', 'm', { min: 50, max: 5000, d: 250 }),
@@ -269,6 +272,20 @@
     f('st_Dmin_m2', 'Static gauge: minimum Δ (7,5 m²)', 'num', 'm²', { min: 0, max: 50, d: 7.5 }),
     f('st_smax', 'Static gauge: maximum flexibility coefficient (0,2 for G1)', 'num', '', { min: 0, max: 1, d: 0.2, h: '§5.1.3: 0,3 for GA, GB, GC' }),
     f('st_h_low_mm', 'Static gauge: lower parts up to height (0,43 m)', 'num', 'mm', { min: 0, max: 2000, d: 430 }),
+    f('kin_k_h0_mm', 'Height law k (GA, GB, GB1, GB2): kinematic – from height', 'num', 'mm', { min: 0, max: 6000, d: 3250, h: 'k = (h − from)/span, 0…1' }),
+    f('kin_k_span_mm', 'Height law k: kinematic – span (0 = no height law)', 'num', 'mm', { min: 0, max: 3000, d: 0 }),
+    f('st_k_h0_mm', 'Height law k: static – from height', 'num', 'mm', { min: 0, max: 6000, d: 3220 }),
+    f('st_k_span_mm', 'Height law k: static – span (0 = no height law)', 'num', 'mm', { min: 0, max: 3000, d: 0 }),
+    f('k_D_m2', 'Height law: increase of 2·Ck and of Δmin at k = 1 (32,5)', 'num', 'm²', { min: 0, max: 200, d: 32.5 }),
+    f('k_s0', 'Height law: decrease of s0 at k = 1 (0,1)', 'num', '', { min: 0, max: 0.4, d: 0.1 }),
+    f('k_Xa_m2', 'Height law: decrease of Xa at k = 1 (20)', 'num', 'm²', { min: 0, max: 200, d: 20 }),
+    f('st_Xa_hi_m2', 'Static: Xa above the height-law start (B.4: 100)', 'num', 'm²', { min: 0, max: 1000, opt: true, h: 'Blank = Xa' }),
+    f('zb_from_mm', 'Roll band (DE1, DE2): from height', 'num', 'mm', { min: 0, max: 8000, opt: true, h: 'Blank = no roll band' }),
+    f('zb_to_mm', 'Roll band: to height', 'num', 'mm', { min: 0, max: 8000, opt: true }),
+    f('zb_s0', 'Roll band: reference flexibility s0', 'num', '', { min: 0, max: 1, d: 0.19 }),
+    f('zb_hc0_mm', 'Roll band: reference roll-centre height hc0', 'num', 'mm', { min: 0, max: 2000, d: 695 }),
+    f('zb_IorD_mm', 'Roll band: maximum cant excess / deficiency of the line I or D', 'num', 'mm', { min: 0, max: 400, d: 150 }),
+    f('zb_extra_mm', 'Roll band: extra terms in the bracket (0,015 + 0,039)', 'num', 'mm', { min: 0, max: 200, d: 54 }),
     f('dr_h_mm', 'Doors open: height of the a) / b) boundary (1,05 m)', 'num', 'mm', { min: 0, max: 3000, d: 1050 }),
     f('dr_above_mm', 'Doors open: excess allowed above it (0,2 m)', 'num', 'mm', { min: 0, max: 1000, d: 200 }),
     f('dr_wmax_mm', 'Doors / steps between the pivots: w_i at most (0,035 m)', 'num', 'mm', { min: 0, max: 200, d: 35 }),
@@ -412,6 +429,24 @@
     f('ss_ke', 'Speed-step study: KE', 'text', '', { d: '', h: 'Blank = KE of the static check' })
   ];
 
+  // Associated rules loaded by the reference-gauge choice (EN 15273-2:2009 Annexes A, B, C, E, L); the values of
+  // every other EN rule field are those of G1 (their defaults). Data only – the formulae are in engine.js.
+  var enGaugeRules = {
+    G1: {}, G2: {}, DE3: {}, GC: { st_smax: 0.3 },
+    GA: { kin_k_span_mm: 630, st_k_span_mm: 630, st_Xa_hi_m2: 100, st_smax: 0.3 },
+    GB: { kin_k_span_mm: 860, st_k_span_mm: 860, st_Xa_hi_m2: 100, st_smax: 0.3 },
+    GB1: { kin_k_span_mm: 960, st_k_span_mm: 960, st_Xa_hi_m2: 100, st_smax: 0.3 },
+    GB2: { kin_k_span_mm: 1100, st_k_span_mm: 1100, st_Xa_hi_m2: 100, st_smax: 0.3 },
+    DE1: { zb_from_mm: 0, zb_to_mm: 8000, zb_s0: 0.28, zb_hc0_mm: 700, zb_IorD_mm: 150, zb_extra_mm: 54 },
+    DE2: { zb_from_mm: 3765, zb_to_mm: 4335, zb_s0: 0.19, zb_hc0_mm: 695, zb_IorD_mm: 150, zb_extra_mm: 54 }
+  };
+  function enGaugeValues(g) {
+    var o = {}, src = enGaugeRules[g];
+    if (!src) { return null; }
+    enParams.forEach(function (fd) { if (fd.k !== 'en_gauge' && fd.k.indexOf('dr_') !== 0 && fd.k.indexOf('gap_') !== 0) { o[fd.k] = src[fd.k] !== undefined ? src[fd.k] : (fd.d !== undefined ? fd.d : null); } });
+    return o;
+  }
+
   function defaults(fields) {
     var o = {}, i;
     for (i = 0; i < fields.length; i++) { o[fields[i].k] = fields[i].d !== undefined ? fields[i].d : (fields[i].opt ? null : undefined); if (o[fields[i].k] === undefined) { delete o[fields[i].k]; } }
@@ -428,6 +463,7 @@
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
     trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
     staticOptions: staticOptions, dynamicOptions: dynamicOptions, reportOptions: reportOptions, swayTest: swayTest,
+    enGaugeRules: enGaugeRules, enGaugeValues: enGaugeValues,
     defaults: defaults, byKey: byKey
   };
 }));

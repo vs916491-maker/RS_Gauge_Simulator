@@ -443,7 +443,13 @@
     form($('f-limits'), S.customerLimits, state.p.ke.limits);
     table($('t-sod-items'), state.p.sod.items, S.sodItem, { addLabel: 'Add item' });
     form($('f-sod'), S.sodSettings, state.p.sod);
-    form($('f-en'), S.enParams, state.p.ke.en);
+    form($('f-en'), S.enParams, state.p.ke.en, function (k) {
+      if (k === 'en_gauge') {
+        var v = S.enGaugeValues(state.p.ke.en.en_gauge);
+        if (v) { Object.keys(v).forEach(function (x) { state.p.ke.en[x] = v[x]; }); changed(true); return; }
+      }
+      changed(false);
+    });
     form($('f-third'), S.thirdRail, state.p.thirdRail, null, { tr_ke: function () { return [''].concat(keNames()); } });
     table($('t-tr-parts'), state.p.thirdRail.parts, S.trPart, { addLabel: 'Add part' });
     previewSel('pv-ke-sel', 'ke', 'chart-ke');
@@ -597,7 +603,7 @@
     if (!en) { return; }
     var R = en.rules;
     roTable($('sres-en-info'), ['Item', 'Interior', 'Exterior', 'Car end'], [].concat([
-      ['Formula set', ({ traction: 'Traction unit', coach: 'Coach', motor: 'Motor coach' })[en.set] + ' – ' + en.clause, '', ''],
+      ['Reference gauge / formula set', en.gauge + ' / ' + ({ traction: 'Traction unit', coach: 'Coach', motor: 'Motor coach' })[en.set] + ' – ' + en.clause, '', ''],
       en.varW || en.nonlin ? ['Secondary play w per bogie: ∞ / 250 m / 150 m' + (en.nonlin ? ' / variable stops' : '') + ' (mm)', en.bogies.map(function (b) {
         return b.name + ': ' + fmt(b.winf * 1000, 1) + ' / ' + fmt(b.w250 * 1000, 1) + ' / ' + fmt(b.w150 * 1000, 1) + (b.Rv ? ' / ' + fmt(b.wv * 1000, 1) + ' from R ' + fmt(b.Rv, 0) + ' m' : '');
       }).join('; '), '', ''] : null,
@@ -674,7 +680,7 @@
     $('sres-enst').hidden = !st;
     if (!st) { return; }
     roTable($('sres-enst-info'), ['Item', 'Interior', 'Exterior', 'Car end'], [
-      ['Reference profile', st.ref, '', ''],
+      ['Reference gauge rules / reference profile', st.gauge + ' / ' + st.ref, '', ''],
       { cls: '', cells: ['Flexibility coefficient s used / s_max (A.2.3.1)', { v: fmt(st.s, 3) + ' / ' + fmt(st.smax, 2) + (st.sOk ? ' – static gauge allowed' : ' – NOT ALLOWED: use the kinematic or dynamic method'), cls: st.sOk ? 'okcell' : 'badcell' }, '', ''] },
       ['(l_max − d)/2 with d worn = ' + fmt(st.d, 1) + ' mm / q / w (mm)', fmt(st.P, 2) + ' / ' + fmt(st.q, 1) + ' / ' + fmt(st.w, 1), '', ''],
       ['Position n (m)'].concat(ks.map(function (k) { return fmt(st.sections[k].n, 3); })),

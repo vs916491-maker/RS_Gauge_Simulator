@@ -48,6 +48,13 @@ with sync_playwright() as pw:
     page.click('#tabbtn-rs'); page.wait_for_timeout(300)
     ok(page.locator('#t-doors tbody tr').count() == 3, 'EN doors / steps table shows the 3 sample rows')
     page.click('#tabbtn-bogie'); page.wait_for_timeout(200)
+    page.click('#tabbtn-ke'); page.wait_for_timeout(300)
+    page.locator('details:has(#f-en) > summary').click(); page.wait_for_timeout(200)
+    page.locator('#f-en select').first.select_option('GA'); page.wait_for_timeout(400)
+    ok(page.evaluate('RSGAUGE.app.state.p.ke.en.kin_k_span_mm') == 630 and page.evaluate('RSGAUGE.app.state.p.ke.en.st_smax') == 0.3, 'choosing gauge GA loads its rules (span 0,63 m, s_max 0,3)')
+    page.locator('details:has(#f-en) > summary').click() if not page.locator('#f-en select').first.is_visible() else None
+    page.locator('#f-en select').first.select_option('G1'); page.wait_for_timeout(400)
+    ok(page.evaluate('RSGAUGE.app.state.p.ke.en.kin_k_span_mm') == 0, 'choosing G1 restores the G1 rules')
     page.click('#tabbtn-method'); page.wait_for_timeout(200)
     ok(page.locator('#method-toc button').count() > 15, 'method table of contents built')
 
