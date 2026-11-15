@@ -131,7 +131,9 @@
     f('z_sec_d_mm', 'Height of secondary suspension – deflated', 'num', 'mm', { min: 0, max: 2500, d: 750 }),
     f('ky_prim', 'Primary lateral stiffness per axlebox ky1', 'num', 'N/m', { min: 1e4, max: 1e9, d: 6000000 }),
     f('ky_sec', 'Secondary lateral stiffness per air spring ky2', 'num', 'N/m', { min: 1e4, max: 1e9, d: 1700000, h: 'Effective value with the body on the bump stop' }),
-    f('ky2_d', 'Secondary lateral stiffness – deflated ky2d', 'num', 'N/m', { min: 1e4, max: 1e9, d: 4000000 })
+    f('ky2_d', 'Secondary lateral stiffness – deflated ky2d', 'num', 'N/m', { min: 1e4, max: 1e9, d: 4000000 }),
+    f('en_s_frame', 'EN A.3.11: flexibility s of the bogie frame on the primary suspension', 'num', '', { min: 0, max: 1, d: 0, h: 'Roll of frame-mounted bogie parts in z_kin; 0 = none' }),
+    f('en_hc_frame_mm', 'EN A.3.11: roll-centre height of the bogie frame', 'num', 'mm', { min: 0, max: 2000, d: 0 })
   ];
   var playCalc = [
     f('bb_mm', 'Back-to-back distance of wheels BB', 'num', 'mm', { min: 500, max: 1800, d: 1360 }),
@@ -149,6 +151,18 @@
     f('y_mm', 'Half-width b of the part', 'num', 'mm', { min: 0, max: 2500, d: 0 }),
     f('h_mm', 'Height above rail (tare, new wheels)', 'num', 'mm', { min: 0, max: 1500 }),
     f('hlim_mm', 'Lower limit at that position', 'num', 'mm', { min: 0, max: 1500, opt: true, h: 'Blank = customer minimum clearance (body / bogie); else e.g. GIC1 / GIC2 height at b' }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
+
+  // Bogie parts checked laterally by EN 15273-2 A.3.11 (one row per part; METHOD §10.8)
+  var bogiePart = [
+    f('bogie', 'Bogie type', 'text', '', { d: '' }),
+    f('name', 'Part', 'text', '', { d: '' }),
+    f('mount', 'Mounted on', 'sel', '', { o: [['frame', 'Bogie frame (primary sprung)'], ['axle', 'Axle / axlebox (unsprung)']], d: 'frame' }),
+    f('pos', 'Position', 'sel', '', { o: [['between', 'Between the end axles'], ['beyond', 'Beyond the end axle']], d: 'between' }),
+    f('n_m', 'Distance n from the nearer end axle', 'num', 'm', { min: 0, max: 5, opt: true, h: 'Blank: between = p/2, beyond = 0' }),
+    f('y_mm', 'Half-width of the part', 'num', 'mm', { min: 0, max: 2500 }),
+    f('h_mm', 'Height above rail (tare, new wheels)', 'num', 'mm', { min: 0, max: 2000 }),
     f('note', 'Note', 'text', '', { d: '' })
   ];
 
@@ -326,7 +340,7 @@
   return {
     trainDescription: trainDescription, trainConfig: trainConfig, trainLoad: trainLoad, trainWind: trainWind,
     trainFields: trainDescription.concat(trainConfig, trainLoad, trainWind),
-    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart,
+    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
