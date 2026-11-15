@@ -283,6 +283,12 @@
 
   <!-- ======================= OVERALL SUMMARY ======================= -->
   <section id="tab-summary" class="panel" role="tabpanel" aria-labelledby="tabbtn-summary" hidden>
+    <div class="card"><h3>Gauging report <span class="muted">(Word .docx)</span></h3>
+      <p class="hint">Inputs, method and options, static, EN 15273-2 (when selected) and dynamic results with charts, assumptions and appendices, from the last runs.
+        The fields below are saved in the project file. Edit the Word file to add your letterhead before issue.</p>
+      <div id="f-report" class="grid"></div>
+      <div class="toolbar"><button type="button" id="btn-report" class="primary">Download Word report</button><span id="report-status" class="muted" aria-live="polite"></span></div>
+      <div id="report-canvas" class="offscreen" aria-hidden="true"></div></div>
     <div class="card"><h3>Static results</h3><div id="summary-static"></div></div>
     <div class="card"><h3>Input readiness</h3>
       <p class="hint">Errors must be fixed before a simulation can run. Warnings are worth reading.</p>
@@ -301,6 +307,7 @@
 
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/chart.umd.js"></script>
+<script src="vendor/jszip.min.js"></script>
 <script src="js/schema.js"></script>
 <script src="js/model.js"></script>
 <script src="js/markdown.js"></script>
@@ -309,6 +316,7 @@
 <script src="js/io.js"></script>
 <script src="js/plot.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/report.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

@@ -33,7 +33,8 @@ test('index.html loads only local classic scripts and styles that exist, in depe
 test('Own source has no http(s) URLs, imports/exports or network/worker APIs', function () {
   own.forEach(function (f) {
     var s = read(f);
-    var urls = (s.match(/https?:\/\/[^\s'"<>)]+/gi) || []).filter(function (u) { return u !== 'http://www.w3.org/2000/svg'; });
+    // XML namespace names (SVG, the Word file format) are identifiers, not network addresses
+    var urls = (s.match(/https?:\/\/[^\s'"<>)]+/gi) || []).filter(function (u) { return u !== 'http://www.w3.org/2000/svg' && !/^http:\/\/(schemas\.openxmlformats\.org|purl\.org\/dc)\//.test(u); });
     assert.ok(!urls.length, f + ' contains an http(s) URL: ' + urls[0]);
     assert.ok(!/(^|\n)\s*(import|export)\s+[\w{*]/.test(s), f + ' contains import/export');
     assert.ok(!/\bimport\s*\(/.test(s), f + ' uses dynamic import()');
@@ -52,17 +53,18 @@ test('UI never injects HTML strings', function () {
 });
 
 test('Vendor files are classic (non-module) builds with licences present', function () {
-  [['vendor/xlsx.full.min.js', 100000], ['vendor/chart.umd.js', 100000]].forEach(function (fv) {
+  [['vendor/xlsx.full.min.js', 100000], ['vendor/chart.umd.js', 100000], ['vendor/jszip.min.js', 50000]].forEach(function (fv) {
     var s = read(fv[0]);
     assert.ok(s.length > fv[1], fv[0] + ' looks truncated');
     assert.ok(!/(^|\n)\s*(import|export)\s+[\w{*]/.test(s.slice(0, 5000)), fv[0] + ' looks like an ES module');
   });
-  ['vendor/LICENSE-sheetjs.txt', 'vendor/LICENSE-chartjs.txt', 'vendor/README.md'].forEach(function (f) { assert.ok(fs.existsSync(path.join(root, f)), f + ' missing'); });
+  ['vendor/LICENSE-sheetjs.txt', 'vendor/LICENSE-chartjs.txt', 'vendor/LICENSE-jszip.txt', 'vendor/README.md'].forEach(function (f) { assert.ok(fs.existsSync(path.join(root, f)), f + ' missing'); });
 });
 
 test('Model, schema, IO and plot files are DOM-free and load in Node', function () {
-  ['js/schema.js', 'js/model.js', 'js/plot.js'].forEach(function (f) {
-    var s = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  ['js/schema.js', 'js/model.js', 'js/plot.js', 'js/report.js'].forEach(function (f) {
+    // comments and string literals removed: Word part names such as 'word/document.xml' are text, not DOM access
+    var s = read(f).replace(/'(?:[^'\\\n]|\\.)*'/g, "''").replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     assert.ok(!/\b(document|window|localStorage|alert)\b/.test(s), f + ' touches the DOM');
     require('../' + f);
   });

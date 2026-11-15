@@ -8,6 +8,7 @@ Same files and versions as in the SEC simulator.
 |---|---|---|---|---|
 | `xlsx.full.min.js` | SheetJS Community Edition (Excel/CSV read and write) | 0.18.5 | Apache-2.0 (`LICENSE-sheetjs.txt`) | `dist/xlsx.full.min.js` of the npm package `xlsx@0.18.5` |
 | `chart.umd.js` | Chart.js (charts) | 4.4.1 | MIT (`LICENSE-chartjs.txt`) | `dist/chart.umd.js` of the npm package `chart.js@4.4.1` |
+| `jszip.min.js` | JSZip (writes the Word report) | 3.10.1 | MIT or GPLv3, used under MIT (`LICENSE-jszip.txt`) | `dist/jszip.min.js` of the npm package `jszip@3.10.1` |
 
 ## Security note on SheetJS 0.18.5
 
