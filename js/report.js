@@ -212,6 +212,16 @@
           return [c.car, c.en.clause, fmt(c.en.d, 1)].concat(['int', 'ext', 'end'].map(function (k) { var m = c.en.checks[k].min; return m ? fmt(m.margin, 1) + ' at h ' + fmt(m.h) : '–'; }), [status(c.en.ok)]);
         }));
         s.cars.forEach(function (c, ci) { image('en-' + ci, c.car + ': EN 15273-2 maximum construction gauge against the workbook Method A.'); });
+        para('Heights above the running surface (A.3.4). Lower parts: height (tare, new wheels) minus the Table A.1 displacements of the body zone ' +
+          '(suspension Aff with ΔAff·n/a and 0,1·s·(b − b2), wheel wear Usr with ΔUsr·n/a; bogie-mounted parts: primary suspension and wheel wear) shall not be below ' +
+          'the lower limit increased by the gradient-transition value A.16 / A.17. Upper parts: profile top + 10 mm per suspension level + A.18 / A.19 shall not exceed the KE top.');
+        var lw = [], up = [];
+        s.cars.forEach(function (c) { var v = c.en && c.en.vertical; if (!v) { return; }
+          v.lower.forEach(function (q) { lw.push([c.car, q.name, q.zone === 'bogie' ? 'Bogie' : q.zone, fmt(q.h), fmt(q.susp + q.wear, 1), fmt(q.lim) + (q.grad ? ' + ' + fmt(q.grad, 1) : ''), fmt(q.margin, 1), status(q.ok)]); });
+          v.upper.forEach(function (q) { up.push([c.car, SEC[q.section], fmt(q.top), fmt(q.ext + q.grad, 1), fmt(q.lim), fmt(q.margin, 1), status(q.ok)]); });
+        });
+        if (lw.length) { table(['Car type', 'Lower part', 'Zone', 'Height [mm]', 'Displacement [mm]', 'Limit [mm]', 'Margin [mm]', 'Status'], lw); }
+        if (up.length) { table(['Car type', 'Section', 'Profile top [mm]', 'Extension + gradient [mm]', 'KE top [mm]', 'Margin [mm]', 'Status'], up); }
       }
     }
 
@@ -273,7 +283,7 @@
     h1('9. Assumptions and limitations');
     var a11 = methodSection(ctx.methodMd, 11), a12 = methodSection(ctx.methodMd, 12);
     add({ type: 'list', ordered: true, items: a11.items.map(plain) });
-    if (en) { para('EN 15273-2: implemented from the 2009 edition (superseded by EN 15273-2:2013). Not covered: lower-part profiles GIC1/GIC2 and the vertical reductions of A.3.4, pantograph, doors and steps open, tilting vehicles, wagons.'); }
+    if (en) { para('EN 15273-2: implemented from the 2009 edition (superseded by EN 15273-2:2013). Vertical (A.3.4): the GIC1 / GIC2 lower profiles are not encoded (lower limits as entered or the customer minimum), hump-shunting terms of A.3.4.1.5 and contact ramps (A.3.5) are not applied. Not covered: pantograph, doors and steps open, tilting vehicles, wagons.'); }
     if (a12.text) { para('Out of scope: ' + plain(a12.text)); }
 
     // ---- 9 warnings

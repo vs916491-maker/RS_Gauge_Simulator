@@ -123,6 +123,7 @@
     out.train = t;
     out.bogies = (p.bogies || []).map(function (b) { return record(b, S.bogie); });
     out.bodies = (p.bodies || []).map(function (b) { return record(b, S.body); });
+    out.lowerParts = (p.lowerParts || []).map(function (r) { return record(r, S.lowerPart); });
     var ke = p.ke || {}, sod = p.sod || {}, rs = p.rs || {}, tr = p.track || {};
     out.ke = { limits: record(ke.limits, S.customerLimits), en: record(ke.en, S.enParams), profiles: profiles(ke.profiles, S.keProfile) };
     var so = record(sod, S.sodSettings);
@@ -321,8 +322,15 @@
       if (b.wv_R_m !== null && b.wv_mm === null) { m.add('bogie', 'warn', 'Bogie ' + b.name + ': variable-stop radius given without w at that radius; w is used.'); }
     });
 
-    // ---- Tests (sway test rows)
+    // ---- EN 15273-2 lower parts (A.3.4.1)
     var carNames = p.train.carTypes.map(function (c) { return c.name; });
+    (p.lowerParts || []).forEach(function (r, k) {
+      var id = 'Lower part ' + (r.name || k + 1);
+      rangeChecks(m, 'bogie', id, r, S.lowerPart);
+      if (!r.car || carNames.indexOf(r.car) < 0) { m.add('bogie', 'err', id + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
+    });
+
+    // ---- Tests (sway test rows)
     ((p.tests || {}).sway || []).forEach(function (r, k) {
       var id = 'Sway test row ' + (k + 1);
       rangeChecks(m, 'tests', id, r, S.swayTest.filter(function (fd) { return fd.k === 'h3_mm' || fd.k === 'y3_mm' || (fd.t === 'num' && r[fd.k] !== null); }));
