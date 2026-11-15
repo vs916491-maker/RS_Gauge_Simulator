@@ -56,6 +56,15 @@
     f('s', 'Flexibility coefficient s', 'num', '', { min: 0, max: 1, opt: true, h: 'Other cases only (tare / crush: Car body tab); blank = interpolated by mass' }),
     f('hc_mm', 'Roll-centre height hc', 'num', 'mm', { min: 0, max: 3000, opt: true, h: 'Other cases only (tare / crush: Car body tab); blank = interpolated by mass' })
   ];
+  // Additional sections of a car type (METHOD §6.1a)
+  var extraSection = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('name', 'Section name', 'text', '', { d: '', h: 'e.g. Door 2, Cab front, Gangway' }),
+    f('ref_end', 'Measured from', 'sel', '', { o: [['end1', 'Body end 1'], ['end2', 'Body end 2']], d: 'end1', h: 'Body end the distance is measured from (end 1 = left in the car drawing)' }),
+    f('dist_m', 'Distance from that body end', 'num', 'm', { min: 0, max: 40, h: 'Between the pivots: interior rules; beyond a pivot: exterior rules with the yaw factor A' }),
+    f('profile', 'RS profile of the section', 'text', '', { d: '', h: 'Name of an RS profile on the RS Profile tab' }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
   // Mass fields of the car type before the load definition (older files; migrated to load cases AW0 / AW4)
   var legacyCarMass = [
     f('mass_tare_t', 'Car body mass tare, sprung m0', 'num', 't', { opt: true }),
@@ -566,7 +575,7 @@
   return {
     trainDescription: trainDescription, trainConfig: trainConfig, trainWind: trainWind,
     trainFields: trainDescription.concat(trainConfig, trainWind),
-    loadCase: loadCase, carLoad: carLoad, legacyCarMass: legacyCarMass, LOAD_ROLES: LOAD_ROLES,
+    loadCase: loadCase, carLoad: carLoad, legacyCarMass: legacyCarMass, LOAD_ROLES: LOAD_ROLES, extraSection: extraSection,
     carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep, pantograph: pantograph, ccd: ccd, ccdPoint: ccdPoint, thirdRail: thirdRail, trPart: trPart,
     simSettings: simSettings, simCar: simCar, simTransient: simTransient, simCurving: simCurving, valWeigh: valWeigh, valRot: valRot, valSway: valSway, valRide: valRide,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,

@@ -306,10 +306,10 @@
       },
       onAdd: function () { M.syncBodies(state.p); M.fillRefs(state.p); M.syncLoads(state.p, true); },
       onChange: function (it, k, old) {
-        if (k === 'name') { renameRefs(state.p.loads.cars, ['car'], old, it.name); renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.doorSteps, ['car'], old, it.name); renameRefs(state.p.pantographs, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
+        if (k === 'name') { renameRefs(state.p.sections, ['car'], old, it.name); renameRefs(state.p.loads.cars, ['car'], old, it.name); renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.doorSteps, ['car'], old, it.name); renameRefs(state.p.pantographs, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
       }
     });
-    drawTrain(); calcGeometry();
+    sectionsTable(); drawTrain(); calcGeometry(); carDrawings();
   }
   // Load cases and masses (Load definition card, METHOD §4.1a)
   function loadNames() { return state.p.loads.cases.map(function (c) { return c.name; }); }
@@ -365,6 +365,68 @@
     });
     tbl.appendChild(tb);
     box.appendChild(tbl);
+  }
+  // Additional sections per car type (METHOD §6.1a)
+  function sectionsTable() {
+    table($('t-sections'), state.p.sections, S.extraSection, {
+      addLabel: 'Add section', refs: { car: carNames, profile: rsNames }, structural: { car: true, ref_end: true },
+      onChange: function () { carDrawings(); },
+      newRow: function () {
+        var t = state.p.sections, last = t[t.length - 1], c = state.p.train.carTypes[0] || {}, r = S.defaults(S.extraSection);
+        r.car = last ? last.car : (c.name || ''); r.profile = last ? last.profile : (c.prof_int || ''); r.name = 'Section ' + (t.length + 1); r.dist_m = null;
+        return r;
+      }
+    });
+  }
+  // Side view of every car type with the sections checked (to scale, no physics: positions from E.carGeometry / E.carSections).
+  function carDrawings() {
+    var box = $('car-drawings'), ns = 'http://www.w3.org/2000/svg';
+    clear(box);
+    state.p.train.carTypes.forEach(function (c) {
+      if (!c.name) { return; }
+      var g = E.carGeometry(c), Lb = g.Lb;
+      if (!(Lb > 0)) { return; }
+      var W = 820, x0 = 40, k = (W - 2 * x0) / Lb, svg = doc.createElementNS(ns, 'svg');
+      svg.setAttribute('viewBox', '0 0 ' + W + ' 186'); svg.setAttribute('width', W); svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', 'Car type ' + c.name + ' with the sections checked');
+      var title = doc.createElementNS(ns, 'text'); title.setAttribute('x', 4); title.setAttribute('y', 13); title.setAttribute('class', 'car-name'); title.textContent = c.name;
+      svg.appendChild(title);
+      var grp = doc.createElementNS(ns, 'g'); grp.setAttribute('transform', 'translate(0,18)'); svg.appendChild(grp);
+      function s(tag, a, txt) { var e = doc.createElementNS(ns, tag), q; for (q in a) { e.setAttribute(q, a[q]); } if (txt !== undefined) { e.textContent = txt; } grp.appendChild(e); return e; }
+      function X(m) { return x0 + m * k; }
+      s('rect', { x: X(0), y: 40, width: Lb * k, height: 46, rx: 6, class: 'car-body' });
+      s('text', { x: X(0) + 4, y: 82, class: 'end-tag' }, 'end 1'); s('text', { x: X(Lb) - 4, y: 82, 'text-anchor': 'end', class: 'end-tag' }, 'end 2');
+      var piv = [g.n1, Lb - g.n2], bog = [c.bogie1, c.bogie2], pw = 2.3;
+      (state.p.bogies || []).forEach(function (b) { if (b.name === c.bogie1 && b.p_m) { pw = b.p_m; } });
+      piv.forEach(function (px, i) {
+        s('line', { x1: X(px), y1: 34, x2: X(px), y2: 104, class: 'pivot' });
+        s('rect', { x: X(px - pw / 2) - 6, y: 88, width: pw * k + 12, height: 8, rx: 3, class: /^M/i.test(bog[i] || '') ? 'bg-m' : 'bg-t' });
+        s('circle', { cx: X(px - pw / 2), cy: 100, r: 6, class: 'wheel' }); s('circle', { cx: X(px + pw / 2), cy: 100, r: 6, class: 'wheel' });
+      });
+      s('line', { x1: X(0) - 20, y1: 106, x2: X(Lb) + 20, y2: 106, class: 'rail' });
+      // dimensions n1 – a – n2 and Lb
+      function dim(a, b, y, label) {
+        s('line', { x1: X(a), y1: y, x2: X(b), y2: y, class: 'dim' });
+        s('line', { x1: X(a), y1: y - 4, x2: X(a), y2: y + 4, class: 'dim' }); s('line', { x1: X(b), y1: y - 4, x2: X(b), y2: y + 4, class: 'dim' });
+        s('text', { x: (X(a) + X(b)) / 2, y: y - 3, 'text-anchor': 'middle', class: 'car-no' }, label);
+      }
+      dim(0, g.n1, 124, 'n1 ' + fmt(g.n1, 3)); dim(g.n1, Lb - g.n2, 124, 'a ' + fmt(g.a, 3)); dim(Lb - g.n2, Lb, 124, 'n2 ' + fmt(g.n2, 3));
+      dim(0, Lb, 146, 'Lb ' + fmt(Lb, 3) + ' m');
+      // sections: standard (red) and additional (purple); label rows alternate to avoid overlap
+      var lines = [{ x: g.n1 + g.ni, t: 'Int', cls: 'sec-std' }];
+      [[g.n1 - g.na, g.n1], [Lb - g.n2 + g.na, g.n2]].forEach(function (e) { if (g.na <= e[1] + 1e-9) { lines.push({ x: e[0], t: 'Ext', cls: 'sec-std' }); } });
+      if (Math.abs(g.n1 - g.n_end) < 1e-9) { lines.push({ x: 0.04, t: 'End', cls: 'sec-std' }); }
+      if (Math.abs(g.n2 - g.n_end) < 1e-9) { lines.push({ x: Lb - 0.04, t: 'End', cls: 'sec-std' }); }
+      E.carSections(state.p, c, g).forEach(function (xs) { lines.push({ x: xs.x, t: xs.name, cls: 'sec-x', title: xs.name + ': ' + fmt(xs.dist, 3) + ' m from body ' + (xs.ref_end === 'end2' ? 'end 2' : 'end 1') + ', ' + xs.pos + ' the pivots, n ' + fmt(xs.n, 3) + ' m, A ' + fmt(xs.A, 4) }); });
+      lines.sort(function (a, b) { return a.x - b.x; });
+      lines.forEach(function (l, i) {
+        var ln = s('line', { x1: X(l.x), y1: 30, x2: X(l.x), y2: 92, class: l.cls });
+        if (l.title) { ln.appendChild(doc.createElementNS(ns, 'title')).textContent = l.title; }
+        s('text', { x: X(l.x), y: i % 2 ? 26 : 16, 'text-anchor': 'middle', class: l.cls === 'sec-x' ? 'sec-x-label' : 'sec-label' }, l.t);
+      });
+      box.appendChild(svg);
+    });
+    if (!box.firstChild) { box.appendChild(el('p', { class: 'muted', text: 'Add a car type with a body length to see the drawing.' })); }
   }
   function calcGeometry() {
     var rows = state.p.train.carTypes.map(function (c) {
@@ -538,6 +600,7 @@
   function renderRS() {
     profileSet($('ps-rs'), 'rs', state.p.rs.profiles, S.rsProfile, { newName: 'RS profile', onRename: function (old, nu) {
       renameRefs(state.p.train.carTypes, ['prof_int', 'prof_ext', 'prof_end'], old, nu);
+      renameRefs(state.p.sections, ['profile'], old, nu);
     } });
     previewSel('pv-rs-sel', 'rs', 'chart-rs');
     profileChart('chart-rs', 'rs');
@@ -662,10 +725,14 @@
     var lowV = null; r.cars.forEach(function (x) { x.vertical.forEach(function (v) { if (!v.info && (!lowV || v.margin < lowV.margin)) { lowV = { car: x.car, label: v.label, margin: v.margin }; } }); });
     stat('Smallest vertical margin', lowV ? fmt(lowV.margin, 1) : '—', 'mm');
     // table car x case
-    var head = ['Car type'].concat((r.cars[0] ? r.cars[0].cases : E.CASES).map(function (k) { return k.label; }), ['Governing', 'Vertical checks', 'Axle load (t)']);
+    function std(x) { return x.cases.filter(function (k) { return !k.extra; }); }
+    var anyX = r.cars.some(function (x) { return x.cases.some(function (k) { return k.extra; }); });
+    var head = ['Car type'].concat((r.cars[0] ? std(r.cars[0]) : E.CASES).map(function (k) { return k.label; }), anyX ? ['Additional sections (worst)'] : [], ['Governing', 'Vertical checks', 'Axle load (t)']);
     roTable($('sres-table'), head, r.cars.map(function (x) {
       var vOk = x.vertical.every(function (v) { return v.info || v.ok; });
-      return { cls: x.car === c.car ? 'selrow' : '', cells: [x.car].concat(x.cases.map(function (k) { return { v: fmt(k.min.c, 1) + ' @ ' + k.min.pt, cls: k.ok ? 'okcell' : 'badcell', title: k.profile }; }),
+      var wx = null; x.cases.forEach(function (k) { if (k.extra && k.min && (!wx || k.min.c < wx.min.c)) { wx = k; } });
+      var xcell = !anyX ? [] : [wx ? { v: fmt(wx.min.c, 1) + ' (' + wx.label + ')', cls: wx.ok ? 'okcell' : 'badcell' } : '–'];
+      return { cls: x.car === c.car ? 'selrow' : '', cells: [x.car].concat(std(x).map(function (k) { return { v: fmt(k.min.c, 1) + ' @ ' + k.min.pt, cls: k.ok ? 'okcell' : 'badcell', title: k.profile }; }), xcell,
         [x.governing ? x.governing.label : '', { v: vOk ? 'OK' : 'CHECK', cls: vOk ? 'okcell' : 'badcell' }, { v: fmt(x.derived.shared.axle_t, 2), cls: x.derived.shared.axle_ok ? '' : 'badcell' }]) };
     }), 'results');
     // section charts
@@ -689,8 +756,13 @@
     // Method A
     methodAChart(r, c.car);
     function mcell(v) { return v === null ? '' : { v: fmt(v, 1), cls: v >= 0 ? '' : 'badcell' }; }
-    roTable($('sres-methodA'), ['h', 'KE width', 'Max static Int', 'Max static Ext', 'Max static End', 'Margin Int', 'Margin Ext', 'Margin End'],
-      c.methodA.map(function (x) { return [fmt(x.h, 0), fmt(x.W, 1), fmt(x.max_int, 1), fmt(x.max_ext, 1), fmt(x.max_end, 1), mcell(x.margin_int), mcell(x.margin_ext), mcell(x.margin_end)]; }));
+    var xsA = c.extraSections || [];
+    roTable($('sres-methodA'), ['h', 'KE width', 'Max static Int', 'Max static Ext', 'Max static End', 'Margin Int', 'Margin Ext', 'Margin End'].concat(
+      xsA.map(function (q) { return 'Max static ' + q.name; }), xsA.map(function (q) { return 'Margin ' + q.name; })),
+      c.methodA.map(function (x) {
+        return [fmt(x.h, 0), fmt(x.W, 1), fmt(x.max_int, 1), fmt(x.max_ext, 1), fmt(x.max_end, 1), mcell(x.margin_int), mcell(x.margin_ext), mcell(x.margin_end)].concat(
+          xsA.map(function (q) { return fmt(x['max_' + q.key], 1); }), xsA.map(function (q) { return mcell(x['margin_' + q.key]); }));
+      }));
     renderSresEn(r, c);
     renderSresCcd(r);
     var bst = c.bostrab;
@@ -701,10 +773,29 @@
       }));
     }
     renderSresEnStatic(r, c);
+    renderSresXs(r, c);
     // vertical
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {
       return v.info ? [v.label, fmt(v.value, 1), '', '', ''] : [v.label, fmt(v.value, 1), fmt(v.limit, 1), cCell(v.margin), { v: v.ok ? 'OK' : (v.id.indexOf('uf') === 0 ? 'BELOW MIN' : 'INFRINGES'), cls: v.ok ? 'okcell' : 'badcell' }];
     }));
+  }
+
+  // Additional sections of the selected car type: one row per section (cases per load), chart of the chosen one
+  function renderSresXs(r, c) {
+    var xs = c.extraSections || [], box = $('sres-xs');
+    box.hidden = !xs.length;
+    if (!xs.length) { return; }
+    var loads = c.derived.loads.map(function (L) { return L.name; });
+    roTable($('sres-xs-table'), ['Section', 'Position', 'Between / beyond the pivots', 'n (m)', 'Yaw factor A', 'Profile'].concat(loads.map(function (n) { return 'Min clearance ' + n + ' (mm)'; }), ['Status']),
+      xs.map(function (q) {
+        var ks = c.cases.filter(function (k) { return k.section === q.key; }), ok = ks.every(function (k) { return k.ok; });
+        return [q.name, fmt(q.dist, 3) + ' m from body ' + (q.ref_end === 'end2' ? 'end 2' : 'end 1'), q.pos === 'beyond' ? 'beyond (' + (q.side === 'end1' ? 'end 1' : 'end 2') + ' side)' : 'between', fmt(q.n, 3), fmt(q.A, 4), q.profile]
+          .concat(ks.map(function (k) { return { v: fmt(k.min.c, 1) + ' @ ' + k.min.pt, cls: k.ok ? 'okcell' : 'badcell' }; }), [{ v: ok ? 'OK' : 'INFRINGES', cls: ok ? 'okcell' : 'badcell' }]);
+      }));
+    var sel = $('sres-xs-sel'); clear(sel);
+    if (!xs.some(function (q) { return q.key === state.resXs; })) { state.resXs = xs[0].key; }
+    xs.forEach(function (q) { sel.appendChild(el('option', { value: q.key, text: q.name, selected: q.key === state.resXs })); });
+    sectionChart('chart-sec-xs', r, c.car, state.resXs);
   }
 
   var SEC_NAMES = { int: 'Interior', ext: 'Exterior', end: 'Car end' };
@@ -1517,6 +1608,7 @@
     });
     $('sres-car').addEventListener('change', function () { state.resCar = this.value; renderSres(); });
     $('sres-case').addEventListener('change', function () { state.resCase = this.value; renderSres(); });
+    $('sres-xs-sel').addEventListener('change', function () { state.resXs = this.value; renderSres(); });
     $('sres-en-sec').addEventListener('change', function () { renderSres(); });
     $('btn-report').addEventListener('click', downloadReport);
     $('calc-car').addEventListener('change', function () { state.calcCar = this.value; state.calcCase = null; renderCalc(); });

@@ -48,7 +48,7 @@ test('Gauge test plan: expected test margins equal the static run (linear and RS
     var o = JSON.parse(JSON.stringify(p.settings['static'])); o.comb = comb; o.align = 'yes'; o.tilt = 'yes'; o.up_roll = 'yes';
     var s = E.staticRun(p, o), plan = E.gaugeTestPlan(p, s, []);
     plan.forEach(function (c, i) {
-      assert.strictEqual(c.cases.length, 6, 'tare and crush cases only (METHOD §13.2)');
+      assert.strictEqual(c.cases.length, s.cars[i].cases.filter(function (k) { return k.role !== 'other'; }).length, 'tare and crush cases only (METHOD §13.2)');
       c.cases.forEach(function (k) {
         var cs = s.cars[i].cases.filter(function (x) { return x.id === k.id; })[0];
         near(k.D, cs.params.cant + cs.params.wind, 1e-12); near(k.Rlat, cs.params.play + cs.params.q + cs.params.w, 1e-12);
@@ -90,7 +90,7 @@ test('Tests export: sway evaluation, test set-up (6 cases per car type) and ever
   var wb = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.testsWorkbook(sw, plan, p, { stale: false }))));
   assert.deepStrictEqual(wb.SheetNames, ['Sway_Evaluation', 'Gauge_Test_Setup', 'Gauge_Test_Points']);
   var setup = global.XLSX.utils.sheet_to_json(wb.Sheets.Gauge_Test_Setup, { header: 1 }), pts = global.XLSX.utils.sheet_to_json(wb.Sheets.Gauge_Test_Points, { header: 1 });
-  assert.strictEqual(setup.length - 5, s.cars.length * 6);
+  assert.strictEqual(setup.length - 5, s.cars.reduce(function (n, c) { return n + c.cases.filter(function (k) { return k.role !== 'other'; }).length; }, 0));
   assert.strictEqual(pts.length - 1, s.cars.reduce(function (n, c) { return n + c.cases.filter(function (k) { return k.role !== 'other'; }).reduce(function (m, k) { return m + k.points.length; }, 0); }, 0));
 });
 

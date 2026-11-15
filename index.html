@@ -89,8 +89,17 @@
       <p class="hint">Pivot distance a = Lb − n1 − n2, where an end overhang is n at a free end and nj at a shared end. The interior section is checked at ni from the pivot,
         the exterior section at na beyond the pivot and the car end at the largest overhang. Bogie types are defined on the <strong>Car body &amp; Bogie</strong> tab, profiles on the <strong>RS Profile</strong> tab.</p>
       <div id="g-cartypes" class="tablewrap"></div>
+      <h3 class="gap">Additional sections <span class="muted">(optional)</span></h3>
+      <p class="hint">Extra sections checked per car type, e.g. at a door, the cab front or the gangway: the body end the distance is measured from, the distance
+        and the RS profile. Between the pivots the interior rules apply (train stopped, cant excess); beyond a pivot the exterior rules with the yaw factor
+        A (train at speed, cant deficiency). Every load case is calculated, with Method A and the profile-top check (not the EN, BOStrab or dynamic checks).</p>
+      <div id="t-sections" class="tablewrap"></div>
       <h3 class="gap">Calculated geometry</h3>
       <div id="calc-geometry" class="tablewrap"></div>
+      <h3 class="gap">Car drawings with the sections checked</h3>
+      <p class="hint">Side view of each car type to scale: body ends 1 and 2, bogie pivots, overhangs n1 and n2 and pivot distance a. Red: standard
+        sections (interior at ni from pivot 1; exterior at na and car end at nE beyond the pivots, both ends where they apply); purple: additional sections.</p>
+      <div id="car-drawings" class="drawing"></div>
     </div>
   </section>
 
@@ -254,6 +263,9 @@
         <div class="card"><h3>Car-end section</h3><div class="chartbox square"><canvas id="chart-sec-end" aria-label="Car-end section"></canvas></div></div>
       </div>
       <p class="hint">Right side as calculated (lean to the right); left side mirrored because the car can lean either way.</p>
+      <div class="card" id="sres-xs" hidden><div class="row"><h3>Additional sections</h3><span class="spacer"></span><label>Section <select id="sres-xs-sel"></select></label></div>
+        <div id="sres-xs-table" class="tablewrap"></div>
+        <div class="chartbox square narrow"><canvas id="chart-sec-xs" aria-label="Additional section"></canvas></div></div>
       <div class="card"><h3>Movement build-up per case</h3><div id="sres-buildup" class="tablewrap"></div></div>
       <div class="card"><div class="row"><h3>Points of the selected case</h3><label>Case <select id="sres-case"></select></label></div><div id="sres-points" class="tablewrap"></div></div>
       <div class="grid2">

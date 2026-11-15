@@ -297,3 +297,11 @@ ul.errlist { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--err-text); fo
 .calc .nodata { font-style: italic; }
 #t-loadcases td:nth-child(4) input { min-width: 22rem; }
 #t-loadcases td:nth-child(3) select { min-width: 14rem; }
+.drawing .pivot { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.drawing .dim { stroke: var(--muted); stroke-width: 1; }
+.drawing .sec-std { stroke: var(--c4); stroke-width: 2.4; }
+.drawing .sec-x { stroke: var(--c5); stroke-width: 2.4; }
+.drawing .sec-label { fill: var(--c4); font-size: 10px; font-weight: 700; }
+.drawing .sec-x-label { fill: var(--c5); font-size: 10px; font-weight: 700; }
+#car-drawings svg { margin: .4rem 0 .8rem; }
+.chartbox.narrow { max-width: 34rem; }

@@ -189,9 +189,22 @@
     if (s) {
       h1('5. Static results');
       h2('5.1 Minimum clearance to the customer KE per case [mm]');
-      table(['Car type'].concat(s.cars[0] ? s.cars[0].cases.map(function (k) { return k.label; }) : []), s.cars.map(function (c) {
-        return [c.car].concat(c.cases.map(function (k) { return fmt(k.min.c, 1) + ' (' + k.min.pt + ')' + (k.ok ? '' : ' ✗'); }));
+      function stdC(c) { return c.cases.filter(function (k) { return !k.extra; }); }
+      table(['Car type'].concat(s.cars[0] ? stdC(s.cars[0]).map(function (k) { return k.label; }) : []), s.cars.map(function (c) {
+        return [c.car].concat(stdC(c).map(function (k) { return fmt(k.min.c, 1) + ' (' + k.min.pt + ')' + (k.ok ? '' : ' ✗'); }));
       }));
+      var xrows = [];
+      s.cars.forEach(function (c) {
+        (c.extraSections || []).forEach(function (q) {
+          var ks = c.cases.filter(function (k) { return k.section === q.key; }), w = ks.reduce(function (a, k) { return !a || k.min.c < a.min.c ? k : a; }, null);
+          xrows.push([c.car, q.name, fmt(q.dist, 3) + ' m from body ' + (q.ref_end === 'end2' ? 'end 2' : 'end 1'), q.pos + ', n ' + fmt(q.n, 3) + ' m, A ' + fmt(q.A, 4), q.profile,
+            w ? fmt(w.min.c, 1) + ' (' + w.load + ', ' + w.min.pt + ')' + (w.ok ? '' : ' ✗') : '–']);
+        });
+      });
+      if (xrows.length) {
+        para('Additional sections (METHOD §6.1a), smallest clearance of all load cases:');
+        table(['Car type', 'Section', 'Position', 'Between / beyond the pivots', 'Profile', 'Min clearance [mm]'], xrows);
+      }
       para('Governing: **' + (s.governing ? s.governing.car + ', ' + s.governing.label + ', ' + fmt(s.governing.c, 1) + ' mm' : '–') + '**. Point names in brackets; ✗ = infringes the KE.');
       s.cars.forEach(function (c, ci) {
         h2('5.' + (ci + 2) + ' Car type ' + c.car);

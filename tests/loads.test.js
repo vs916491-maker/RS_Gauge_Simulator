@@ -16,9 +16,9 @@ function has(v, level, re) { return v.messages.some(function (m) { return m.tab 
 test('Sample: four load cases, 3 sections × 4 cases per car type, ids and labels', function () {
   var p = proj(), r = E.staticRun(p, p.settings['static']), c = r.cars[1];
   assert.deepStrictEqual(p.loads.cases.map(function (x) { return x.name + ':' + x.role; }), ['AW0:tare', 'AW2:other', 'AW3:other', 'AW4:crush']);
-  assert.deepStrictEqual(c.cases.map(function (k) { return k.id; }), ['int_t', 'int_L1', 'int_L2', 'int_c', 'ext_t', 'ext_L1', 'ext_L2', 'ext_c', 'end_t', 'end_L1', 'end_L2', 'end_c']);
+  assert.deepStrictEqual(c.cases.filter(function (k) { return !k.extra; }).map(function (k) { return k.id; }), ['int_t', 'int_L1', 'int_L2', 'int_c', 'ext_t', 'ext_L1', 'ext_L2', 'ext_c', 'end_t', 'end_L1', 'end_L2', 'end_c']);
   assert.strictEqual(c.cases[5].label, 'Exterior – AW2');
-  return c.cases.length + ' cases for ' + c.car;
+  return c.cases.filter(function (k) { return !k.extra; }).length + ' standard cases for ' + c.car;
 });
 
 test('Blank values of an other case are interpolated by mass (Δz, s, hc); wind coefficient from its own mass', function () {
@@ -80,7 +80,7 @@ test('Two load cases AW0 / AW4 give the same result as before (cases, governing,
   var p = proj(function (raw) { raw.loads.cases.splice(1, 2); raw.loads.cars = raw.loads.cars.filter(function (r) { return r.load === 'AW0' || r.load === 'AW4'; }); });
   var o = JSON.parse(JSON.stringify(p.settings['static'])); o.en_check = 'yes';
   var r = E.staticRun(p, o), q = proj(), rq = E.staticRun(q, o);
-  assert.strictEqual(r.cars[0].cases.length, 6);
+  assert.strictEqual(r.cars[0].cases.filter(function (k) { return !k.extra; }).length, 6);
   // AW2 / AW3 lie between tare and crush: the governing case of the sample stays the TC exterior tare
   assert.deepStrictEqual([r.governing.car, r.governing.id], [rq.governing.car, rq.governing.id]);
   near(r.governing.c, rq.governing.c, 1e-12, 'governing clearance');
