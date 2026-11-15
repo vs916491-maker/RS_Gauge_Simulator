@@ -96,6 +96,9 @@ with sync_playwright() as pw:
     ok('Left-hand curve' in page.locator('#dres-xs').text_content(), 'cross-section at 1990 m is in the left-hand R300 curve')
     ok(abs(page.evaluate("Chart.getChart('chart-d-hw').data.datasets.filter(d=>d._marker)[0].data[0].x") - 1990) < 1e-6, 'chainage marker moved on the charts')
     page.screenshot(path=os.path.join(out, '24-dres-1990.png'), full_page=True)
+    ok(page.evaluate("!!Chart.getChart('chart-d-sodo') && !!Chart.getChart('chart-d-items')"), 'SOD outline and point-item charts drawn')
+    ok(page.evaluate("Chart.getChart('chart-d-xs').data.datasets.some(d => /SOD outline Tunnel/.test(d.label)) && Chart.getChart('chart-d-xs').data.datasets.some(d => d.label === 'Point items')"), 'cross-section at 1990 m shows the tunnel SOD outline and the items')
+    ok('Tunnel:' in page.locator('#dres-xs').text_content(), 'cross-section table gives the SOD outline clearance')
     page.click('#dres-worst'); page.wait_for_timeout(300)
     ok(float(page.input_value('#dres-ch')) > 4000, 'worst outside excess button jumps to the depot curve (%s)' % page.input_value('#dres-ch'))
     page.select_option('#dres-car', 'MC'); page.wait_for_timeout(400)
@@ -121,7 +124,7 @@ with sync_playwright() as pw:
                 xml.dom.minidom.parseString(z.read(n))
         media = [n for n in names if n.startswith('word/media/')]
         docxml = z.read('word/document.xml').decode('utf8')
-    ok(len(media) >= 12, 'Word report written: %d figures, all XML parts parse' % len(media))
+    ok(len(media) >= 13, 'Word report written: %d figures, all XML parts parse' % len(media))
     ok('7. Dynamic results' in docxml and '6. EN 15273-2:2009' in docxml, 'report has the EN and dynamic chapters')
     ok(d.value.suggested_filename.startswith('DEMO-GAU-001'), 'report file name starts with the document number (%s)' % d.value.suggested_filename)
     ok('Report written' in page.locator('#report-status').text_content(), 'report status message')

@@ -148,6 +148,8 @@
       { label: 'Rails', data: xs.rails, showLine: true, borderColor: colors.rail || '#1b1f24', backgroundColor: colors.rail || '#1b1f24', borderWidth: 3, pointRadius: 3 }
     ];
     if (xs.structure) { ds.push({ label: 'Structure at h2', data: xs.structure, showLine: true, borderColor: colors.str || '#9a3412', backgroundColor: colors.str || '#9a3412', borderWidth: 3, pointRadius: 0 }); }
+    if (xs.sod) { ds.push(line('SOD outline ' + xs.sod.name + ' (+ curve allowance)', xs.sod.pts, colors.sodo || '#0f766e', { w: 1.8 })); }
+    if (xs.items && xs.items.length) { ds.push({ label: 'Point items', data: xs.items, showLine: false, borderColor: colors.item || '#be185d', backgroundColor: colors.item || '#be185d', pointRadius: 5, pointStyle: 'rectRot' }); }
     return ds;
   }
 

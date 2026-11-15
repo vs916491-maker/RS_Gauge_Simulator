@@ -98,7 +98,7 @@ with identical bogies this is the workbook calculation.
 KE profiles with `n_up`. Customer limits: minimum clearance of body-mounted `cb` and bogie-mounted `cbg`
 equipment to the rail, axle-load limit `P`, PRM platform gap, nosing included in the tangent KE, SOD design
 vehicle (bogie centres `C`, body length `L`, wheelbase `b`; blank = this vehicle), dynamic reference heights `h1`
-(floor / platform) and `h2` (cantrail). SOD profiles and point items are kept for the dynamic phase.
+(floor / platform) and `h2` (cantrail). SOD profiles and point items are used by the dynamic outline check (§8.7).
 
 ### 4.5 Track data
 
@@ -331,6 +331,29 @@ Sweep point at or before the chainage (blank = largest outside excess). For each
 `X = x·cos φ − z·sin φ`, `Z = x·sin φ + z·cos φ`. The static profile, the KE and the KE + SOD allowance (x + T_out on
 the right, x + T_in on the left) are rotated the same way; rails at ±750 mm.
 
+### 8.7 SOD outline and point items
+
+At every sweep point and for every car type, the whole dynamic-gauge profile (§8.2) is displaced as in §8.6:
+OUTSIDE points (right in the curve frame) `(x + E_out(h), h − θo·x)`, INSIDE points (left) `(−(x + E_in(h)), h − θi·x)`;
+the vehicle envelope is the closed polygon of these points. Frame (Customer KE & SOD tab): *track plane* — compared as
+they are; *vertical* — envelope rotated by `φ = asin(E/G)` (§8.6).
+
+**SOD outline.** The SOD profile named on the track element (blank = no outline check) is a half outline (Y ≥ 0),
+mirrored. It is the tangent SOD: on curves it is widened laterally by the SOD allowance of §8.3, `y + T_out` on the
+outside and `y + T_in` on the inside. Clearance of each envelope point = signed shortest distance to the widened outline,
+positive inside the free space. Required: clearance ≥ the minimum clearance KE to SOD (Customer KE & SOD tab). The
+smallest clearance and its point are kept per sweep point.
+
+**Point items.** Each item has Y, Z, a side (left, right, both; left / right in the direction of increasing chainage) and
+an optional chainage range (blank = whole line); it is checked where the sweep chainage is within its range. Real side to
+curve frame: left-hand curve (k > 0) → right is the outside; right-hand curve → left is the outside; tangent (k = 0) → both
+hands are checked. Clearance = signed shortest distance from the item to the vehicle envelope, positive outside it;
+margin = clearance − the item's required clearance ≥ 0. The smallest margin and its item are kept per sweep point.
+
+Both checks enter the overall CHECK of the sweep point (§8.3), the line and element summaries (§8.4, smallest outline
+clearance and item margin, points failing) and the worst-car envelope. Distances are true Euclidean distances to the
+polygon edges (not the horizontal / vertical split of §6.4).
+
 ## 9. Verification
 
 1. **Workbook reproduction** (`tests/workbook.test.js`): fictional inputs were entered in the reference workbook
@@ -342,11 +365,13 @@ the right, x + T_in on the left) are rotated the same way; rails at ±750 mm.
    / local overthrow, tare / crush, RSS, deflated, tolerances and tilt, theoretical s and hc, no wind): every
    column of every sweep row, the line summary, the per-element table, the speed-step study and the cross-section
    outline match.
-3. Closed-form checks: tangent with no movement gives clearance = gap to the KE; yaw factor; wind constant;
+3. **SOD outline and items** (`tests/sod-outline.test.js`): closed-form cases (rectangular outline on tangent, curve
+   widening, cant rotation in the vertical frame, item sides and ranges, curve hand).
+4. Closed-form checks: tangent with no movement gives clearance = gap to the KE; yaw factor; wind constant;
    theoretical s from the closed form; axle load by statics.
-4. **EN 15273-2** (`tests/en15273.test.js`): reductions and z_kin against the standard's formulae A.24, A.27–A.31
+5. **EN 15273-2** (`tests/en15273.test.js`): reductions and z_kin against the standard's formulae A.24, A.27–A.31
    and A.46–A.50 typed in literally, 40 000 random vehicles, both branches; a hand check.
-5. Inputs are never mutated; results are deterministic.
+6. Inputs are never mutated; results are deterministic.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
 
