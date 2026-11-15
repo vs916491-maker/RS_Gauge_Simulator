@@ -48,7 +48,7 @@ test('Merge mode adds new profiles and replaces same-named ones', function () {
   var csv = 'Profile,Point,Y,Z\nKE Ballasted,A,0,4100\nKE Ballasted,B,1800,2000\nKE Ballasted,C,0,100\nKE New,A,0,4000\nKE New,B,1700,2000\nKE New,C,0,100\n';
   var r = IO.importWorkbook(IO.readWorkbookBytes(csv, true), P, { tab: 'ke', mode: 'merge' });
   var names = r.project.ke.profiles.map(function (p) { return p.name; });
-  assert.deepStrictEqual(names, ['KE Ballastless', 'KE Ballasted', 'KE New']);
+  assert.deepStrictEqual(names, ['KE Ballastless', 'KE Ballasted', 'KE CCD zone', 'KE New']);
   assert.strictEqual(r.project.ke.profiles[1].points[0].z, 4100);
 });
 
@@ -88,7 +88,7 @@ test('Workbook-style track rows (labels as in the gauging workbook) are imported
 test('Static results workbook has the summary, build-up, points, Method A, EN (when selected), vertical and derived sheets', function () {
   var E = require('../js/engine.js'), res = E.staticRun(P, P.settings['static']);
   var wb = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(res, P, { stale: false }))));
-  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'EN15273_MaxGauge', 'EN15273_Check', 'EN15273_Vertical', 'EN15273_DoorsSteps', 'EN15273_BogieParts', 'Vertical_Checks', 'Derived_Values']);
+  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'EN15273_MaxGauge', 'EN15273_Check', 'EN15273_Vertical', 'EN15273_DoorsSteps', 'EN15273_BogieParts', 'CCD_Static', 'Vertical_Checks', 'Derived_Values']);
   var pts = XL.utils.sheet_to_json(wb.Sheets.Static_Points, { header: 1 });
   assert.strictEqual(pts.length - 1, res.cars.reduce(function (n, c) { return n + c.cases.reduce(function (m, k) { return m + k.points.length; }, 0); }, 0));
   var ec = XL.utils.sheet_to_json(wb.Sheets.EN15273_Check, { header: 1 });
@@ -96,7 +96,7 @@ test('Static results workbook has the summary, build-up, points, Method A, EN (w
   // without the EN check: no EN sheets
   var o = JSON.parse(JSON.stringify(P.settings['static'])); o.en_check = 'no';
   var wb2 = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(E.staticRun(P, o), P, { stale: false }))));
-  assert.deepStrictEqual(wb2.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Vertical_Checks', 'Derived_Values']);
+  assert.deepStrictEqual(wb2.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'CCD_Static', 'Vertical_Checks', 'Derived_Values']);
   // static gauge method only: its own sheet, one row per point, top and lower part
   o.en_static = 'yes';
   var r3 = E.staticRun(P, o), wb3 = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(r3, P, { stale: false }))));

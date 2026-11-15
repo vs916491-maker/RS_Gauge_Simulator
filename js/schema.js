@@ -195,6 +195,46 @@
     f('note', 'Note', 'text', '', { d: '' })
   ];
 
+  // Third-rail current collector devices (CCD) on the bogies (METHOD §14): one row per CCD type, outline points per state
+  var ccd = [
+    f('name', 'CCD', 'text', '', { d: '' }),
+    f('bogie', 'Bogie type', 'text', '', { d: '' }),
+    f('mount', 'Mounted on', 'sel', '', { o: [['frame', 'Bogie frame (primary sprung)'], ['axle', 'Axleboxes (unsprung)']], d: 'frame' }),
+    f('x_m', 'Distance x of the shoe from the bogie centre', 'num', 'm', { min: 0, max: 5, d: 1.45, h: 'Beyond the end axle when x > p/2' }),
+    f('c_min_mm', 'Working range of the shoe on the contact axis – from', 'num', 'mm', { min: -500, max: 3000, d: 120, h: 'Bottom / top contact: height above rail; side contact: distance from the track centre (tare, new wheels)' }),
+    f('c_max_mm', 'Working range of the shoe on the contact axis – to', 'num', 'mm', { min: -500, max: 3000, d: 240 }),
+    f('o_min_mm', 'Shoe contact face on the other axis – from', 'num', 'mm', { min: -500, max: 3000, d: 1650, h: 'Bottom / top: lateral extent; side: height extent' }),
+    f('o_max_mm', 'Shoe contact face on the other axis – to', 'num', 'mm', { min: -500, max: 3000, d: 1790 }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
+  var ccdPoint = [
+    f('ccd', 'CCD', 'text', '', { d: '' }),
+    f('state', 'Position', 'sel', '', { o: [['working', 'Working (shoe on the rail)'], ['retracted', 'Retracted']], d: 'working' }),
+    f('part', 'Part', 'sel', '', { o: [['shoe', 'Shoe (follows the rail when working)'], ['gear', 'Shoe gear (moves with the bogie)']], d: 'gear' }),
+    f('pt', 'Point', 'text', '', { d: '' }),
+    f('y_mm', 'Y from the track centre (rail side)', 'num', 'mm', { min: 0, max: 3000 }),
+    f('z_mm', 'Z above top of rail (tare, new wheels)', 'num', 'mm', { min: -300, max: 2000 })
+  ];
+  // Conductor rail (Customer KE & SOD tab)
+  var thirdRail = [
+    f('tr_ke', 'Envelope for the CCD check (profile on this tab)', 'text', '', { d: '', h: 'Blank = the KE of the static check / of the track segment' }),
+    f('tr_contact', 'Contact type', 'sel', '', { o: [['bottom', 'Bottom contact'], ['top', 'Top contact'], ['side', 'Side contact']], d: 'bottom' }),
+    f('tr_c_mm', 'Contact surface: height (bottom / top) or distance from the track centre (side)', 'num', 'mm', { min: -500, max: 3000, d: 160 }),
+    f('tr_o_min_mm', 'Contact face on the other axis – from', 'num', 'mm', { min: -500, max: 3000, d: 1690, h: 'Bottom / top: lateral extent of the face; side: height extent' }),
+    f('tr_o_max_mm', 'Contact face on the other axis – to', 'num', 'mm', { min: -500, max: 3000, d: 1750 }),
+    f('tr_tol_y_mm', 'Installation tolerance – lateral ±', 'num', 'mm', { min: 0, max: 100, d: 10 }),
+    f('tr_tol_z_mm', 'Installation tolerance – vertical ±', 'num', 'mm', { min: 0, max: 100, d: 10 }),
+    f('tr_wear_mm', 'Wear of the contact face', 'num', 'mm', { min: 0, max: 50, d: 5 }),
+    f('tr_overlap_mm', 'Minimum overlap of shoe and rail faces', 'num', 'mm', { min: 0, max: 200, d: 20 })
+  ];
+  var trPart = [
+    f('name', 'Part', 'text', '', { d: '' }),
+    f('kind', 'Kind', 'sel', '', { o: [['bracket', 'Bracket / support'], ['shroud', 'Shroud / cover board'], ['insulator', 'Insulator'], ['other', 'Other']], d: 'bracket' }),
+    f('y_mm', 'Y from the track centre', 'num', 'mm', { min: 0, max: 3000 }),
+    f('z_mm', 'Z above top of rail', 'num', 'mm', { min: -300, max: 2000 }),
+    f('clear_mm', 'Required clearance to the CCD', 'num', 'mm', { min: 0, max: 500, d: 30 })
+  ];
+
   // ---------------------------------------------------------------- Customer KE & SOD tab
   var customerLimits = [
     f('uf_min_body_mm', 'Min. clearance body-mounted equipment to rail cb', 'num', 'mm', { min: 0, max: 500, d: 100 }),
@@ -382,7 +422,7 @@
   return {
     trainDescription: trainDescription, trainConfig: trainConfig, trainLoad: trainLoad, trainWind: trainWind,
     trainFields: trainDescription.concat(trainConfig, trainLoad, trainWind),
-    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep, pantograph: pantograph,
+    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep, pantograph: pantograph, ccd: ccd, ccdPoint: ccdPoint, thirdRail: thirdRail, trPart: trPart,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
