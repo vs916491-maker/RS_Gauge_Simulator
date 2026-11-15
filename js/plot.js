@@ -1,7 +1,7 @@
 /*
- * Chart.js dataset builders for the input previews: profiles (KE, SOD, RS) as full mirrored outlines and
- * the track alignment against chainage. Only reshapes input data; contains no physics. DOM-free.
- * Attaches to RSGAUGE.plot.
+ * Chart.js dataset builders: input previews (profiles mirrored, track against chainage) and static results
+ * (section outlines with the generated KE, Method A half-widths). Only reshapes input data and engine output;
+ * contains no physics. DOM-free. Attaches to RSGAUGE.plot.
  */
 (function (root, factory) {
   var M = (typeof module === 'object' && module.exports) ? require('./model.js') : root.RSGAUGE.model;
@@ -16,25 +16,22 @@
     sod: ['#6b7280', '#9a3412', '#57534e', '#78716c'],
     rs: ['#059669', '#d97706', '#7c3aed', '#be185d', '#65a30d']
   };
+  function line(label, data, color, o) {
+    o = o || {};
+    return { label: label, data: data, showLine: true, fill: false, borderColor: color, backgroundColor: color, borderWidth: o.w || 1.6,
+      borderDash: o.dash || [], pointRadius: o.points ? 2.5 : 0, pointHoverRadius: 4, tension: 0 };
+  }
 
   function outline(pr, group, i, opts) {
     var col = PALETTE[group][i % PALETTE[group].length];
-    return {
-      label: (group === 'ke' ? 'KE: ' : group === 'sod' ? 'SOD: ' : 'RS: ') + pr.name,
-      data: M.fullProfile(pr.points).map(function (p) { return { x: p.y, y: p.z }; }),
-      showLine: true, fill: false, borderColor: col, backgroundColor: col,
-      borderWidth: opts && opts.bold ? 2.5 : 1.6, borderDash: group === 'sod' ? [6, 4] : (group === 'rs' && i > 0 ? [3, 2] : []),
-      pointRadius: opts && opts.points ? 2.5 : 0, pointHoverRadius: 4, tension: 0
-    };
+    return line((group === 'ke' ? 'KE: ' : group === 'sod' ? 'SOD: ' : 'RS: ') + pr.name, M.fullProfile(pr.points).map(function (p) { return { x: p.y, y: p.z }; }), col,
+      { w: opts && opts.bold ? 2.5 : 1.6, dash: group === 'sod' ? [6, 4] : (group === 'rs' && i > 0 ? [3, 2] : []), points: opts && opts.points });
   }
 
   // sel: { ke: true|[names], sod: ..., rs: ..., items: true, highlight: {group, name} }
   function profileDatasets(p, sel) {
     var ds = [];
-    function want(group, name) {
-      var s = sel[group];
-      return s === true || (Array.isArray(s) && s.indexOf(name) >= 0);
-    }
+    function want(group, name) { var s = sel[group]; return s === true || (Array.isArray(s) && s.indexOf(name) >= 0); }
     ['sod', 'ke', 'rs'].forEach(function (g) {
       var list = g === 'ke' ? p.ke.profiles : g === 'sod' ? p.sod.profiles : p.rs.profiles;
       list.forEach(function (pr, i) {
@@ -54,30 +51,71 @@
   // Axis limits with equal scale in y and z (the chart's aspect ratio is set from the same spans).
   function profileAxes(ds) {
     var ymax = 500, zmax = 500, zmin = 0;
-    ds.forEach(function (d) { d.data.forEach(function (q) { ymax = Math.max(ymax, Math.abs(q.x)); zmax = Math.max(zmax, q.y); zmin = Math.min(zmin, q.y); }); });
+    ds.forEach(function (d) { d.data.forEach(function (q) { if (q.y === null) { return; } ymax = Math.max(ymax, Math.abs(q.x)); zmax = Math.max(zmax, q.y); zmin = Math.min(zmin, q.y); }); });
     var step = 500;
     ymax = Math.ceil((ymax * 1.05) / step) * step; zmax = Math.ceil((zmax * 1.04) / step) * step; zmin = Math.floor(zmin / step) * step;
     return { xmin: -ymax, xmax: ymax, ymin: zmin, ymax: zmax, aspect: (2 * ymax) / (zmax - zmin) };
   }
 
-  // Stepped series of the track data against chainage: curvature 1000/R (left curves positive), cant, speed, vertical curvature.
+  // Track data against chainage: curvature 1000/R (left +), linear in transitions; cant linear; speed; vertical curvature.
   function trackSeries(segments) {
     var seg = M.sortSegments(segments.filter(function (s) { return s.from_m !== null && s.to_m !== null && s.to_m > s.from_m; }));
     var curv = [], cant = [], speed = [], vcurv = [];
+    function k(R, side) { return R > 0 ? (side === 'R' ? -1 : 1) * 1000 / R : 0; }
     seg.forEach(function (s, i) {
-      var k = s.R_m > 0 ? (s.side === 'R' ? -1 : 1) * 1000 / s.R_m : 0;
       var kv = s.Rv_m ? 10000 / s.Rv_m : 0;
-      [s.from_m, s.to_m].forEach(function (x) {
-        curv.push({ x: x, y: k }); cant.push({ x: x, y: s.cant_mm || 0 }); speed.push({ x: x, y: s.speed_kmh || 0 }); vcurv.push({ x: x, y: kv });
-      });
-      // break the line where the next segment does not start at this one's end (gap in the data)
+      curv.push({ x: s.from_m, y: k(s.R_start_m, s.side) }, { x: s.to_m, y: k(s.R_end_m, s.side) });
+      cant.push({ x: s.from_m, y: s.cant_start_mm || 0 }, { x: s.to_m, y: s.cant_end_mm || 0 });
+      speed.push({ x: s.from_m, y: s.speed_kmh || 0 }, { x: s.to_m, y: s.speed_kmh || 0 });
+      vcurv.push({ x: s.from_m, y: kv }, { x: s.to_m, y: kv });
       var nx = seg[i + 1];
       if (nx && Math.abs(nx.from_m - s.to_m) > 1e-6) {
-        curv.push({ x: s.to_m, y: null }); cant.push({ x: s.to_m, y: null }); speed.push({ x: s.to_m, y: null }); vcurv.push({ x: s.to_m, y: null });
+        [curv, cant, speed, vcurv].forEach(function (a) { a.push({ x: s.to_m, y: null }); });
       }
     });
     return { curvature: curv, cant: cant, speed: speed, vcurvature: vcurv };
   }
 
-  return { profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries, PALETTE: PALETTE };
+  // ---------------------------------------------------------------- static results
+  // Right side as calculated, left side mirrored (the car can lean either way) - as the workbook plots.
+  function mirrorRight(pts) {
+    var right = pts.map(function (q) { return { x: q.x, y: q.y }; }), left = [];
+    for (var i = right.length - 1; i >= 0; i--) { left.push({ x: -right[i].x, y: right[i].y }); }
+    return right.concat(left, right.length ? [right[0]] : []);
+  }
+  function sectionDatasets(res, car, section, colors) {
+    colors = colors || {};
+    var ds = [], c = res.cars.filter(function (x) { return x.car === car; })[0];
+    if (!c) { return ds; }
+    ds.push(line('Customer KE: ' + res.ke.name, M.fullProfile(res.ke.points).map(function (q) { return { x: q.y, y: q.z }; }), colors.ke || '#2563eb', { w: 2.2 }));
+    var cs = c.cases.filter(function (k) { return k.section === section; });
+    if (cs[0]) {
+      ds.push(line('Static profile: ' + cs[0].profile, mirrorRight(cs[0].points.map(function (q) { return { x: q.x0, y: q.h0 }; })), colors.rs || '#059669', { w: 1.6 }));
+    }
+    cs.forEach(function (k) {
+      ds.push(line('Generated KE – ' + k.load, mirrorRight(k.points.map(function (q) { return { x: q.x, y: q.h }; })), k.load === 'tare' ? (colors.tare || '#dc2626') : (colors.crush || '#d97706'), { dash: k.load === 'tare' ? [] : [5, 3] }));
+    });
+    cs.forEach(function (k) {
+      if (k.min) { ds.push({ label: 'Governing point – ' + k.load + ' (' + k.min.pt + ', ' + k.min.c.toFixed(1) + ' mm)', data: [{ x: k.min.x, y: k.min.h }], showLine: false, pointRadius: 6, pointStyle: 'rectRot', borderColor: k.load === 'tare' ? '#dc2626' : '#d97706', backgroundColor: 'transparent', borderWidth: 2 }); }
+    });
+    return ds;
+  }
+  // Method A: half-width against height, as (x = half-width, y = height) lines.
+  function methodADatasets(res, car, colors) {
+    colors = colors || {};
+    var c = res.cars.filter(function (x) { return x.car === car; })[0];
+    if (!c) { return []; }
+    function col(key) { return c.methodA.filter(function (r) { return r[key] !== null && r[key] > 0; }).map(function (r) { return { x: r[key], y: r.h }; }); }
+    return [
+      line('Customer KE half-width', c.methodA.map(function (r) { return { x: r.W, y: r.h }; }), colors.ke || '#2563eb', { w: 2.2 }),
+      line('Max static – interior', col('max_int'), colors.int || '#059669'),
+      line('Max static – exterior', col('max_ext'), colors.ext || '#7c3aed', { dash: [6, 3] }),
+      line('Max static – car end', col('max_end'), colors.end || '#dc2626', { dash: [2, 2] }),
+      line('Profile – interior', col('prof_int'), colors.pint || '#6b7280', { w: 1.2, points: true }),
+      line('Profile – exterior / end', col('prof_ext'), colors.pext || '#a8a29e', { w: 1.2, dash: [4, 2] })
+    ];
+  }
+
+  return { profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries,
+    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
 }));
