@@ -131,7 +131,7 @@
     out.rs = { profiles: profiles(rs.profiles, S.rsProfile) };
     out.track = { params: record(tr.params, S.trackParams), segments: (tr.segments || []).map(function (s) { return record(s, S.segment); }) };
     var st = p.settings || {};
-    out.settings = { 'static': record(st['static'], S.staticOptions), dynamic: record(st.dynamic, S.dynamicOptions) };
+    out.settings = { 'static': record(st['static'], S.staticOptions), dynamic: record(st.dynamic, S.dynamicOptions), report: record(st.report, S.reportOptions) };
     Object.keys(st).forEach(function (k) { if (k !== 'static' && k !== 'dynamic') { out.settings[k] = clean(st[k]); } });
     syncBodies(out);
     fillRefs(out);

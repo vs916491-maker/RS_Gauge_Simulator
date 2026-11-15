@@ -107,6 +107,25 @@ with sync_playwright() as pw:
     page.click('#tabbtn-summary'); page.wait_for_timeout(300)
     ok('ALL OK along' in page.locator('#summary-dynamic').text_content(), 'overall summary shows the dynamic result')
 
+    # Word report
+    page.locator('#f-report input').nth(1).fill('DEMO-GAU-001'); page.wait_for_timeout(300)
+    ok('out of date' not in page.locator('#data-banner').text_content(), 'report fields do not make the results stale')
+    with page.expect_download() as d:
+        page.click('#btn-report')
+    rep = os.path.join(out, 'gauging-report.docx'); d.value.save_as(rep)
+    import zipfile, xml.dom.minidom
+    with zipfile.ZipFile(rep) as z:
+        names = z.namelist()
+        for n in names:
+            if n.endswith('.xml') or n.endswith('.rels'):
+                xml.dom.minidom.parseString(z.read(n))
+        media = [n for n in names if n.startswith('word/media/')]
+        docxml = z.read('word/document.xml').decode('utf8')
+    ok(len(media) >= 12, 'Word report written: %d figures, all XML parts parse' % len(media))
+    ok('7. Dynamic results' in docxml and '6. EN 15273-2:2009' in docxml, 'report has the EN and dynamic chapters')
+    ok(d.value.suggested_filename.startswith('DEMO-GAU-001'), 'report file name starts with the document number (%s)' % d.value.suggested_filename)
+    ok('Report written' in page.locator('#report-status').text_content(), 'report status message')
+
     # stale flag after an input change, and an option change
     page.click('#tabbtn-track'); page.wait_for_timeout(200)
     page.locator('#f-track-op input').nth(1).fill('110'); page.wait_for_timeout(400)
