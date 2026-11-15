@@ -43,7 +43,7 @@
     while (names[base + (i === 1 ? '' : ' ' + i)]) { i++; }
     return base + (i === 1 ? '' : ' ' + i);
   }
-  function inputsKey(p) { var q = JSON.parse(JSON.stringify(p)); delete q.name; delete q.notes; return JSON.stringify(q); }
+  function inputsKey(p) { var q = JSON.parse(JSON.stringify(p)); delete q.name; delete q.notes; if (q.settings) { delete q.settings.report; } return JSON.stringify(q); }   // report fields do not make results stale
   function staticOpts() { return state.p.settings['static']; }
   function dynOpts() { return state.p.settings.dynamic; }
 
@@ -740,6 +740,9 @@
   // ---------------------------------------------------------------- Overall Summary
   function renderSummary() {
     renderSummaryDynamic();
+    form($('f-report'), S.reportOptions, state.p.settings.report, function () { state.dirty = true; $('dirty').hidden = false; persist(); });
+    $('btn-report').disabled = !state.run;
+    $('report-status').textContent = state.run ? (state.drun ? '' : 'The dynamic simulation has not been run: the report will have no dynamic chapter.') : 'Run the static simulation first.';
     var v = state.validation, box = $('summary-inputs');
     roTable(box, ['Input tab', 'Errors', 'Warnings', 'Status'], Object.keys(INPUT_TABS).map(function (tab) {
       var ms = v.messages.filter(function (m) { return m.tab === tab; }), e = ms.filter(function (m) { return m.level === 'err'; }).length;
@@ -769,6 +772,83 @@
       return [x.car, fmt(q.xo.v, 1) + ' @ ' + fmt(q.xo.ch), fmt(q.xi.v, 1) + ' @ ' + fmt(q.xi.ch), String(q.sod_n), q.sc ? fmt(q.sc.v, 1) : 'n/a', fmt(q.uf.v, 1), q.gm ? fmt(q.gm.v, 1) : 'n/a', { v: q.ok ? 'OK' : 'CHECK', cls: q.ok ? 'okcell' : 'badcell' }];
     }));
     db.appendChild(el('p', { class: d.ok ? 'pill ok' : 'pill err', text: (d.ok ? 'ALL OK along ' : d.summary.check_n + ' point(s) to check along ') + fmt(d.summary.length) + ' m (' + d.summary.points + ' points)' }));
+  }
+
+  // ---------------------------------------------------------------- Word report
+  var RPT = { ke: '#2563eb', rs: '#059669', tare: '#dc2626', crush: '#d97706', int: '#059669', ext: '#7c3aed', end: '#dc2626', mu: '#6b7280' };
+  function reportChart(type, ds, scales, w, h) {
+    var cv = el('canvas', { width: String(w), height: String(h) }), box = $('report-canvas');
+    box.appendChild(cv);
+    var ink = '#222222', grid = '#d9d9d9';
+    Object.keys(scales).forEach(function (k) {
+      var sc = scales[k]; sc.ticks = sc.ticks || {}; sc.ticks.color = ink; sc.grid = sc.grid || {}; sc.grid.color = sc.grid.color || grid;
+      if (sc.title) { sc.title.color = ink; sc.title.font = { size: 14 }; }
+    });
+    var ch = new root.Chart(cv.getContext('2d'), {
+      type: type, data: { datasets: ds },
+      options: { animation: false, responsive: false, devicePixelRatio: 1.5, color: ink, scales: scales, elements: { point: { radius: 0 } },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 18, color: ink, font: { size: 13 }, filter: function (it, d) { return !d.datasets[it.datasetIndex]._marker; } } }, tooltip: { enabled: false } } },
+      plugins: [{ id: 'white', beforeDraw: function (c) { var x = c.ctx; x.save(); x.globalCompositeOperation = 'destination-over'; x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.restore(); } }]
+    });
+    var data = cv.toDataURL('image/png').split(',')[1], out = { data: data, w: cv.width, h: cv.height };
+    ch.destroy(); box.removeChild(cv);
+    return out;
+  }
+  function profileShot(ds) {
+    var ax = P.profileAxes(ds), w = 1000, h = Math.max(520, Math.min(1100, Math.round(w / Math.max(0.6, ax.aspect))));
+    return reportChart('scatter', ds, { x: { type: 'linear', min: ax.xmin, max: ax.xmax, title: { display: true, text: 'Y lateral from track centre [mm]' }, ticks: { stepSize: ax.step || 500 } },
+      y: { min: ax.ymin, max: ax.ymax, title: { display: true, text: 'Z above top of rail [mm]' }, ticks: { stepSize: ax.stepY || 500 } } }, w, h);
+  }
+  function halfWidthShot(ds) {
+    var xs = [], ys = [];
+    ds.forEach(function (d) { d.data.forEach(function (q) { xs.push(q.x); ys.push(q.y); }); });
+    var xmin = Math.floor((Math.min.apply(null, xs.concat([1000])) - 50) / 100) * 100, xmax = Math.ceil((Math.max.apply(null, xs.concat([1500])) + 50) / 100) * 100;
+    var ymin = Math.floor(Math.min.apply(null, ys.concat([0])) / 500) * 500, ymax = Math.ceil(Math.max.apply(null, ys.concat([1000])) / 500) * 500;
+    return reportChart('scatter', ds, { x: { type: 'linear', min: xmin, max: xmax, title: { display: true, text: 'Half-width [mm]' } }, y: { min: ymin, max: ymax, title: { display: true, text: 'Height above rail [mm]' } } }, 1000, 760);
+  }
+  function lineShot(ds, xTitle, yTitle) {
+    return reportChart('line', ds, { x: { type: 'linear', title: { display: true, text: xTitle } }, y: { title: { display: true, text: yTitle } } }, 1100, 520);
+  }
+  function reportImages() {
+    var r = state.run, d = state.drun, im = {};
+    im.profiles = profileShot(P.profileDatasets(state.p, { ke: true, sod: false, rs: true, items: false }));
+    r.cars.forEach(function (c, i) {
+      var sec = c.governing ? c.governing.id.split('_')[0] : 'int';
+      im['sec-' + i] = profileShot(P.sectionDatasets(r, c.car, sec, { ke: RPT.ke, rs: RPT.rs, tare: RPT.tare, crush: RPT.crush }));
+      im['ma-' + i] = halfWidthShot(P.methodADatasets(r, c.car, RPT));
+      if (c.en) { im['en-' + i] = halfWidthShot(P.enDatasets(r, c.car, RPT)); }
+    });
+    if (d) {
+      var q = d.summary, s = P.chainageSeries, X = 'Chainage [m]';
+      var cx = d.cars.filter(function (c) { return c.car === q.xo.car; })[0] || d.cars[0], rows = cx.rows;
+      im['dyn-excess'] = lineShot([lineDs('Excess OUTSIDE', s(rows, 'xo'), RPT.tare), lineDs('SOD allowance OUTSIDE', s(rows, 'To'), RPT.tare, [6, 4], 1),
+        lineDs('Excess INSIDE', s(rows, 'xi'), RPT.ext), lineDs('SOD allowance INSIDE', s(rows, 'Ti'), RPT.ext, [6, 4], 1)], X, 'mm');
+      var cs = d.cars.filter(function (c) { return q.sc && c.car === q.sc.car; })[0] || cx;
+      im['dyn-struct'] = lineShot([lineDs('Structure clearance at h2', s(cs.rows, 'sc'), RPT.rs), lineDs('Limit 0', cs.rows.map(function (x) { return { x: x.ch, y: 0 }; }), RPT.mu, [2, 2], 1)], X, 'mm');
+      var xs = E.crossSection(state.p, d, q.xo.car, q.xo.ch, staticOpts());
+      if (xs) { im['dyn-xs'] = profileShot(P.crossSectionDatasets(xs, {})); }
+    }
+    return im;
+  }
+  function downloadReport() {
+    var st = $('report-status');
+    if (!state.run) { st.textContent = 'Run the static simulation first.'; return; }
+    if (typeof root.JSZip === 'undefined' || !root.Chart) { st.textContent = 'Zip or chart library missing (vendor/): the Word report cannot be written.'; return; }
+    st.textContent = 'Writing the report…';
+    var o = state.p.settings.report, date = new Date().toLocaleDateString('en-GB'), images;
+    try { images = reportImages(); } catch (e) { st.textContent = 'Could not draw the charts: ' + e.message; return; }
+    var bl = R.report.blocks({ p: state.p, sres: state.run, dres: state.drun, opt: o, date: date, engineVersion: state.run.engineVersion, staleS: stale(), staleD: dstale(),
+      messages: state.validation.messages, methodMd: R.methodMd, images: images });
+    var title = o.title || 'Vehicle gauging report';
+    var parts = R.report.docxParts(bl, images, { header: title + (state.p.name ? ' – ' + state.p.name : ''), headerRight: (o.doc_no ? o.doc_no + '  ' : '') + 'Rev ' + (o.revision || '–'),
+      footer: 'Rolling Stock Gauge Simulator · ' + date, title: title, creator: o.prepared || '' });
+    var zip = new root.JSZip();
+    Object.keys(parts.xml).forEach(function (k) { zip.file(k, parts.xml[k]); });
+    Object.keys(parts.media).forEach(function (k) { zip.file(k, parts.media[k], { base64: true }); });
+    zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }).then(function (b) {
+      IO.downloadBlob(b, IO.fileSlug((o.doc_no ? o.doc_no + '-' : '') + (state.p.name || 'project')) + '-gauging-report.docx');
+      st.textContent = 'Report written (' + parts.images + ' figures).';
+    }, function (e) { st.textContent = 'Could not write the Word file: ' + e; });
   }
 
   var methodDone = false;
@@ -996,6 +1076,7 @@
     $('sres-car').addEventListener('change', function () { state.resCar = this.value; renderSres(); });
     $('sres-case').addEventListener('change', function () { state.resCase = this.value; renderSres(); });
     $('sres-en-sec').addEventListener('change', function () { renderSres(); });
+    $('btn-report').addEventListener('click', downloadReport);
     $('btn-export-static').addEventListener('click', function () {
       if (!state.run) { return; }
       IO.downloadWorkbook(IO.staticResultsWorkbook(state.run, state.p, { stale: stale() }), IO.fileSlug(state.p.name) + '-static-results.xlsx');

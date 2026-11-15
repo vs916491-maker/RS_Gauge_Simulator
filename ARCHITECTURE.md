@@ -8,7 +8,9 @@ Same rules and layout as the SEC simulator (`rs-sec-simulator`), so both tools w
 1. **Opens by double-clicking `index.html`** (`file://`), **fully offline**.
 2. **No build step.** No bundler, transpiler or npm install. What is in git is what runs.
 3. **No ES modules.** Classic `<script src>` files sharing one global namespace, `RSGAUGE`; each file is an IIFE / UMD.
-4. **No CDN links or external URLs.** Third-party libraries are copied into `vendor/` with their licences.
+4. **No CDN links or external URLs.** Third-party libraries are copied into `vendor/` with their licences. The only
+   `http://` strings in own code are XML namespace names of the Word file format in `js/report.js` (identifiers, not
+   addresses); `tests/offline.test.js` allows exactly those.
 5. **The calculation engine lives in `js/engine.js`**, pure: no DOM, no `Date`, no `Math.random`, no I/O,
    loadable by Node. UI and plot files contain **no equations**; calculated values shown on input tabs come from
    engine calls (`carGeometry`, `deriveCar`, `playCalc`).
@@ -25,20 +27,21 @@ css/style.css           all styling (light/dark via CSS variables)
 js/schema.js            every input field: key, label, type, unit, range, default, help (forms, templates, importers, checks)
 js/model.js             project structure, normalisation (safe copy, defaults), input checks per tab, profile/track helpers (DOM-free)
 js/engine.js            CALCULATION ENGINE (pure, DOM-free): derived car data, static run (Method B, Method A, vertical checks), dynamic run (sweep, summaries, speed steps, cross-section)
+js/report.js            Word report (DOM-free): content blocks from the project and the runs, .docx parts (WordprocessingML); no equations
 js/markdown.js          small Markdown renderer for the Method tab (DOM nodes, never innerHTML)
 js/method.js            GENERATED from METHOD.md by tools/make-presets.js
 js/presets.js           GENERATED from samples/*.json by tools/make-presets.js (fictional sample + vehicle-type presets)
 js/io.js                Excel/CSV templates and importers per tab, export all, static and dynamic results workbooks, project file (*.rsgauge.json)
 js/plot.js              Chart.js dataset builders (reshape data only)
 js/ui.js                tabs, forms, grids, tables, previews, messages; the only file building the page (exposes RSGAUGE.app)
-vendor/                 xlsx.full.min.js (SheetJS 0.18.5), chart.umd.js (Chart.js 4.4.1), licences, README
+vendor/                 xlsx.full.min.js (SheetJS 0.18.5), chart.umd.js (Chart.js 4.4.1), jszip.min.js (JSZip 3.10.1, zips the Word report), licences, README
 samples/                sample-project.json (FICTIONAL 6-car metro, envelopes, 4.4 km line), vehicle-types.json (LRV / Metro / HS typical values)
 tests/                  run-tests.js + *.test.js (Node built-ins only); fixtures/workbook-reference.json (fictional inputs + workbook results)
 tools/                  make-presets.js, ui-smoke.py (optional browser check), workbook-reference.py (rebuilds the fixture from the owner's workbook)
 ```
 
-Script order: `vendor/xlsx.full.min.js` → `vendor/chart.umd.js` → `js/schema.js` → `js/model.js` →
-`js/markdown.js` → `js/method.js` → `js/presets.js` → `js/io.js` → `js/plot.js` → `js/engine.js` → `js/ui.js`.
+Script order: `vendor/xlsx.full.min.js` → `vendor/chart.umd.js` → `vendor/jszip.min.js` → `js/schema.js` → `js/model.js` →
+`js/markdown.js` → `js/method.js` → `js/presets.js` → `js/io.js` → `js/plot.js` → `js/engine.js` → `js/report.js` → `js/ui.js`.
 
 ## 3. Data model (project file `*.rsgauge.json`, `format: "rsgauge-project"`, version 2)
 
@@ -67,7 +70,8 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
   settings: { static: { ke, flex, latflex, lat_state, vert_state, comb, K_rss, gtol_ext, align, tilt, up_roll, wind, over_infl,
                         ma_from_mm, ma_to_mm, ma_step_mm, en_check: yes|no, cars: 'all' | 'A,B' },
               dynamic: { ov_meth: max|local, load: tare|crush, profile, ch_from_m, ch_to_m, ss_R_m, ss_cant_mm, ss_wind_kmh,
-                         ss_step_kmh, ss_n, ss_ke, cars } }   // the static options are the common options of both runs
+                         ss_step_kmh, ss_n, ss_ke, cars },   // the static options are the common options of both runs
+              report: { title, doc_no, revision, prepared, checked, approved, appendix_points } }   // Word report fields; not part of the out-of-date check
 }
 ```
 
@@ -98,7 +102,8 @@ reads every known sheet.
 
 ## 5. Testing
 
-* `node tests/run-tests.js` — Node built-ins only. `en15273.test.js`: the EN 15273-2 reductions and z_kin against the
+* `node tests/run-tests.js` — Node built-ins only. `report.test.js`: report chapters with and without the dynamic run and
+  EN, well-formed .docx XML parts, escaping, image relations, figure numbering. `en15273.test.js`: the EN 15273-2 reductions and z_kin against the
   standard's formulae typed in literally (random vehicles, both branches), a hand check and the sample run.
   `workbook-dynamic.test.js`: the dynamic run against the workbook's
   Dynamic Calc for four option sets (every sweep column, summaries, speed steps, cross-section).
@@ -119,5 +124,6 @@ reads every known sheet.
 | 1 | Input tabs, templates, import/export, project file, previews, checks | Done (PR #1) |
 | 2 | Inputs aligned to the workbook, METHOD.md from the workbook, static engine, theoretical s/hc, shared-bogie check, presets, Static Simulation and Static Results | Done (PR #2) |
 | 3 | Dynamic Simulation (chainage sweep, speed-step study) and Dynamic Results with chainage selector and cross-section | Done (PR #3) |
-| 4 | EN 15273-2:2009 kinematic method as a static option (customer KE as reference profile) | **This pull request** |
-| 5 | Report; full SOD outline and point-item checks; validation calculations | Later |
+| 4 | EN 15273-2:2009 kinematic method as a static option (customer KE as reference profile) | Done (PR #4) |
+| 5 | Word gauging report (Overall Summary tab) | **This pull request** |
+| 6 | Full SOD outline and point-item checks; validation calculations | Later |

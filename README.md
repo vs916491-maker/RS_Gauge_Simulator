@@ -27,7 +27,9 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
    selector with the cross-section in the vertical frame, the per-element table and the speed-step study, and
    exports every sweep row to Excel.
 7. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
-8. The **Overall Summary** tab shows what still needs fixing; the **Method & Assumptions** tab is the full method.
+8. The **Overall Summary** tab shows what still needs fixing and writes the **Word gauging report** (document number,
+   revision, prepared / checked / approved, then inputs, method, static, EN and dynamic results with charts, assumptions
+   and appendices); the **Method & Assumptions** tab is the full method.
 
 ## Status
 
@@ -37,7 +39,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 2 | Inputs aligned to the workbook, static engine, Static Simulation and Static Results | Done |
 | 3 | Dynamic Simulation and Dynamic Results (chainage selector, cross-section, speed-step study) | Done |
 | 4 | EN 15273-2:2009 kinematic method (static option) | Done |
-| 5 | Report, full SOD outline checks, validation calculations | Later |
+| 5 | Word gauging report | Done |
+| 6 | Full SOD outline checks, validation calculations | Later |
 
 ## For developers
 
