@@ -57,7 +57,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
   bodies: [{ car, wind_len_m, wind_top_mm, wind_bot_mm, Cf, uf_h_mm, uf_hw_mm, uf_bog_h_mm, s_tare, s_crush, s_defl,
              hc_tare_mm, hc_crush_mm, hc_defl_mm }],
   ke:     { limits: { uf_min_body_mm, uf_min_bog_mm, axle_lim_t, prm_gap_mm, nosing_mm, sod_C_m, sod_L_m, sod_b_m, h_ref1_mm, h_ref2_mm },
-            en: {...later phase}, profiles: [{ name, note, n_up, points: [{pt, y, z}] }] },
+            en: { EN 15273-2:2009 rules, G1 defaults }, profiles: [{ name, note, n_up, points: [{pt, y, z}] }] },
   sod:    { frame, margin_mm, profiles: [...], items: [{ name, type, y, z, min_clear_mm }] },
   rs:     { profiles: [{ name, note, points }] },
   track:  { params: { cant_max_mm, cantdef_max_mm, cantexc_max_mm, wind_open_kmh, wind_plat_kmh, g_tol_mm, fw_mm, align_tol_mm,
@@ -65,7 +65,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
             segments: [{ from_m, to_m, element: tangent|transition|circular, side, R_start_m, R_end_m, cant_start_mm, cant_end_mm,
                          speed_kmh, Rv_m, ke, location: open|tunnel|platform|depot, wind: Y|N, struct_mm, platform_mm, platform_side, sod, remarks }] },
   settings: { static: { ke, flex, latflex, lat_state, vert_state, comb, K_rss, gtol_ext, align, tilt, up_roll, wind, over_infl,
-                        ma_from_mm, ma_to_mm, ma_step_mm, cars: 'all' | 'A,B' },
+                        ma_from_mm, ma_to_mm, ma_step_mm, en_check: yes|no, cars: 'all' | 'A,B' },
               dynamic: { ov_meth: max|local, load: tare|crush, profile, ch_from_m, ch_to_m, ss_R_m, ss_cant_mm, ss_wind_kmh,
                          ss_step_kmh, ss_n, ss_ke, cars } }   // the static options are the common options of both runs
 }
@@ -89,7 +89,7 @@ inputs of the last run and flags the results as out of date when anything change
 | Track | one row per segment | Track Data |
 
 Headers end with `(key)`; select values may be given as their key or label in any case (e.g. `Circular`, `Open`, `Y`);
-the static results export (Static Results tab) writes Static_Summary, Static_BuildUp, Static_Points, Method_A,
+the static results export (Static Results tab) writes Static_Summary, Static_BuildUp, Static_Points, Method_A, EN15273_MaxGauge and EN15273_Check (when the EN check is selected),
 Vertical_Checks and Derived_Values; the dynamic export (Dynamic Results tab) writes Dyn_Summary, Dyn_CarTypes,
 Dyn_Elements, Dyn_SpeedStep and Dyn_Sweep (every sweep row of every car type). The importer matches on the key (and on simple names such as `Profile`, `Point`, `Y`, `Z`
 for CSV files). A single-sheet file or CSV is read as the tab's main sheet. Profile coordinates that look like
@@ -98,7 +98,9 @@ reads every known sheet.
 
 ## 5. Testing
 
-* `node tests/run-tests.js` — Node built-ins only. `workbook-dynamic.test.js`: the dynamic run against the workbook's
+* `node tests/run-tests.js` — Node built-ins only. `en15273.test.js`: the EN 15273-2 reductions and z_kin against the
+  standard's formulae typed in literally (random vehicles, both branches), a hand check and the sample run.
+  `workbook-dynamic.test.js`: the dynamic run against the workbook's
   Dynamic Calc for four option sets (every sweep column, summaries, speed steps, cross-section).
   `workbook.test.js`: the engine against the reference gauging workbook
   recalculated with fictional inputs for seven option sets (every case minimum, governing point, Method A row, vertical
@@ -116,5 +118,6 @@ reads every known sheet.
 |---|---|---|
 | 1 | Input tabs, templates, import/export, project file, previews, checks | Done (PR #1) |
 | 2 | Inputs aligned to the workbook, METHOD.md from the workbook, static engine, theoretical s/hc, shared-bogie check, presets, Static Simulation and Static Results | Done (PR #2) |
-| 3 | Dynamic Simulation (chainage sweep, speed-step study) and Dynamic Results with chainage selector and cross-section | **This pull request** |
-| 4 | Report; full SOD outline and point-item checks; EN 15273-2 option; validation calculations | Later |
+| 3 | Dynamic Simulation (chainage sweep, speed-step study) and Dynamic Results with chainage selector and cross-section | Done (PR #3) |
+| 4 | EN 15273-2:2009 kinematic method as a static option (customer KE as reference profile) | **This pull request** |
+| 5 | Report; full SOD outline and point-item checks; validation calculations | Later |

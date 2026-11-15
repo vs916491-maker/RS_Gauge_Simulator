@@ -303,6 +303,8 @@
     p.ke.profiles.forEach(function (pr) { profileChecks(m, 'ke', 'KE profile', pr); });
     rangeChecks(m, 'ke', 'Customer limits', p.ke.limits, S.customerLimits);
     if (p.ke.limits.h_ref2_mm !== null && p.ke.limits.h_ref1_mm !== null && p.ke.limits.h_ref2_mm <= p.ke.limits.h_ref1_mm) { m.add('ke', 'warn', 'Reference height 2 is not above reference height 1.'); }
+    rangeChecks(m, 'ke', 'EN 15273-2 rules', p.ke.en, S.enParams);
+    if (p.ke.en.R1_m !== null && p.ke.en.Rmin_m !== null && !(p.ke.en.R1_m > p.ke.en.Rmin_m)) { m.add('ke', p.settings['static'].en_check === 'yes' ? 'err' : 'warn', 'EN 15273-2 rules: R1 must be larger than R2.'); }
     uniqueNames(m, 'ke', 'SOD profile', p.sod.profiles);
     p.sod.profiles.forEach(function (pr) { profileChecks(m, 'ke', 'SOD profile', pr, true); });
     p.sod.items.forEach(function (it, k) {
