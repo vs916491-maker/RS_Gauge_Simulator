@@ -32,10 +32,11 @@
     bogie: ['Bogies', 'CarBodies'],
     ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params'],
     rs: ['RSProfile'],
-    track: ['TrackParams', 'Track']
+    track: ['TrackParams', 'Track'],
+    tests: ['Sway_Test']
   };
-  var PRIMARY = { train: 'Train', bogie: 'Bogies', ke: 'KE', rs: 'RSProfile', track: 'Track' };
-  var ALL_SHEETS = [].concat(TAB_SHEETS.train, TAB_SHEETS.bogie, TAB_SHEETS.ke, TAB_SHEETS.rs, TAB_SHEETS.track);
+  var PRIMARY = { train: 'Train', bogie: 'Bogies', ke: 'KE', rs: 'RSProfile', track: 'Track', tests: 'Sway_Test' };
+  var ALL_SHEETS = [].concat(TAB_SHEETS.train, TAB_SHEETS.bogie, TAB_SHEETS.ke, TAB_SHEETS.rs, TAB_SHEETS.track, TAB_SHEETS.tests);
 
   function head(fd) { return fd.l + (fd.u ? ' [' + fd.u + ']' : '') + ' (' + fd.k + ')'; }
   function keyOf(cell) {
@@ -100,6 +101,7 @@
       case 'RSProfile': return profileRows(p.rs.profiles, S.rsProfile);
       case 'TrackParams': return paramRows(p.track.params, S.trackParams);
       case 'Track': return tableRows(p.track.segments, S.segment);
+      case 'Sway_Test': return tableRows(p.tests.sway, S.swayTest);
     }
     throw new Error('Unknown sheet ' + name);
   }
@@ -117,7 +119,8 @@
     SOD_Items: 'Point items to clear: third rail, platform edge, walkway, equipment. One row per item.',
     RSProfile: 'Rolling stock static section profile(s) (e.g. roof section, HVAC section): profile name and points as for KE. Car types pick a profile for each section.',
     TrackParams: 'Operating limits (cant, cant deficiency / excess, wind), track tolerances and the static-check geometry.',
-    Track: 'One row per element (Tangent / Transition / Circular) in increasing chainage, without gaps. R 0 = infinite; transitions go from R start to R end with cant start to cant end. Rv > 0 crest, < 0 sag. Location Open / Tunnel / Platform / Depot.'
+    Track: 'One row per element (Tangent / Transition / Circular) in increasing chainage, without gaps. R 0 = infinite; transitions go from R start to R end with cant start to cant end. Rv > 0 crest, < 0 sag. Location Open / Tunnel / Platform / Depot.',
+    Sway_Test: 'Sway (roll) test: one row per shim step. Car type name, load state (Tare / Crush / Deflated), shim height D, low side, and the lateral body displacement in the track plane at 2 or 3 heights, relative to the reading without shims, positive towards the low rail.'
   };
 
   function buildWorkbook(sheets, p, title) {
@@ -261,6 +264,7 @@
         case 'SOD_Items': v = readTable(rows, S.sodItem, msgs, n); if (v) { raw.sod.items = v; } break;
         case 'TrackParams': v = readParams(rows, S.trackParams, msgs, n); Object.keys(v).forEach(function (k) { raw.track.params[k] = v[k]; }); break;
         case 'Track': v = readTable(rows, S.segment, msgs, n); if (v) { raw.track.segments = v; } break;
+        case 'Sway_Test': v = readTable(rows, S.swayTest, msgs, n); if (v) { raw.tests = raw.tests || {}; raw.tests.sway = v; } break;
         default:
           list = readProfiles(rows, PROFILE_SHEETS[n].fields, msgs, n);
           if (list) {
@@ -336,6 +340,39 @@
   }
 
   // ---------------------------------------------------------------- dynamic results export
+  // Tests tab: sway-test evaluation and kinematic gauge test plan (METHOD §13).
+  function testsWorkbook(sway, plan, p, meta) {
+    var XL = X(), wb = XL.utils.book_new();
+    function add(name, rows, w) { var sh = XL.utils.aoa_to_sheet(rows); sh['!cols'] = rows[0].map(function (c, i) { return { wch: i === 0 ? (w || 22) : 13 }; }); XL.utils.book_append_sheet(wb, sh, name); }
+    var sv = [['Rolling Stock Gauge Simulator – sway test evaluation'], ['Project', p.name], ['Fictional example data', p.fictional ? 'YES' : 'no'], [''],
+      ['Car type', 'Load', 'Readings', 's measured', 'hc measured (mm)', 'RMS residual (mm)', 's left', 's right', 's used', 'hc used (mm)',
+        'h1 (mm)', 'Measured / 100 mm cant at h1', 'Used at h1', 'h2 (mm)', 'Measured at h2', 'Used at h2', 'Profile top (mm)', 'Measured at top', 'Used at top', 'Status']];
+    (sway || []).forEach(function (r) {
+      if (r.error) { sv.push([r.car, r.load, r.n, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'ERROR: ' + r.error]); return; }
+      var c = r.checks;
+      sv.push([r.car, r.load, r.n, r2(r.s, 4), r2(r.hc, 1), r2(r.rms, 3), r.sides.L ? r2(r.sides.L.s, 4) : '', r.sides.R ? r2(r.sides.R.s, 4) : '', r2(r.used.s, 4), r2(r.used.hc, 1),
+        c[0].h, r2(c[0].measured, 2), r2(c[0].used, 2), c[1].h, r2(c[1].measured, 2), r2(c[1].used, 2), c[2].h, r2(c[2].measured, 2), r2(c[2].used, 2), r.ok ? 'OK' : 'CHECK']);
+    });
+    sv.push([''], ['Readings', 'Load', 'Row', 'D (mm)', 'Low side', 'h (mm)', 'y (mm)', 'y per 100 mm cant', 'Fitted (mm)', 'Residual (mm)']);
+    (sway || []).forEach(function (r) { (r.points || []).forEach(function (q) { sv.push([r.car, r.load, q.row, q.D, q.side, q.h, q.y, r2(q.y100, 2), r2(q.fit, 2), r2(q.res, 2)]); }); });
+    add('Sway_Evaluation', sv, 14);
+    var su = [['Rolling Stock Gauge Simulator – kinematic gauge test plan'], ['Project', p.name], ['Static results out of date', meta && meta.stale ? 'YES – run again' : 'no'], [''],
+      ['Car type', 'Case', 'Profile', 'Shims D (mm)', 'of which cant (mm)', 'wind eq. cant (mm)', 'A', 'Play × A (mm)', 'q × A (mm)', 'w × A (mm)', 'Total lateral (mm)', 'Load', 's used', 'hc used (m)',
+        's measured', 'hc measured (mm)', 'Min clearance (mm)', 'At point', 'Min clearance with measured s (mm)', 'Note']];
+    var pts = [['Car type', 'Case', 'Pt', 'x0 (mm)', 'h0 (mm)', 'Expected x (mm)', 'Expected h (mm)', 'Template half-width (mm)', 'Template height (mm)', 'N lateral not reproduced (mm)', 'V vertical not reproduced (mm)',
+      'ΔX (mm)', 'ΔH (mm)', 'Clearance (mm)', 'x with measured s (mm)', 'h with measured s (mm)', 'Clearance with measured s (mm)']];
+    (plan || []).forEach(function (c) {
+      c.cases.forEach(function (k) {
+        su.push([c.car, k.label, k.profile, r2(k.D, 1), r2(k.cant, 1), r2(k.wind, 2), r2(k.A, 4), r2(k.play, 2), r2(k.q, 2), r2(k.w, 2), r2(k.Rlat, 2), k.load, r2(k.s, 4), r2(k.hc, 4),
+          k.sway ? r2(k.sway.s, 4) : '', k.sway ? r2(k.sway.hc, 1) : '', r2(k.min.c, 2), k.min.pt, k.minMeasured ? r2(k.minMeasured.cm, 2) : '', k.beyondSway ? 'Shims above the largest sway-test shim (' + k.sway.maxD + ' mm)' : '']);
+        k.points.forEach(function (q) { pts.push([c.car, k.label, q.pt, r2(q.x0), r2(q.h0), r2(q.xt, 2), r2(q.ht, 2), r2(q.Wt, 2), r2(q.Ht, 2), r2(q.N, 2), r2(q.V, 2), r2(q.dX, 2), r2(q.dH, 2), r2(q.c, 2),
+          q.xm === undefined ? '' : r2(q.xm, 2), q.hm === undefined ? '' : r2(q.hm, 2), q.cm === undefined ? '' : r2(q.cm, 2)]); });
+      });
+    });
+    add('Gauge_Test_Setup', su, 12);
+    add('Gauge_Test_Points', pts, 10);
+    return wb;
+  }
   function dynamicResultsWorkbook(res, p, meta) {
     var XL = X(), wb = XL.utils.book_new(), o = p.settings.dynamic, so = p.settings['static'], sm = res.summary;
     function add(name, rows, w) { var sh = XL.utils.aoa_to_sheet(rows); sh['!cols'] = rows[0].map(function (c, i) { return { wch: i === 0 ? (w || 22) : 13 }; }); XL.utils.book_append_sheet(wb, sh, name); }
@@ -421,7 +458,7 @@
 
   return {
     TAB_SHEETS: TAB_SHEETS, ALL_SHEETS: ALL_SHEETS, sheetRows: sheetRows, keyOf: keyOf,
-    tabWorkbook: tabWorkbook, allInputsWorkbook: allInputsWorkbook, workbookBytes: workbookBytes, staticResultsWorkbook: staticResultsWorkbook, dynamicResultsWorkbook: dynamicResultsWorkbook,
+    tabWorkbook: tabWorkbook, allInputsWorkbook: allInputsWorkbook, workbookBytes: workbookBytes, staticResultsWorkbook: staticResultsWorkbook, dynamicResultsWorkbook: dynamicResultsWorkbook, testsWorkbook: testsWorkbook,
     importWorkbook: importWorkbook, readWorkbookBytes: readWorkbookBytes,
     projectJson: projectJson, parseProject: parseProject, fileSlug: fileSlug,
     downloadBlob: downloadBlob, downloadText: downloadText, downloadWorkbook: downloadWorkbook, readFile: readFile

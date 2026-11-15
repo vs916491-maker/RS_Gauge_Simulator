@@ -244,8 +244,33 @@
       }));
     }
 
-    // ---- 8 assumptions
-    h1('8. Assumptions and limitations');
+    // ---- 8 test calculations
+    h1('8. Test calculations');
+    var LD = { tare: 'Tare', crush: 'Crush', deflated: 'Deflated' }, sw = ctx.sway || [];
+    h2('8.1 Sway test evaluation');
+    if (!sw.length) { para('No sway test entered.'); }
+    else {
+      para('Least-squares fit of y = s·(D/L)·(h − hc) to the readings; accepted when the measured roll displacement per 100 mm of cant does not exceed the value used in gauging at h1, h2 and the top of the RS profiles.');
+      table(['Car type', 'Load', 'Readings', 's / hc measured', 'RMS [mm]', 's / hc used', 'h1: meas. / used', 'h2: meas. / used', 'Top: meas. / used', 'Status'], sw.map(function (r) {
+        if (r.error) { return [r.car, LD[r.load] || r.load, String(r.n), r.error, '', '', '', '', '', 'CHECK']; }
+        return [r.car, LD[r.load], String(r.n), fmt(r.s, 3) + ' / ' + fmt(r.hc), fmt(r.rms, 2), fmt(r.used.s, 3) + ' / ' + fmt(r.used.hc)].concat(r.checks.map(function (c) { return fmt(c.measured, 1) + ' / ' + fmt(c.used, 1); }), [status(r.ok)]);
+      }), null, 7.5);
+    }
+    if (ctx.plan && ctx.plan.length) {
+      h2('8.2 Kinematic gauge test plan');
+      para('Each static case is reproduced on straight test track: shims D = cant + wind equivalent cant under the low side, and the wheel–rail play, primary q and secondary w pushed to the stops (× A; ' +
+        'interior: both bogies the same way, exterior and car end: opposite ways). The test template is the customer KE minus the terms not reproduced; the expected clearances equal the static run. ' +
+        'Positions are measured perpendicular to the shimmed rail plane. Point-by-point values are in the Tests export.');
+      var trows = [];
+      ctx.plan.forEach(function (c) { c.cases.forEach(function (k) {
+        trows.push([c.car, k.label, fmt(k.D, 1) + (k.beyondSway ? ' *' : ''), fmt(k.Rlat, 1), k.load === 'crush' ? 'Crush' : 'Tare', fmt(k.min.c, 1) + ' (' + k.min.pt + ')', k.minMeasured ? fmt(k.minMeasured.cm, 1) : '–']);
+      }); });
+      table(['Car type', 'Case', 'Shims D [mm]', 'Lateral to impose [mm]', 'Load', 'Expected min clearance [mm]', 'With measured s, hc [mm]'], trows, [0.12, 0.2, 0.12, 0.14, 0.1, 0.18, 0.14]);
+      if (trows.some(function (r) { return / \*$/.test(r[2]); })) { note('* Shim height above the largest shim of the sway test of that car type and load: the roll is linear only by assumption beyond the tested range.'); }
+    }
+
+    // ---- 9 assumptions
+    h1('9. Assumptions and limitations');
     var a11 = methodSection(ctx.methodMd, 11), a12 = methodSection(ctx.methodMd, 12);
     add({ type: 'list', ordered: true, items: a11.items.map(plain) });
     if (en) { para('EN 15273-2: implemented from the 2009 edition (superseded by EN 15273-2:2013). Not covered: lower-part profiles GIC1/GIC2 and the vertical reductions of A.3.4, pantograph, doors and steps open, tilting vehicles, wagons.'); }
@@ -253,7 +278,7 @@
 
     // ---- 9 warnings
     var msgs = (ctx.messages || []).filter(function (m) { return m.level === 'warn' || m.level === 'err'; });
-    if (msgs.length) { h1('9. Input warnings'); add({ type: 'list', items: msgs.map(function (m) { return (m.level === 'err' ? 'Error: ' : '') + m.text; }) }); }
+    if (msgs.length) { h1('10. Input warnings'); add({ type: 'list', items: msgs.map(function (m) { return (m.level === 'err' ? 'Error: ' : '') + m.text; }) }); }
 
     // ---- appendices
     add({ type: 'pagebreak' });

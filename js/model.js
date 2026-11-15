@@ -130,9 +130,10 @@
       items: (sod.items || []).map(function (it) { return record(it, S.sodItem); }) };
     out.rs = { profiles: profiles(rs.profiles, S.rsProfile) };
     out.track = { params: record(tr.params, S.trackParams), segments: (tr.segments || []).map(function (s) { return record(s, S.segment); }) };
+    out.tests = { sway: (((p.tests || {}).sway) || []).map(function (r) { return record(r, S.swayTest); }) };
     var st = p.settings || {};
     out.settings = { 'static': record(st['static'], S.staticOptions), dynamic: record(st.dynamic, S.dynamicOptions), report: record(st.report, S.reportOptions) };
-    Object.keys(st).forEach(function (k) { if (k !== 'static' && k !== 'dynamic') { out.settings[k] = clean(st[k]); } });
+    Object.keys(st).forEach(function (k) { if (k !== 'static' && k !== 'dynamic' && k !== 'report') { out.settings[k] = clean(st[k]); } });
     syncBodies(out);
     fillRefs(out);
     return out;
@@ -314,6 +315,18 @@
     if (p.sod.items.length || p.track.segments.some(function (sg) { return sg.sod; })) {
       if (!(p.sod.margin_mm >= 0)) { m.add('ke', 'warn', 'SOD: no minimum clearance KE to SOD given; 50 mm is used.'); }
     }
+
+    // ---- Tests (sway test rows)
+    var carNames = p.train.carTypes.map(function (c) { return c.name; });
+    ((p.tests || {}).sway || []).forEach(function (r, k) {
+      var id = 'Sway test row ' + (k + 1);
+      rangeChecks(m, 'tests', id, r, S.swayTest.filter(function (fd) { return fd.k === 'h3_mm' || fd.k === 'y3_mm' || (fd.t === 'num' && r[fd.k] !== null); }));
+      if (!r.car || carNames.indexOf(r.car) < 0) { m.add('tests', 'err', id + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
+      if (!(r.D_mm > 0)) { m.add('tests', 'err', id + ': shim height D must be > 0.'); }
+      var n = [1, 2, 3].filter(function (j) { return r['h' + j + '_mm'] !== null && r['y' + j + '_mm'] !== null; }).length;
+      if (n < 2) { m.add('tests', 'err', id + ': at least two heights with a displacement are needed.'); }
+      [1, 2, 3].forEach(function (j) { if ((r['h' + j + '_mm'] === null) !== (r['y' + j + '_mm'] === null)) { m.add('tests', 'warn', id + ': height ' + j + ' and its displacement go together; the incomplete pair is ignored.'); } });
+    });
 
     // ---- RS profile
     if (!p.rs.profiles.length) { m.add('rs', 'err', 'No rolling stock profile.'); }

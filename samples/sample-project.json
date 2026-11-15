@@ -1168,5 +1168,165 @@
       "ss_n": 13,
       "ss_ke": ""
     }
+  },
+  "tests": {
+    "sway": [
+      {
+        "car": "DMC",
+        "load": "tare",
+        "D_mm": 60,
+        "low": "L",
+        "h1_mm": 1000,
+        "y1_mm": 4.5,
+        "h2_mm": 2400,
+        "y2_mm": 19.1,
+        "h3_mm": 3600,
+        "y3_mm": 32.5,
+        "note": "Fictional example"
+      },
+      {
+        "car": "DMC",
+        "load": "tare",
+        "D_mm": 60,
+        "low": "R",
+        "h1_mm": 1000,
+        "y1_mm": 4.2,
+        "h2_mm": 2400,
+        "y2_mm": 19.7,
+        "h3_mm": 3600,
+        "y3_mm": 32.2,
+        "note": "Fictional example"
+      },
+      {
+        "car": "DMC",
+        "load": "tare",
+        "D_mm": 120,
+        "low": "L",
+        "h1_mm": 1000,
+        "y1_mm": 8.6,
+        "h2_mm": 2400,
+        "y2_mm": 39.1,
+        "h3_mm": 3600,
+        "y3_mm": 64.7,
+        "note": "Fictional example"
+      },
+      {
+        "car": "DMC",
+        "load": "tare",
+        "D_mm": 120,
+        "low": "R",
+        "h1_mm": 1000,
+        "y1_mm": 8.7,
+        "h2_mm": 2400,
+        "y2_mm": 38.7,
+        "h3_mm": 3600,
+        "y3_mm": 65.1,
+        "note": "Fictional example"
+      },
+      {
+        "car": "DMC",
+        "load": "crush",
+        "D_mm": 60,
+        "low": "L",
+        "h1_mm": 1000,
+        "y1_mm": 5.0,
+        "h2_mm": 2400,
+        "y2_mm": 20.1,
+        "h3_mm": 3600,
+        "y3_mm": 34.0,
+        "note": "Fictional example"
+      },
+      {
+        "car": "DMC",
+        "load": "crush",
+        "D_mm": 60,
+        "low": "R",
+        "h1_mm": 1000,
+        "y1_mm": 4.7,
+        "h2_mm": 2400,
+        "y2_mm": 20.7,
+        "h3_mm": 3600,
+        "y3_mm": 33.7,
+        "note": "Fictional example"
+      },
+      {
+        "car": "DMC",
+        "load": "crush",
+        "D_mm": 120,
+        "low": "L",
+        "h1_mm": 1000,
+        "y1_mm": 9.5,
+        "h2_mm": 2400,
+        "y2_mm": 41.1,
+        "h3_mm": 3600,
+        "y3_mm": 67.7,
+        "note": "Fictional example"
+      },
+      {
+        "car": "DMC",
+        "load": "crush",
+        "D_mm": 120,
+        "low": "R",
+        "h1_mm": 1000,
+        "y1_mm": 9.6,
+        "h2_mm": 2400,
+        "y2_mm": 40.7,
+        "h3_mm": 3600,
+        "y3_mm": 68.1,
+        "note": "Fictional example"
+      },
+      {
+        "car": "TC",
+        "load": "tare",
+        "D_mm": 60,
+        "low": "L",
+        "h1_mm": 1000,
+        "y1_mm": 5.3,
+        "h2_mm": 2400,
+        "y2_mm": 21.0,
+        "h3_mm": 3600,
+        "y3_mm": 35.4,
+        "note": "Fictional example"
+      },
+      {
+        "car": "TC",
+        "load": "tare",
+        "D_mm": 60,
+        "low": "R",
+        "h1_mm": 1000,
+        "y1_mm": 5.0,
+        "h2_mm": 2400,
+        "y2_mm": 21.6,
+        "h3_mm": 3600,
+        "y3_mm": 35.1,
+        "note": "Fictional example"
+      },
+      {
+        "car": "TC",
+        "load": "tare",
+        "D_mm": 120,
+        "low": "L",
+        "h1_mm": 1000,
+        "y1_mm": 10.2,
+        "h2_mm": 2400,
+        "y2_mm": 42.9,
+        "h3_mm": 3600,
+        "y3_mm": 70.4,
+        "note": "Fictional example"
+      },
+      {
+        "car": "TC",
+        "load": "tare",
+        "D_mm": 120,
+        "low": "R",
+        "h1_mm": 1000,
+        "y1_mm": 10.3,
+        "h2_mm": 2400,
+        "y2_mm": 42.5,
+        "h3_mm": 3600,
+        "y3_mm": 70.8,
+        "note": "Fictional example"
+      }
+    ]
   }
 }

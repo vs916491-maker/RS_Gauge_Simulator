@@ -28,8 +28,11 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
    exports every sweep row to Excel. Where a track element names an SOD profile, the whole displaced profile is checked
    against that outline (widened by the curve allowance); point items (third rail, platform edges, signals…) are
    checked on their side and chainage range.
-7. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
-8. The **Overall Summary** tab shows what still needs fixing and writes the **Word gauging report** (document number,
+7. **Tests**: enter the sway (roll) test readings — the tool fits s and hc and compares the roll displacement with the
+   values used in gauging — and, after a static run, get the kinematic gauge test plan per car type and case (shims,
+   lateral displacements to impose, test template and expected positions), exported to Excel.
+8. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
+9. The **Overall Summary** tab shows what still needs fixing and writes the **Word gauging report** (document number,
    revision, prepared / checked / approved, then inputs, method, static, EN and dynamic results with charts, assumptions
    and appendices); the **Method & Assumptions** tab is the full method.
 
@@ -43,7 +46,7 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 4 | EN 15273-2:2009 kinematic method (static option) | Done |
 | 5 | Word gauging report | Done |
 | 6 | SOD outline and point-item checks (dynamic) | Done |
-| 7 | Validation calculations | Later |
+| 7 | Tests: sway-test evaluation and kinematic gauge test plan | Done |
 
 ## For developers
 
