@@ -624,6 +624,8 @@
     stat('Min structure clearance' + (sm.sc ? ' (ch ' + fmt(sm.sc.ch) + ')' : ''), sm.sc ? fmt(sm.sc.v, 1) : 'n/a', sm.sc ? 'mm' : null, false, sm.sc && !sm.sc_ok);
     stat('Min underframe height' + (sm.uf ? ' (ch ' + fmt(sm.uf.ch) + ')' : ''), sm.uf ? fmt(sm.uf.v, 1) : '—', 'mm', false, !sm.uf_ok);
     stat('Min platform gap' + (sm.gm ? ' (ch ' + fmt(sm.gm.ch) + ')' : ''), sm.gm ? fmt(sm.gm.v, 1) : 'n/a', sm.gm ? 'mm' : null, false, sm.gm && !sm.gm_ok);
+    stat('Min clearance to the SOD outline' + (sm.sodc ? ' (' + sm.sodc.car + ', ch ' + fmt(sm.sodc.ch) + ')' : ''), sm.sodc ? fmt(sm.sodc.v, 1) : 'n/a', sm.sodc ? 'mm' : null, false, sm.sodo_n > 0);
+    stat('Min point-item margin' + (sm.itm ? ' (ch ' + fmt(sm.itm.ch) + ')' : ''), sm.itm ? fmt(sm.itm.v, 1) : 'n/a', sm.itm ? 'mm' : null, false, sm.it_n > 0);
     // line summary (workbook layout)
     function ex(x, d) { return x ? [fmt(x.v, d === undefined ? 1 : d), fmt(x.ch, 1), x.car || ''] : ['n/a', '', '']; }
     function st(ok, txt) { return { v: txt, cls: ok ? 'okcell' : (txt ? 'badcell' : '') }; }
@@ -638,11 +640,14 @@
       ['Minimum underframe height, body-mounted (mm)'].concat(ex(sm.uf), [fmt(sm.uf_lim), st(sm.uf_ok, sm.uf_ok ? 'OK' : 'BELOW MIN')]),
       ['Minimum platform gap, worst movement (mm)'].concat(ex(sm.gm), ['0', sm.gm ? st(sm.gm_ok, sm.gm_ok ? 'OK' : 'CONTACT') : '']),
       ['Maximum nominal platform gap (mm)'].concat(ex(sm.gn), [fmt(sm.prm), sm.gn ? { v: sm.gn_info ? 'INFO: above PRM value' : 'OK', cls: sm.gn_info ? 'warncell' : 'okcell' } : '']),
+      ['Minimum clearance to the SOD outline, whole profile (mm)'].concat(ex(sm.sodc), [fmt(sm.sodc_req), sm.sodc ? st(!sm.sodo_n, sm.sodo_n ? sm.sodo_n + ' points CHECK' : 'OK') : 'no SOD on the line']),
+      ['Minimum point-item margin over its required clearance (mm)'].concat(ex(sm.itm), ['0', sm.itm ? st(!sm.it_n, sm.it_n ? sm.it_n + ' points CHECK' : 'OK') : 'no items']),
       ['Points with any CHECK', String(sm.check_n), '', '', '0', st(sm.ok, sm.ok ? 'ALL OK' : 'REVIEW')]
     ]);
-    roTable($('dres-cars'), ['Car type', 'Max OUT excess (mm)', 'at (m)', 'Max IN excess (mm)', 'SOD checks', 'Min structure (mm)', 'Min underframe (mm)', 'Min gap (mm)', 'Status'], r.cars.map(function (x) {
+    roTable($('dres-cars'), ['Car type', 'Max OUT excess (mm)', 'at (m)', 'Max IN excess (mm)', 'SOD checks', 'Min structure (mm)', 'Min underframe (mm)', 'Min gap (mm)', 'Min SOD outline (mm)', 'Min item margin (mm)', 'Status'], r.cars.map(function (x) {
       var q = x.summary;
-      return { cls: x.car === c.car ? 'selrow' : '', cells: [x.car, fmt(q.xo.v, 1), fmt(q.xo.ch, 0), fmt(q.xi.v, 1), String(q.sod_n), q.sc ? fmt(q.sc.v, 1) : 'n/a', fmt(q.uf.v, 1), q.gm ? fmt(q.gm.v, 1) : 'n/a', st(q.ok, q.ok ? 'OK' : 'CHECK')] };
+      return { cls: x.car === c.car ? 'selrow' : '', cells: [x.car, fmt(q.xo.v, 1), fmt(q.xo.ch, 0), fmt(q.xi.v, 1), String(q.sod_n), q.sc ? fmt(q.sc.v, 1) : 'n/a', fmt(q.uf.v, 1), q.gm ? fmt(q.gm.v, 1) : 'n/a',
+        q.sodc ? fmt(q.sodc.v, 1) : 'n/a', q.itm ? fmt(q.itm.v, 1) : 'n/a', st(q.ok, q.ok ? 'OK' : 'CHECK')] };
     }));
     // selector
     var sel = clear($('dres-car'));
@@ -652,8 +657,9 @@
     $('dres-ch').value = fmt(state.dCh, 1); sl.value = state.dCh;
     dynCharts(c); renderXs();
     // elements
-    roTable($('dres-elements'), ['No', 'Ch start', 'Ch end', 'Element', 'Hand', 'R start', 'R end', 'Speed', 'Max deficiency', 'Max OUT h2', 'Max IN h2', 'Max excess OUT', 'Max excess IN', 'Min structure', 'Min underframe', 'Status', 'Remarks'],
-      c.elements.map(function (e) { return { cls: (state.dCh >= e.s0 && state.dCh < e.s1) ? 'selrow' : '', cells: [e.no, fmt(e.s0, 1), fmt(e.s1, 1), e.type, e.side || '–', e.R0 ? fmt(e.R0) : '∞', e.R1 ? fmt(e.R1) : '∞', fmt(e.V), fmt(e.def, 1), fmt(e.o2, 0), fmt(e.i2, 0), fmt(e.xo, 1), fmt(e.xi, 1), e.sc === null ? '' : fmt(e.sc, 0), fmt(e.uf, 0), st(e.status === 'OK', e.status), e.remarks || ''] }; }));
+    roTable($('dres-elements'), ['No', 'Ch start', 'Ch end', 'Element', 'Hand', 'R start', 'R end', 'Speed', 'Max deficiency', 'Max OUT h2', 'Max IN h2', 'Max excess OUT', 'Max excess IN', 'Min structure', 'Min underframe', 'SOD', 'Min SOD outline', 'Min item margin', 'Status', 'Remarks'],
+      c.elements.map(function (e) { return { cls: (state.dCh >= e.s0 && state.dCh < e.s1) ? 'selrow' : '', cells: [e.no, fmt(e.s0, 1), fmt(e.s1, 1), e.type, e.side || '–', e.R0 ? fmt(e.R0) : '∞', e.R1 ? fmt(e.R1) : '∞', fmt(e.V), fmt(e.def, 1), fmt(e.o2, 0), fmt(e.i2, 0), fmt(e.xo, 1), fmt(e.xi, 1), e.sc === null ? '' : fmt(e.sc, 0), fmt(e.uf, 0),
+        e.sodn || '–', e.sodc === null ? '' : fmt(e.sodc, 1), e.itm === null ? '' : fmt(e.itm, 1), st(e.status === 'OK', e.status), e.remarks || ''] }; }));
     // speed step
     var ss = c.speedStep;
     $('dres-ss-note').textContent = 'Curve R = ' + (ss.R ? fmt(ss.R) + ' m' : 'tangent') + ', cant ' + fmt(ss.cant) + ' mm, wind ' + fmt(ss.wind) + ' km/h, KE: ' + ss.ke + ', car type ' + c.car + '.';
@@ -683,7 +689,7 @@
           tooltip: { filter: function (it) { return !it.dataset._marker; }, callbacks: { label: function (cx) { return cx.dataset.label + ': ' + fmt(cx.raw.y, 1) + ' at ' + fmt(cx.raw.x, 1); } } } } }
     });
     state.charts[id].canvas.onclick = function (ev) {
-      if (!/^chart-d-(curv|speed|hw|excess|struct|uf)$/.test(id)) { return; }
+      if (!/^chart-d-(curv|speed|hw|excess|struct|uf|sodo|items)$/.test(id)) { return; }
       var ch = state.charts[id], x = ch.scales.x.getValueForPixel(ev.offsetX);
       if (isFinite(x)) { setCh(x); }
     };
@@ -700,13 +706,16 @@
     chLine('chart-d-struct', [lineDs(has ? 'Structure clearance at h2' : 'No structure distances in the Track Data', s(rows, 'sc'), c3), lineDs('Limit 0', rows.map(function (r) { return { x: r.ch, y: 0 }; }), mu, [2, 2], 1), markerDs(rows, ['sc'])], X, 'mm');
     var lim = n0(state.p.ke.limits.uf_min_body_mm);
     chLine('chart-d-uf', [lineDs('Underframe height (worst case)', s(rows, 'uf'), c2), lineDs('Minimum clearance cb', rows.map(function (r) { return { x: r.ch, y: lim }; }), c4, [2, 2], 1), markerDs(rows.concat([{ uf: lim }]), ['uf'])], X, 'mm');
+    var sreq = state.p.sod.margin_mm === null ? 50 : state.p.sod.margin_mm, hasS = rows.some(function (r) { return r.sodc !== null; }), hasI = rows.some(function (r) { return r.itm !== null; });
+    chLine('chart-d-sodo', [lineDs(hasS ? 'Clearance to the SOD outline' : 'No SOD outline on the Track Data', s(rows, 'sodc'), c3), lineDs('Required clearance', rows.map(function (r) { return { x: r.ch, y: sreq }; }), c4, [2, 2], 1), markerDs(rows.concat([{ sodc: sreq }]), ['sodc'])], X, 'mm');
+    chLine('chart-d-items', [lineDs(hasI ? 'Smallest item margin' : 'No point items on the line', s(rows, 'itm'), c5), lineDs('Limit 0', rows.map(function (r) { return { x: r.ch, y: 0 }; }), mu, [2, 2], 1), markerDs(rows.concat([{ itm: 0 }]), ['itm'])], X, 'mm');
   }
   function n0(v) { return v === null || v === undefined || !isFinite(v) ? 0 : Number(v); }
   function setCh(ch) {
     var r = state.drun; if (!r) { return; }
     state.dCh = Math.min(Math.max(Number(ch), r.sweep.ch0), r.sweep.end);
     $('dres-ch').value = fmt(state.dCh, 1); $('dres-slider').value = state.dCh;
-    ['chart-d-curv', 'chart-d-speed', 'chart-d-hw', 'chart-d-excess', 'chart-d-struct', 'chart-d-uf'].forEach(function (id) {
+    ['chart-d-curv', 'chart-d-speed', 'chart-d-hw', 'chart-d-excess', 'chart-d-struct', 'chart-d-uf', 'chart-d-sodo', 'chart-d-items'].forEach(function (id) {
       var ch = state.charts[id]; if (!ch) { return; }
       ch.data.datasets.forEach(function (d) { if (d._marker) { d.data[0].x = d.data[1].x = state.dCh; } });
       ch.update('none');
@@ -718,7 +727,7 @@
   function renderXs() {
     var r = state.drun, c = dcar(), xs = E.crossSection(state.p, r, c.car, state.dCh, staticOpts());
     if (!xs) { return; }
-    var ds = P.crossSectionDatasets(xs, { ke: cssVar('--c1', '#2563eb'), rs: cssVar('--c3', '#059669'), env: cssVar('--c4', '#dc2626'), sod: cssVar('--muted', '#6b7280'), rail: cssVar('--text', '#1b1f24'), str: cssVar('--c2', '#d97706') });
+    var ds = P.crossSectionDatasets(xs, { ke: cssVar('--c1', '#2563eb'), rs: cssVar('--c3', '#059669'), env: cssVar('--c4', '#dc2626'), sod: cssVar('--muted', '#6b7280'), rail: cssVar('--text', '#1b1f24'), str: cssVar('--c2', '#d97706'), sodo: cssVar('--c6', '#0f766e'), item: cssVar('--c5', '#be185d') });
     scatterChart('chart-d-xs', ds, P.profileAxes(ds), function (cx) { return cx.dataset.label + ': X ' + fmt(cx.raw.x) + ', Z ' + fmt(cx.raw.y) + ' mm'; });
     var q = xs.row, k = c.consts, curve = q.k > 0 ? 'Left-hand curve' : (q.k < 0 ? 'Right-hand curve' : 'Straight');
     roTable($('dres-xs'), ['Quantity', 'Value'], [
@@ -732,6 +741,8 @@
       ['Roll angle outside / inside', fmt(xs.tho * 1000, 2) + ' / ' + fmt(xs.thi * 1000, 2) + ' mrad'],
       ['Structure clearance at h2', q.sc === null ? 'n/a' : { v: fmt(q.sc, 1) + ' mm', cls: q.sc >= 0 ? 'okcell' : 'badcell' }],
       ['Underframe height (worst)', { v: fmt(q.uf, 1) + ' mm', cls: q.ufs === 'OK' ? 'okcell' : 'badcell' }],
+      ['SOD outline (' + (state.p.sod.frame === 'vertical' ? 'vertical frame' : 'track plane') + ')', q.sodc === null ? 'none on this element' : { v: q.sodn + ': ' + fmt(q.sodc, 1) + ' mm at ' + q.sodp, cls: q.sods === 'OK' ? 'okcell' : 'badcell' }],
+      ['Point items', q.itm === null ? 'none active' : { v: q.itn + ': clearance ' + fmt(q.itc, 1) + ' mm, margin ' + fmt(q.itm, 1) + ' mm', cls: q.its === 'OK' ? 'okcell' : 'badcell' }],
       ['Platform', q.pl ? q.pl + ': gap ' + fmt(q.gn, 1) + ' nominal, ' + fmt(q.gm, 1) + ' mm minimum (' + q.gs + ')' : '—'],
       ['Profile / s / hc', k.profile + ' / ' + fmt(k.s, 3) + ' / ' + fmt(k.hc, 3) + ' m']
     ]);
@@ -825,6 +836,11 @@
         lineDs('Excess INSIDE', s(rows, 'xi'), RPT.ext), lineDs('SOD allowance INSIDE', s(rows, 'Ti'), RPT.ext, [6, 4], 1)], X, 'mm');
       var cs = d.cars.filter(function (c) { return q.sc && c.car === q.sc.car; })[0] || cx;
       im['dyn-struct'] = lineShot([lineDs('Structure clearance at h2', s(cs.rows, 'sc'), RPT.rs), lineDs('Limit 0', cs.rows.map(function (x) { return { x: x.ch, y: 0 }; }), RPT.mu, [2, 2], 1)], X, 'mm');
+      if (q.sodc || q.itm) {
+        var cso = d.cars.filter(function (c) { return q.sodc && c.car === q.sodc.car; })[0] || cx;
+        im['dyn-sodo'] = lineShot([lineDs('Clearance to the SOD outline (' + cso.car + ')', s(cso.rows, 'sodc'), RPT.rs), lineDs('Required clearance', cso.rows.map(function (x) { return { x: x.ch, y: state.p.sod.margin_mm === null ? 50 : state.p.sod.margin_mm }; }), RPT.tare, [2, 2], 1),
+          lineDs('Smallest point-item margin (all car types)', s(d.envelope, 'itm'), RPT.ext), lineDs('Limit 0', d.envelope.map(function (x) { return { x: x.ch, y: 0 }; }), RPT.mu, [2, 2], 1)], X, 'mm');
+      }
       var xs = E.crossSection(state.p, d, q.xo.car, q.xo.ch, staticOpts());
       if (xs) { im['dyn-xs'] = profileShot(P.crossSectionDatasets(xs, {})); }
     }

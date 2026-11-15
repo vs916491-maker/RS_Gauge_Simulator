@@ -61,7 +61,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
              hc_tare_mm, hc_crush_mm, hc_defl_mm }],
   ke:     { limits: { uf_min_body_mm, uf_min_bog_mm, axle_lim_t, prm_gap_mm, nosing_mm, sod_C_m, sod_L_m, sod_b_m, h_ref1_mm, h_ref2_mm },
             en: { EN 15273-2:2009 rules, G1 defaults }, profiles: [{ name, note, n_up, points: [{pt, y, z}] }] },
-  sod:    { frame, margin_mm, profiles: [...], items: [{ name, type, y, z, min_clear_mm }] },
+  sod:    { frame, margin_mm, profiles: [...], items: [{ name, type, y, z, min_clear_mm, side: both|L|R, ch_from_m, ch_to_m }] },
   rs:     { profiles: [{ name, note, points }] },
   track:  { params: { cant_max_mm, cantdef_max_mm, cantexc_max_mm, wind_open_kmh, wind_plat_kmh, g_tol_mm, fw_mm, align_tol_mm,
                       cl_err_mm, widen_mm, widen_R_m, R_min_m, R_static_m, Rv_static_m, dx_m },
@@ -102,7 +102,8 @@ reads every known sheet.
 
 ## 5. Testing
 
-* `node tests/run-tests.js` — Node built-ins only. `report.test.js`: report chapters with and without the dynamic run and
+* `node tests/run-tests.js` — Node built-ins only. `sod-outline.test.js`: closed-form SOD outline and point-item cases
+  (rectangular outline, widening, cant rotation, item sides, ranges and curve hand) and the sample line. `report.test.js`: report chapters with and without the dynamic run and
   EN, well-formed .docx XML parts, escaping, image relations, figure numbering. `en15273.test.js`: the EN 15273-2 reductions and z_kin against the
   standard's formulae typed in literally (random vehicles, both branches), a hand check and the sample run.
   `workbook-dynamic.test.js`: the dynamic run against the workbook's
@@ -125,5 +126,6 @@ reads every known sheet.
 | 2 | Inputs aligned to the workbook, METHOD.md from the workbook, static engine, theoretical s/hc, shared-bogie check, presets, Static Simulation and Static Results | Done (PR #2) |
 | 3 | Dynamic Simulation (chainage sweep, speed-step study) and Dynamic Results with chainage selector and cross-section | Done (PR #3) |
 | 4 | EN 15273-2:2009 kinematic method as a static option (customer KE as reference profile) | Done (PR #4) |
-| 5 | Word gauging report (Overall Summary tab) | **This pull request** |
-| 6 | Full SOD outline and point-item checks; validation calculations | Later |
+| 5 | Word gauging report (Overall Summary tab) | Done (PR #5) |
+| 6 | Dynamic: whole-profile check against the SOD outline (widened on curves) and point items | **This pull request** |
+| 7 | Validation calculations | Later |
