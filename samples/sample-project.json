@@ -106,6 +106,10 @@
       "q_mm": 5,
       "w_mm": 30,
       "w_defl_mm": 30,
+      "w250_mm": null,
+      "w150_mm": null,
+      "wv_R_m": null,
+      "wv_mm": null,
       "wheel_new_mm": 860,
       "wheel_worn_mm": 780,
       "pack_step_mm": 20,
@@ -144,6 +148,10 @@
       "q_mm": 5,
       "w_mm": 30,
       "w_defl_mm": 30,
+      "w250_mm": null,
+      "w150_mm": null,
+      "wv_R_m": null,
+      "wv_mm": null,
       "wheel_new_mm": 860,
       "wheel_worn_mm": 780,
       "pack_step_mm": 20,
@@ -1153,7 +1161,8 @@
       "ma_from_mm": 900,
       "ma_to_mm": null,
       "ma_step_mm": 100,
-      "en_check": "yes"
+      "en_check": "yes",
+      "en_mc": "traction"
     },
     "dynamic": {
       "ov_meth": "max",
@@ -1229,11 +1238,11 @@
         "D_mm": 60,
         "low": "L",
         "h1_mm": 1000,
-        "y1_mm": 5.0,
+        "y1_mm": 5,
         "h2_mm": 2400,
         "y2_mm": 20.1,
         "h3_mm": 3600,
-        "y3_mm": 34.0,
+        "y3_mm": 34,
         "note": "Fictional example"
       },
       {
@@ -1283,7 +1292,7 @@
         "h1_mm": 1000,
         "y1_mm": 5.3,
         "h2_mm": 2400,
-        "y2_mm": 21.0,
+        "y2_mm": 21,
         "h3_mm": 3600,
         "y3_mm": 35.4,
         "note": "Fictional example"
@@ -1294,7 +1303,7 @@
         "D_mm": 60,
         "low": "R",
         "h1_mm": 1000,
-        "y1_mm": 5.0,
+        "y1_mm": 5,
         "h2_mm": 2400,
         "y2_mm": 21.6,
         "h3_mm": 3600,

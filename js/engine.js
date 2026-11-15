@@ -342,40 +342,108 @@
     var k2 = (r.Dlim - C0) / r.Lref;
     return s * C0 / r.Lref * pos(h - hc) + Math.tan(pos(eta - r.eta_lim)) * Math.abs(h - hc) + pos(s * k2 * pos(h - hc) - r.s0 * k2 * pos(h - r.hc0));
   }
-  // One reduction E (m) at height h for a section at n from the pivot. set 'traction' (A.3.9.1.1) or 'coach' (A.3.9.3.1),
-  // side 'i' (between the pivots, A.27/28, A.46/47) or 'a' (beyond, A.30/31, A.49/50); w constant with the radius.
-  // Each formula pair meets where the standard switches, so E = larger branch (equal to the standard for G1 rules).
-  function enReduction(r, set, side, h, n, a, pw, d, q, w, z) {
-    var Ck = h <= r.h_low ? r.Ck_low : r.Ck_up, P = (r.lmax - d) / 2, f2 = 1 / (2 * r.R2) - 1 / (2 * r.R1);
-    var inner = side === 'i', A = inner ? 1 : (2 * n + a) / a;
-    var delta = inner ? a * n - n * n + pw * pw / 4 : a * n + n * n - pw * pw / 4;
-    var x = pos((delta - (inner ? r.Xi : r.Xa)) * f2);
-    var straight = (P + q + w) * A + z - r.e0, curve;
-    if (set === 'traction') { curve = delta / (2 * r.R1) + (P + q + w) * A + z + x - r.e0 - Ck / r.R1; }
-    else if (inner) { curve = delta / (2 * r.R1) + q + w + z + x - Ck / r.R1; }
-    else { curve = delta / (2 * r.R1) + P * (n + a) / a + (q + w) * A + z + x - r.e0 - Ck / r.R1; }
-    return { E: Math.max(straight, curve), straight: straight, curve: curve, branch: curve > straight ? 'curve' : 'straight', delta: delta, x: x, z: z, A: A, Ck: Ck };
+  // General reduction (A.3.9.1, A.3.9.2, A.3.9.3), literal switching conditions, lengths in m.
+  // o = { set: traction|coach|motor, side: i|a, low, n, a, d, q, z, near: {p, winf, w250, w150}, far: {...} }
+  // For 'motor' near = motor bogie side (A.40–A.42) or carrying side (A.43–A.45) is given by o.motorNear;
+  // between the pivots (A.37–A.39) near = motor bogie and n = n_mu (distance from the motor bogie centre).
+  function enE(r, o) {
+    var Ck = o.low ? r.Ck_low : r.Ck_up, P = (r.lmax - o.d) / 2, k1 = 1 / (2 * r.R1), kx = 1 / (2 * r.R2) - 1 / (2 * r.R1);
+    var n = o.n, a = o.a, q = o.q, z = o.z, N = o.near, F = o.far, inner = o.side === 'i', A = inner ? 1 : (2 * n + a) / a;
+    var fn = (n + a) / a, ff = n / a, delta, x, straight, curve, cond, res;
+    if (o.set === 'motor') {
+      if (inner) {
+        var fm = (a - n) / a, fc = n / a;   // A.37–A.39, N = motor bogie, F = carrying bogie
+        delta = a * n - n * n + N.p * N.p / 4 * fm + F.p * F.p / 4 * fc;
+        x = (delta - r.Xi) * kx + (N.w150 - N.w250) * fm + (F.w150 - F.w250) * fc;
+        straight = P + q + N.winf * fm + F.winf * fc + z - r.e0;
+        curve = delta * k1 + P * fm + q + N.w250 * fm + F.w250 * fc + z + pos(x) - Ck / r.R1 - r.e0 * fm;
+      } else if (o.motorNear) {   // A.40–A.42: motor bogie at the section's end (N), carrying bogie far (F)
+        delta = a * n + n * n - N.p * N.p / 4 * fn + F.p * F.p / 4 * ff;
+        x = (delta - r.Xa) * kx + (F.w150 - F.w250) * ff + (N.w150 - N.w250) * fn;
+        straight = (P + q) * A + N.winf * fn + F.winf * ff + z - r.e0;
+        curve = delta * k1 + P * fn + q * A + F.w250 * ff + N.w250 * fn + z + pos(x) - r.e0 - Ck / r.R1;
+      } else {   // A.43–A.45: carrying bogie at the section's end (N), motor bogie far (F)
+        delta = a * n + n * n + F.p * F.p / 4 * ff - N.p * N.p / 4 * fn;
+        x = (delta - r.Xa) * kx + (F.w150 - F.w250) * ff + (N.w150 - N.w250) * fn;
+        straight = (P + q) * A + F.winf * ff + N.winf * fn + z - r.e0;
+        curve = delta * k1 + (P + q) * A + F.w250 * ff + N.w250 * fn + z + pos(x) - r.e0 - Ck / r.R1;
+      }
+      res = { E: Math.max(straight, curve), branch: curve > straight ? 'curve' : 'straight' };   // NOTE of A.3.9.2: the largest
+    } else if (inner) {
+      delta = a * n - n * n + N.p * N.p / 4;
+      x = (delta - r.Xi) * kx + N.w150 - N.w250;
+      straight = P + q + N.winf + z - r.e0;
+      if (o.set === 'traction') {   // A.27–A.29
+        cond = delta - 2 * r.R1 * (N.winf - N.w250) <= 2 * Ck;
+        curve = delta * k1 + P + q + N.w250 + z + pos(x) - r.e0 - Ck / r.R1;
+      } else {                      // A.46–A.48
+        cond = delta - 2 * r.R1 * (N.winf - N.w250) <= r.R1 * (r.lmax - o.d) - 2 * (r.Ck_up - Ck);
+        curve = delta * k1 + q + N.w250 + z + pos(x) - Ck / r.R1;
+      }
+      res = { E: cond ? straight : curve, branch: cond ? 'straight' : 'curve' };
+    } else {
+      delta = a * n + n * n - N.p * N.p / 4;
+      x = (delta - r.Xa) * kx + (F.w150 - F.w250) * ff + (N.w150 - N.w250) * fn;
+      var dw = 2 * r.R1 * ((F.winf - F.w250) * ff + (N.winf - N.w250) * fn);
+      straight = (P + q) * A + F.winf * ff + N.winf * fn + z - r.e0;
+      if (o.set === 'traction') {   // A.30–A.32
+        cond = delta - dw <= 2 * Ck;
+        curve = delta * k1 + (P + q) * A + F.w250 * ff + N.w250 * fn + z + pos(x) - r.e0 - Ck / r.R1;
+      } else {                      // A.49–A.51
+        cond = delta - dw <= r.R1 * (r.lmax - o.d) * ff + 2 * Ck;
+        curve = delta * k1 + P * fn + q * A + F.w250 * ff + N.w250 * fn + z + pos(x) - r.e0 - Ck / r.R1;
+      }
+      res = { E: cond ? straight : curve, branch: cond ? 'straight' : 'curve' };
+    }
+    // non-linear w (A.3.9.1.2 / A.3.9.3.2): bracket evaluated at the radius where the variable stops begin
+    if (o.set !== 'motor' && (N.Rv > 0 || F.Rv > 0)) {
+      var Rv = Math.max(N.Rv || 0, F.Rv || 0), wN = N.Rv > 0 ? N.wv : N.winf, wF = F.Rv > 0 ? F.wv : F.winf, br;
+      if (inner) { br = (delta - 2 * Ck) / (2 * Rv) + wN; res.Ev = br + (o.set === 'traction' ? P : 0) + q + z - (o.set === 'traction' ? r.e0 : 0); }
+      else { br = (delta - 2 * Ck) / (2 * Rv) + wF * ff + wN * fn; res.Ev = br + (o.set === 'traction' ? (P + q) * A : P * fn + q * A) + z - r.e0; }
+      if (res.Ev > res.E) { res.E = res.Ev; res.branch = 'variable stops R ' + Math.round(Rv); }
+    }
+    res.straight = straight; res.curve = curve; res.delta = delta; res.x = pos(x); res.z = z; res.A = A; res.Ck = Ck;
+    return res;
   }
-  // EN reductions per section, worst of tare and crush.
+  // Single-bogie-type form (both bogies alike, w constant with the radius) — kept for the tests and simple use.
+  function enReduction(r, set, side, h, n, a, pw, d, q, w, z) {
+    var b = { p: pw, winf: w, w250: w, w150: w };
+    return enE(r, { set: set, side: side, low: h <= r.h_low, n: n, a: a, d: d, q: q, z: z, near: b, far: b });
+  }
+  // EN reductions per section: worst of tare and crush, of the bogie orientations and (motor coach) of the formula pairs.
   function enSectionE(r, en, sec, h) {
-    var best = null;
+    var best = null, side = sec === 'int' ? 'i' : 'a', B = en.bogies;
     en.loads.forEach(function (ld) {
-      var side = sec === 'int' ? 'i' : 'a', z = enZ(r, h, ld.s, ld.hc, side === 'i' ? r.I0 : r.D0, en.eta);
-      var o = enReduction(r, en.set, side, h, en.n[sec], en.a, en.p, en.d, en.q, en.w, z);
-      if (!best || o.E > best.E) { best = o; best.load = ld.load; }
+      var z = enZ(r, h, ld.s, ld.hc, side === 'i' ? r.I0 : r.D0, en.eta), cands = [];
+      var base = { set: en.set, side: side, low: h <= r.h_low, a: en.a, d: en.d, q: en.q, z: z };
+      function c(n, near, far, mn) { var o = {}, k; for (k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) { o[k] = base[k]; } } o.n = n; o.near = near; o.far = far; o.motorNear = mn; cands.push(o); }
+      if (en.set === 'motor') {
+        var m = B[0].motor ? B[0] : B[1], t = B[0].motor ? B[1] : B[0];
+        if (side === 'i') { c(en.n[sec], m, t); c(en.a - en.n[sec], m, t); }
+        else { c(en.n[sec], m, t, true); c(en.n[sec], t, m, false); }
+      } else { c(en.n[sec], B[0], B[1]); c(en.n[sec], B[1], B[0]); }
+      cands.forEach(function (o) { var e = enE(r, o); if (!best || e.E > best.E) { best = e; best.load = ld.load; } });
     });
     return best;
   }
   function enRun(p, d, ke, profs, opt, ma) {
     var r = enRules(p), g = d.geo, bg = d.bogie, b1 = bg.b1, b2 = bg.b2;
-    var motor = yes(b1.motor) || yes(b2.motor);
+    var nMot = (yes(b1.motor) ? 1 : 0) + (yes(b2.motor) ? 1 : 0);
     var dW = Math.min(n0(b1.bb_mm) + 2 * n0(b1.ef_worn_mm), n0(b2.bb_mm) + 2 * n0(b2.ef_worn_mm)) / 1000;
+    var defl = opt.lat_state === 'deflated';
+    function bog(b) {   // w at straight track, 250 m and 150 m; variable stops (blank = none); deflated state: w constant
+      var winf = n0(defl ? b.w_defl_mm : b.w_mm) / 1000, w250 = defl ? winf : blankOr(b.w250_mm, winf * 1000) / 1000, w150 = defl ? winf : blankOr(b.w150_mm, w250 * 1000) / 1000;
+      return { name: b.name, motor: yes(b.motor), p: n0(b.p_m), winf: winf, w250: w250, w150: w150, Rv: defl ? 0 : n0(b.wv_R_m), wv: blankOr(b.wv_mm, winf * 1000) / 1000 };
+    }
+    var set = nMot === 0 ? 'coach' : (nMot === 1 && opt.en_mc === 'motor' ? 'motor' : 'traction');
     var en = {
-      set: motor ? 'traction' : 'coach', a: g.a, p: bg.p, d: dW, q: bg.q / 1000, w: d.w_use / 1000, eta: n0(d.body.eta0_deg) * Math.PI / 180,
+      set: set, bogies: [bog(b1), bog(b2)], a: g.a, p: bg.p, d: dW, q: bg.q / 1000, w: d.w_use / 1000, eta: n0(d.body.eta0_deg) * Math.PI / 180,
       n: { int: g.ni, ext: g.na, end: g.n_end },
       loads: [{ load: 'tare', s: d.s_t, hc: d.hc_t }, { load: 'crush', s: d.s_c, hc: d.hc_c }]
     };
-    var secs = ['int', 'ext', 'end'], out = { rules: r, set: en.set, clause: en.set === 'traction' ? 'A.3.9.1.1' : 'A.3.9.3.1', d: dW * 1000, q: bg.q, w: d.w_use,
+    var varW = en.bogies.some(function (b) { return b.w250 !== b.winf || b.w150 !== b.w250; }), nonlin = en.bogies.some(function (b) { return b.Rv > 0; });
+    var clause = set === 'motor' ? 'A.3.9.2' : (set === 'traction' ? (nonlin ? 'A.3.9.1.1 + A.3.9.1.2' : 'A.3.9.1.1') : (nonlin ? 'A.3.9.3.1 + A.3.9.3.2' : 'A.3.9.3.1'));
+    var secs = ['int', 'ext', 'end'], out = { rules: r, set: en.set, clause: clause, varW: varW, nonlin: nonlin, bogies: en.bogies, d: dW * 1000, q: bg.q, w: d.w_use,
       eta_deg: n0(d.body.eta0_deg), P: (r.lmax - dW) / 2 * 1000, sections: {}, rows: [], checks: {}, ok: true };
     secs.forEach(function (sec) {
       var hi = enSectionE(r, en, sec, ke.top), lo = enSectionE(r, en, sec, Math.min(r.h_low, ke.top));
@@ -879,6 +947,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));
