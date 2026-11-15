@@ -115,6 +115,15 @@
         Heights of bogie-mounted parts are checked in the lower-parts table above.</p>
       <div id="t-bogie-parts" class="tablewrap"></div>
     </div>
+    <div class="card">
+      <div class="row"><h3>Third-rail current collector devices (CCD)</h3><span class="muted">Checked statically and along the line whenever a CCD is given (METHOD §14)</span></div>
+      <p class="hint">One row per CCD type and the bogie type that carries it. Coordinates on the rail side (Y from the track centre, Z above rail) with the car tare and new wheels.
+        Working range: the positions of the shoe on the contact axis where it still presses on the rail (bottom / top contact: heights; side contact: lateral). Conductor-rail data on the Customer KE &amp; SOD tab.</p>
+      <div id="t-ccd" class="tablewrap"></div>
+      <h3 class="gap">CCD outline points <span class="muted">(working and retracted positions)</span></h3>
+      <p class="hint">Shoe points in the working position follow the rail on the contact axis and are left out of the envelope check (they touch the rail by design); all other points move with the bogie.</p>
+      <div id="t-ccd-pts" class="tablewrap"></div>
+    </div>
   </section>
 
   <!-- ======================= CUSTOMER KE & SOD ======================= -->
@@ -137,6 +146,11 @@
         <div class="card"><h3>SOD point items</h3>
           <div id="t-sod-items" class="tablewrap"></div>
           <h3 class="gap">SOD settings</h3><div id="f-sod" class="fields"></div></div>
+        <div class="card"><h3>Conductor rail (third rail)</h3>
+          <p class="hint">Used by the CCD checks. Rail side and chainage ranges along the line come from the SOD point items of type <em>Third rail</em> (none = both sides everywhere).</p>
+          <div id="f-third" class="fields"></div>
+          <h3 class="gap">Conductor-rail assembly points <span class="muted">(brackets, shroud, insulators)</span></h3>
+          <div id="t-tr-parts" class="tablewrap"></div></div>
         <details class="card"><summary><strong>EN 15273-2:2009 associated rules</strong> <span class="muted">(kinematic method, G1 values as defaults; used when the EN check is selected on Static Simulation)</span></summary>
           <p class="hint">The customer KE is the reference profile. Change a value only where the customer's KE comes with its own rules.</p>
           <div id="f-en" class="fields"></div></details>
@@ -230,6 +244,14 @@
         <div class="card"><h3>Method A table <span class="muted">(mm)</span></h3><div id="sres-methodA" class="tablewrap scrolly"></div></div>
       </div>
       <div class="card"><h3>Vertical checks</h3><div id="sres-vertical" class="tablewrap"></div></div>
+      <div id="sres-ccd" hidden>
+        <div class="card"><h3>Third-rail CCD <span class="muted">(static, mm)</span></h3>
+          <p class="hint">Tangent and the minimum radius with the rail outside and inside the curve, vertical curve both ways. Envelope: every corner of the moved outline point inside the envelope;
+            reach: rail position relative to the shoe within its working range; overlap of the shoe and rail faces; clearance to the rail parts.</p>
+          <div id="sres-ccd-table" class="tablewrap"></div></div>
+        <div class="card"><h3>CCD layout <span class="muted">(nominal, rail side)</span></h3>
+          <div class="chartbox square" style="max-width: 760px"><canvas id="chart-ccd" aria-label="CCD outline, conductor rail and envelope"></canvas></div></div>
+      </div>
       <div id="sres-en" hidden>
         <div class="card"><h3>EN 15273-2:2009 kinematic method <span class="muted">(customer KE as reference profile, rules on the Customer KE &amp; SOD tab)</span></h3>
           <p class="hint">Maximum construction gauge = KE half-width − E<sub>i</sub> (between the bogie centres) or E<sub>a</sub> (beyond), worst of tare and crush.
@@ -330,6 +352,10 @@
           <p class="hint">Right side = OUTSIDE of the curve (car end at line speed); left side = INSIDE (mid-car, train stopped). On straight track both sides use the same rule.</p></div>
         <div class="card"><h3>At the selected chainage</h3><div id="dres-xs" class="tablewrap"></div></div>
       </div>
+      <div id="dres-ccd" class="card" hidden><h3>Third-rail CCD along the line <span class="muted">(worst CCD and rail side per chainage, mm)</span></h3>
+        <div id="dres-ccd-sum" class="tablewrap"></div>
+        <div class="chartbox short"><canvas id="chart-d-ccd" aria-label="CCD margins along the line"></canvas></div>
+        <h3 class="gap">Smallest margins <span class="muted">(20 chainages)</span></h3><div id="dres-ccd-table" class="tablewrap"></div></div>
       <div class="card"><h3>Per element <span class="muted">(selected car type)</span></h3><div id="dres-elements" class="tablewrap scrolly"></div></div>
       <div class="grid2">
         <div class="card"><h3>Speed-step study</h3><p class="hint" id="dres-ss-note"></p><div class="chartbox short"><canvas id="chart-d-ss"></canvas></div></div>

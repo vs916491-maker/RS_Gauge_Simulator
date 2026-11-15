@@ -377,6 +377,8 @@ polygon edges (not the horizontal / vertical split of §6.4).
    Doors and steps (`tests/en15273-doors.test.js`): A.105 / A.106 typed in, step gaps by hand.
    Pantographs (`tests/en15273-panto.test.js`): A.66–A.85 typed in literally, hand check.
 6. Inputs are never mutated; results are deterministic.
+7. **Third-rail CCD** (`tests/ccd.test.js`): movements, reach, overlap, envelope and clearance by hand for bottom, top and
+   side contact; static situations and the line sweep on the sample.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
 
@@ -732,3 +734,65 @@ model is used beyond the tested range and the plan says so. Note: a stiffer vehi
 its roof corners on the low side drop less (`h − θ·x`), so the clearance with the measured values can be smaller near the
 KE top even when the sway-test acceptance of §13.1 is met; the plan shows both clearances.
 
+
+## 14. Third-rail current collector (CCD)
+
+Not part of EN 15273-2 (which covers pantographs only); metro practice from the customer KE and the conductor-rail
+interface data. Checked whenever a CCD is given, in the static run and along the line; part of both verdicts.
+
+### 14.1 Inputs
+
+* **CCD** (Car body & Bogie tab), per CCD type: bogie type that carries it, mounting (bogie frame, primary sprung /
+  axleboxes, unsprung), distance `x` of the shoe from the bogie centre (beyond the end axle when `x > p/2`), working
+  range `[c_min, c_max]` of the shoe on the contact axis (positions at which it still presses on the rail), extent
+  `[o_min, o_max]` of its contact face on the other axis.
+* **CCD outline points**: per CCD, points in the working and the retracted position, rail side (`y` from the track
+  centre, `z` above rail, tare and new wheels); part *shoe* or *gear*.
+* **Conductor rail** (Customer KE & SOD tab): contact type — bottom (`z` contact axis, shoe pushes up), top (`z`, shoe
+  pushes down) or side (`y`, shoe pushes outwards); contact surface `c` (height, or distance from the track centre for
+  side contact); face extent `[r_min, r_max]` on the other axis; installation tolerances `±t_y`, `±t_z`; wear `w_r` of
+  the contact face (it moves the face away from the shoe); minimum face overlap; envelope for the check (a profile on the
+  tab; blank = the KE of the static check / of the track segment). Assembly points (brackets, shroud / cover board,
+  insulators) with a required clearance each.
+* Rail sides along the line: SOD point items of type *Third rail* (side and chainage range); without such items the
+  rail is taken on both sides everywhere.
+
+### 14.2 Movements of a CCD point (mm, `+y` towards the rail)
+
+For a point at `(y, z)` of a CCD on bogie `b` (`p` wheelbase), in a situation with local curvature `k`, the rail on the
+outside or inside of the curve, cant deficiency / excess `D_t` leaning the bogie towards the rail and `D_a` away from it:
+
+* random lateral: `ρ = (l − d)/2 + q (frame) + f_w + w_d/2 (R < R_w) + Δl (option) + al (option)` (as §5.2);
+* geometric offset of the point from the track centre: `O = (x² − p²/4)/2·k`, outwards; towards the rail when the rail
+  is on the outside, away from it when inside;
+* frame roll on the primary suspension (bogie inputs `s_f`, `h_cf`, frame-mounted only): `θ_t = s_f·D_t/L`,
+  `θ_a = s_f·D_a/L`; lateral `θ_t·(z − h_cf)` and `−θ_a·(z − h_cf)`;
+* lateral range: `[O − ρ + min(0, θ_t·(z − h_cf), −θ_a·(z − h_cf)), O + ρ + max(…)]`;
+* vertical range: `[−Δw − dp (frame) − θ_t·y + v_lo, up (frame) + θ_a·y + v_hi]`, `Δw` = wheel radial wear limited by
+  `Δr`, `dp` / `up` primary downward / upward travel; vertical curve `δ = (x² − p²/4)/(2·Rv)` (crest positive):
+  static `v = ±|δ|` with `Rv` of the static check, along the line `v = [min(0, δ), max(0, δ)]` with the segment's `Rv`.
+
+A point is moved to the rectangle `[y + y_lo, y + y_hi] × [z + z_lo, z + z_hi]`. A working shoe point follows the rail
+on the contact axis instead: its coordinate there spans the rail range `[c − t − (w_r if the face wears towards −),
+c + t + (w_r if it wears towards +)] − c`.
+
+### 14.3 Checks
+
+1. **Envelope**: every point except the working shoe (which touches the rail by design) — all four corners of its
+   rectangle inside the envelope (right half closed along the centre line); margin = smallest signed distance.
+2. **Reach** (contact axis): rail position relative to the shoe frame `[c_lo − s_hi, c_hi − s_lo]` (`s` = movement of
+   the shoe reference point `((o_min + o_max)/2, c)` on that axis) within `[c_min, c_max]`; margin = smaller of the
+   two ends.
+3. **Overlap** (other axis): with the shoe face shifted by `δ ∈ [s'_lo − t', s'_hi + t']`,
+   `overlap = min(o_max + δ, r_max) − max(o_min + δ, r_min)`, smallest at the ends of `δ`; margin = overlap − minimum.
+4. **Clearance**: distance between each moved CCD rectangle (working and retracted) and each assembly point widened by
+   the rail tolerances, minus its required clearance.
+
+Static situations: tangent; minimum radius `R_min` (Track Data) with the rail outside (`D_t` = max cant deficiency,
+`D_a` = max cant excess) and inside (reversed); vertical curve both ways in each. Along the line: every chainage of the
+sweep with a conductor rail, its local curvature, deficiency at line speed, excess and `Rv`, each rail side present;
+the curve frame of §8.7 decides whether that side is outside (`k > 0`: right side outside). The worst CCD and side per
+chainage is reported.
+
+Not covered: shoe dynamics (bounce, contact force), gap bridging and ramps, the shoe fuse and arcing distances other
+than the clearance points given, articulated or steered bogies.

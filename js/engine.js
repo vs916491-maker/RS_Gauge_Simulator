@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.6.0';
+  var VERSION = '4.7.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -322,6 +322,7 @@
       list.forEach(function (c) { if (!c.enStatic) { return; } ['int', 'ext', 'end'].forEach(function (sec) { var m = c.enStatic.checks[sec].min; if (m && (!g || m.margin < g.margin)) { g = { car: c.car, section: sec, margin: m.margin, h: m.h }; } }); });
       return g;
     }
+    var ccdRes = (p.ccds || []).length ? ccdStatic(p, opt, (p.thirdRail && p.thirdRail.tr_ke && findBy(p.ke.profiles, 'name', p.thirdRail.tr_ke)) ? (function () { var q = findBy(p.ke.profiles, 'name', p.thirdRail.tr_ke), o = outline(q.points, q.n_up); o.name = q.name; return o; }()) : ke) : null;
     var enRes = null;
     if (yes(opt.en_check)) {
       var bp = enBogieParts(p, ke);
@@ -329,9 +330,9 @@
     }
     return {
       engineVersion: VERSION, ke: { name: ke.name, top: ke.top * 1000, nUp: ke.nUp, points: keP.points },
-      cars: out, governing: gov, en: enRes,
+      cars: out, governing: gov, en: enRes, ccd: ccdRes,
       enStatic: yes(opt.en_static) ? { ref: stRef.name, ok: out.every(function (c) { return !c.enStatic || c.enStatic.ok; }), governing: stGov(out) } : null,
-      ok: out.every(function (r) { return r.ok; }) && (!enRes || enRes.bogieParts.ok), warnings: warnings
+      ok: out.every(function (r) { return r.ok; }) && (!enRes || enRes.bogieParts.ok) && (!ccdRes || ccdRes.ok), warnings: warnings
     };
   }
 
@@ -793,6 +794,148 @@
     return { rows: rows, ok: ok };
   }
 
+  // ================================================================ THIRD-RAIL CCD (METHOD §14)
+  /*
+   * Movement ranges (mm) of a point of a CCD carried by bogie b at (y on the rail side, z), for a situation
+   * sit = { kAbs (1/m), outside (rail on the outside of the curve), Dt / Da (cant deficiency or excess leaning the bogie
+   * towards / away from the rail, mm), vc (vertical-curve offset range [lo, hi], mm) }. + y = towards the rail (outwards).
+   */
+  function ccdBogie(p, b, sOpt) {
+    var tp = p.track.params;
+    return { name: b.name, p: n0(b.p_m), play: n0(b.play_ld_mm), q: n0(b.q_mm), wear: Math.min((n0(b.wheel_new_mm) - n0(b.wheel_worn_mm)) / 2, n0(b.pack_step_mm)),
+      dp: n0(b.dn_prim_mm), up: n0(b.up_prim_mm), s: n0(b.en_s_frame), hc: n0(b.en_hc_frame_mm),
+      fw: n0(tp.fw_mm), gtol: yes(sOpt.gtol_ext) ? n0(tp.g_tol_mm) : 0, align: yes(sOpt.align) ? n0(tp.align_tol_mm) : 0,
+      widen: n0(tp.widen_mm), widenR: n0(tp.widen_R_m), G: n0(p.train.L_mm, 1500) };
+  }
+  function ccdMove(bb, c, sit, y, z) {
+    var frame = c.mount !== 'axle', x = n0(c.x_m), R = sit.kAbs > 0 ? 1 / sit.kAbs : 0;
+    var rand = bb.play + (frame ? bb.q : 0) + bb.fw + (R > 0 && R < bb.widenR ? bb.widen / 2 : 0) + bb.gtol + bb.align;
+    var ov = (x * x - bb.p * bb.p / 4) / 2 * sit.kAbs * 1000, O = sit.outside ? ov : -ov;   // outward offset of the point, signed towards the rail
+    var tt = frame ? bb.s * sit.Dt / bb.G : 0, ta = frame ? bb.s * sit.Da / bb.G : 0;      // frame roll towards / away from the rail
+    var lt = tt * (z - bb.hc), la = -ta * (z - bb.hc);
+    return {
+      ylo: O - rand + Math.min(0, lt, la), yhi: O + rand + Math.max(0, lt, la),
+      zlo: -bb.wear - (frame ? bb.dp : 0) - tt * y + sit.vc[0], zhi: (frame ? bb.up : 0) + ta * y + sit.vc[1],
+      parts: { rand: rand, O: O, lt: lt, la: la, tt: tt, ta: ta }
+    };
+  }
+  function ccdRail(tr) {
+    var t = tr.tr_contact || 'bottom', axis = t === 'side' ? 'y' : 'z', away = t === 'top' ? -1 : 1;
+    var c = n0(tr.tr_c_mm), tc = n0(axis === 'z' ? tr.tr_tol_z_mm : tr.tr_tol_y_mm), to = n0(axis === 'z' ? tr.tr_tol_y_mm : tr.tr_tol_z_mm), w = n0(tr.tr_wear_mm);
+    return { type: t, axis: axis, c: c, lo: c - tc - (away < 0 ? w : 0), hi: c + tc + (away > 0 ? w : 0), olo: n0(tr.tr_o_min_mm), ohi: n0(tr.tr_o_max_mm), tolO: to,
+      tolY: n0(tr.tr_tol_y_mm), tolZ: n0(tr.tr_tol_z_mm), minOv: n0(tr.tr_overlap_mm) };
+  }
+  // Shoe–rail contact: working range on the contact axis and face overlap on the other axis (mm).
+  function ccdContact(bb, c, sit, rl) {
+    var oMid = (n0(c.o_min_mm) + n0(c.o_max_mm)) / 2, m = rl.axis === 'z' ? ccdMove(bb, c, sit, oMid, rl.c) : ccdMove(bb, c, sit, rl.c, oMid);
+    var sc = rl.axis === 'z' ? [m.zlo, m.zhi] : [m.ylo, m.yhi], so = rl.axis === 'z' ? [m.ylo, m.yhi] : [m.zlo, m.zhi];
+    var relLo = rl.lo - sc[1], relHi = rl.hi - sc[0];
+    var ov = [so[0] - rl.tolO, so[1] + rl.tolO].map(function (dl) { return Math.min(n0(c.o_max_mm) + dl, rl.ohi) - Math.max(n0(c.o_min_mm) + dl, rl.olo); });
+    var out = { relLo: relLo, relHi: relHi, cmin: n0(c.c_min_mm), cmax: n0(c.c_max_mm), mLo: relLo - n0(c.c_min_mm), mHi: n0(c.c_max_mm) - relHi,
+      overlap: Math.min(ov[0], ov[1]), minOv: rl.minOv };
+    out.mOv = out.overlap - rl.minOv; out.reach = Math.min(out.mLo, out.mHi); out.ok = out.reach >= 0 && out.mOv >= 0;
+    return out;
+  }
+  // Moved rectangle of an outline point; a working shoe follows the rail on the contact axis.
+  function ccdRect(bb, c, sit, q, rl) {
+    var m = ccdMove(bb, c, sit, n0(q.y_mm), n0(q.z_mm)), r = { y0: n0(q.y_mm) + m.ylo, y1: n0(q.y_mm) + m.yhi, z0: n0(q.z_mm) + m.zlo, z1: n0(q.z_mm) + m.zhi };
+    if (q.state === 'working' && q.part === 'shoe') {
+      if (rl.axis === 'z') { r.z0 = n0(q.z_mm) + rl.lo - rl.c; r.z1 = n0(q.z_mm) + rl.hi - rl.c; } else { r.y0 = n0(q.y_mm) + rl.lo - rl.c; r.y1 = n0(q.y_mm) + rl.hi - rl.c; }
+    }
+    return r;
+  }
+  function rectDist(a, b) {
+    var dy = Math.max(0, a.y0 - b.y1, b.y0 - a.y1), dz = Math.max(0, a.z0 - b.z1, b.z0 - a.z1);
+    return Math.sqrt(dy * dy + dz * dz);
+  }
+  function kePoly(ke) {
+    var pts = ke.pts.map(function (q) { return { x: q.x * 1000, y: q.h * 1000 }; }), last = pts[pts.length - 1];
+    if (last.x !== 0) { pts.push({ x: 0, y: last.y }); }
+    return pts;
+  }
+  // One CCD in one situation: envelope (KE) margin, contact and clearances (mm).
+  function ccdCase(p, bb, c, pts, sit, rl, poly) {
+    var res = { ke: null, contact: ccdContact(bb, c, sit, rl), clear: null };
+    pts.forEach(function (q) {
+      var r = ccdRect(bb, c, sit, q, rl);
+      if (poly && !(q.state === 'working' && q.part === 'shoe')) {      // the working shoe touches the rail by design
+        [[r.y0, r.z0], [r.y0, r.z1], [r.y1, r.z0], [r.y1, r.z1]].forEach(function (k) {
+          var mg = polySigned(k[0], k[1], poly);
+          if (!res.ke || mg < res.ke.margin) { res.ke = { margin: mg, pt: q.pt, state: q.state, y: k[0], z: k[1] }; }
+        });
+      }
+      ((p.thirdRail || {}).parts || []).forEach(function (tp) {
+        var b = { y0: n0(tp.y_mm) - rl.tolY, y1: n0(tp.y_mm) + rl.tolY, z0: n0(tp.z_mm) - rl.tolZ, z1: n0(tp.z_mm) + rl.tolZ };
+        var dist = rectDist(r, b), mg = dist - n0(tp.clear_mm);
+        if (!res.clear || mg < res.clear.margin) { res.clear = { margin: mg, dist: dist, req: n0(tp.clear_mm), pt: q.pt, state: q.state, part: tp.name }; }
+      });
+    });
+    res.ok = res.contact.ok && (!res.ke || res.ke.margin >= 0) && (!res.clear || res.clear.margin >= 0);
+    return res;
+  }
+  function ccdSetup(p, sOpt) {
+    var rl = ccdRail(p.thirdRail || {}), list = [];
+    (p.ccds || []).forEach(function (c) {
+      var b = findBy(p.bogies || [], 'name', c.bogie); if (!b) { return; }
+      list.push({ c: c, bb: ccdBogie(p, b, sOpt), pts: (p.ccdPoints || []).filter(function (q) { return q.ccd === c.name; }) });
+    });
+    return { rl: rl, list: list };
+  }
+  // Static check (METHOD §14.3): tangent, minimum radius with the rail outside / inside, vertical curve both ways.
+  function ccdStatic(p, sOpt, ke) {
+    var tp = p.track.params, set = ccdSetup(p, sOpt), Rmin = n0(tp.R_min_m), Rv = Math.abs(n0(tp.Rv_static_m)), def = n0(tp.cantdef_max_mm), exc = n0(tp.cantexc_max_mm);
+    var poly = ke ? kePoly(ke) : null, out = { rail: set.rl, ke: ke ? ke.name : null, ccds: [], ok: true };
+    set.list.forEach(function (e) {
+      var x = n0(e.c.x_m), dv = Rv > 0 ? Math.abs((x * x - e.bb.p * e.bb.p / 4) / (2 * Rv)) * 1000 : 0, vc = [-dv, dv];
+      var sits = [{ id: 'tangent', label: 'Tangent', kAbs: 0, outside: true, Dt: 0, Da: 0, vc: vc }];
+      if (Rmin > 0) {
+        sits.push({ id: 'out', label: 'R ' + Rmin + ' m, rail outside', kAbs: 1 / Rmin, outside: true, Dt: def, Da: exc, vc: vc });
+        sits.push({ id: 'in', label: 'R ' + Rmin + ' m, rail inside', kAbs: 1 / Rmin, outside: false, Dt: exc, Da: def, vc: vc });
+      }
+      var cases = sits.map(function (st) { var r = ccdCase(p, e.bb, e.c, e.pts, st, set.rl, poly); r.situation = st.label; r.move = ccdMove(e.bb, e.c, st, (n0(e.c.o_min_mm) + n0(e.c.o_max_mm)) / 2, set.rl.c); return r; });
+      function worst(fn) { var w = null; cases.forEach(function (k) { var v = fn(k); if (v !== null && (w === null || v.v < w.v)) { w = { v: v.v, case: k.situation, info: v.info }; } }); return w; }
+      var r = { name: e.c.name, bogie: e.bb.name, mount: e.c.mount, x: x, vc: dv, cases: cases,
+        ke: worst(function (k) { return k.ke ? { v: k.ke.margin, info: k.ke.pt + ' (' + k.ke.state + ')' } : null; }),
+        reach: worst(function (k) { return { v: k.contact.reach, info: k.contact.mLo < k.contact.mHi ? 'lower end' : 'upper end' }; }),
+        overlap: worst(function (k) { return { v: k.contact.mOv, info: 'overlap ' + k.contact.overlap.toFixed(1) }; }),
+        clear: worst(function (k) { return k.clear ? { v: k.clear.margin, info: k.clear.pt + ' – ' + k.clear.part } : null; }) };
+      r.ok = cases.every(function (k) { return k.ok; }); if (!r.ok) { out.ok = false; }
+      out.ccds.push(r);
+    });
+    return out;
+  }
+  // Along the line (METHOD §14.4): sides with a conductor rail from the SOD items of type third rail (none = both sides).
+  function ccdLine(p, sOpt, rows, sc, kes) {
+    var tp = p.track.params, set = ccdSetup(p, sOpt), trItems = sc.items.filter(function (it) { return it.type === 'third_rail'; });
+    var tr = (p.thirdRail || {}).tr_ke, keFix = tr && kes[tr] ? kes[tr] : null, polys = {}, out = [], ok = true;
+    function polyFor(r) { var k = keFix || kes[r.ke] || kes.__default; if (!polys[k.name]) { polys[k.name] = kePoly(k); } return polys[k.name]; }
+    rows.forEach(function (r) {
+      if (!r.valid) { return; }
+      var sides = [];
+      if (!trItems.length) { sides = ['L', 'R']; }
+      else { trItems.forEach(function (it) { if (r.ch >= it.from - 1e-9 && r.ch <= it.to + 1e-9) { (it.side === 'both' ? ['L', 'R'] : [it.side]).forEach(function (sd) { if (sides.indexOf(sd) < 0) { sides.push(sd); } }); } }); }
+      if (!sides.length) { return; }
+      var best = null;
+      set.list.forEach(function (e) {
+        var x = n0(e.c.x_m), dz = r.Rv ? (x * x - e.bb.p * e.bb.p / 4) / (2 * r.Rv) * 1000 : 0;
+        sides.forEach(function (sd) {
+          var outside = r.k === 0 ? true : ((r.k > 0 && sd === 'R') || (r.k < 0 && sd === 'L'));
+          var st = { kAbs: Math.abs(r.k), outside: outside, Dt: outside ? r.def : r.exc, Da: outside ? r.exc : r.def, vc: [Math.min(0, dz), Math.max(0, dz)] };
+          var k = ccdCase(p, e.bb, e.c, e.pts, st, set.rl, polyFor(r));
+          var m = Math.min(k.contact.reach, k.contact.mOv, k.ke ? k.ke.margin : Infinity, k.clear ? k.clear.margin : Infinity);
+          if (!best || m < best.m) { best = { m: m, k: k, ccd: e.c.name, side: sd, outside: outside }; }
+        });
+      });
+      if (!best) { return; }
+      var row = { ch: r.ch, el: r.el, R: r.k === 0 ? 0 : 1 / Math.abs(r.k), def: r.def, exc: r.exc, Rv: r.Rv, ccd: best.ccd, side: best.side, pos: r.k === 0 ? 'tangent' : (best.outside ? 'outside' : 'inside'),
+        ke: best.k.ke ? best.k.ke.margin : null, reach: best.k.contact.reach, overlap: best.k.contact.mOv, clear: best.k.clear ? best.k.clear.margin : null, m: best.m, ok: best.k.ok };
+      if (!row.ok) { ok = false; }
+      out.push(row);
+    });
+    function low(key) { var w = null; out.forEach(function (r) { if (r[key] !== null && (!w || r[key] < w.v)) { w = { v: r[key], ch: r.ch, ccd: r.ccd, side: r.side }; } }); return w; }
+    return { rows: out, ok: ok, n: out.length, ke: low('ke'), reach: low('reach'), overlap: low('overlap'), clear: low('clear'), check_n: out.filter(function (r) { return !r.ok; }).length };
+  }
+
   // ================================================================ TEST CALCULATIONS (METHOD §13)
   // Least-squares fit of y = a·(D·h) + b·D over readings [{D, h, y}] (mm): s = a·L, hc = −b/a.
   function swayFit(pts, L) {
@@ -1191,12 +1334,14 @@
       r.car = r.xo_car;
       return r;
     });
+    var ccd = (p.ccds || []).length && out[0] ? ccdLine(p, sOpt, out[0].rows, sc, kes) : null;
     var summary = lineSummary(p, env, sw);
+    if (ccd) { summary.ccd = { ke: ccd.ke, reach: ccd.reach, overlap: ccd.overlap, clear: ccd.clear, n: ccd.n, check_n: ccd.check_n }; if (!ccd.ok) { summary.ok = false; } }
     ['def', 'xo', 'xi', 'sc', 'uf', 'gm', 'gn', 'sodc', 'itm'].forEach(function (key) {
       if (summary[key]) { var row = env.filter(function (r) { return r.ch === summary[key].ch; })[0]; summary[key].car = row ? row[key + '_car'] : null; }
     });
     return { engineVersion: VERSION, sweep: { ch0: sw.ch0, end: sw.end, step: sw.step, n: sw.pts.length }, ke: kes.__default.name,
-      cars: out, envelope: env, summary: summary, elements: elementSummary(tm, env), ok: summary.ok, warnings: warnings };
+      cars: out, envelope: env, summary: summary, elements: elementSummary(tm, env), ccd: ccd, ok: summary.ok, warnings: warnings };
   }
 
   /*
@@ -1260,6 +1405,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));

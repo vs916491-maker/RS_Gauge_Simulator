@@ -29,8 +29,8 @@
   };
   var TAB_SHEETS = {
     train: ['Train', 'CarTypes'],
-    bogie: ['Bogies', 'CarBodies', 'EN_Lower_Parts', 'EN_Bogie_Parts'],
-    ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params'],
+    bogie: ['Bogies', 'CarBodies', 'EN_Lower_Parts', 'EN_Bogie_Parts', 'CCD', 'CCD_Points'],
+    ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params', 'Third_Rail', 'Third_Rail_Parts'],
     rs: ['RSProfile', 'EN_Doors_Steps', 'EN_Pantographs'],
     track: ['TrackParams', 'Track'],
     tests: ['Sway_Test']
@@ -96,6 +96,10 @@
       case 'EN_Bogie_Parts': return tableRows(p.bogieParts || [], S.bogiePart);
       case 'EN_Doors_Steps': return tableRows(p.doorSteps || [], S.doorStep);
       case 'EN_Pantographs': return tableRows(p.pantographs || [], S.pantograph);
+      case 'CCD': return tableRows(p.ccds || [], S.ccd);
+      case 'CCD_Points': return tableRows(p.ccdPoints || [], S.ccdPoint);
+      case 'Third_Rail': return paramRows(p.thirdRail || {}, S.thirdRail);
+      case 'Third_Rail_Parts': return tableRows((p.thirdRail || {}).parts || [], S.trPart);
       case 'KE': return profileRows(p.ke.profiles, S.keProfile);
       case 'CustomerLimits': return paramRows(p.ke.limits, S.customerLimits);
       case 'EN_Params': return paramRows(p.ke.en, S.enParams);
@@ -117,6 +121,10 @@
     CarBodies: 'One column per car type: wind-exposed side, lower parts, specified flexibility coefficient and roll-centre height, EN 15273-2 A.3.4 vertical data.',
     EN_Doors_Steps: 'Open access doors and deployed steps checked by EN 15273-2 A.3.14 / A.3.15 (static option): car type, door or step, between / beyond the pivots, distance n, half-width of the open element and its lowest and highest point above rail (tare, new wheels).',
     EN_Pantographs: 'Pantographs checked by EN 15273-2 A.3.12 (static option): car type, between / beyond the pivots, distance n, base height h_t, flexibility t, inclination tolerance θ, installation tolerance τ, head semi-width, lowered height and insulating distance.',
+    CCD: 'Third-rail current collector devices (CCD): one row per CCD type with its bogie type, mounting (frame / axleboxes), distance x of the shoe from the bogie centre, working range of the shoe on the contact axis and the extent of its contact face on the other axis.',
+    CCD_Points: 'Outline points of each CCD in the working and retracted positions (tare, new wheels, rail side): CCD name, position, part (shoe follows the rail when working; gear moves with the bogie), Y and Z.',
+    Third_Rail: 'Conductor rail: envelope used for the CCD check, contact type (bottom / top / side), contact surface position and face extent, installation tolerances, wear and the minimum shoe–rail overlap.',
+    Third_Rail_Parts: 'Points of the conductor-rail assembly (brackets, shroud / cover board, insulators) with the required clearance to the CCD.',
     EN_Bogie_Parts: 'Bogie parts checked laterally by EN 15273-2 A.3.11 (static option): one row per part with bogie type, mounting (frame / axle), position (between / beyond the end axles), distance n from the nearer end axle, half-width and height above rail (tare, new wheels).',
     EN_Lower_Parts: 'Lower parts checked by EN 15273-2 A.3.4.1 (static option): one row per part with car type, mounting (body / bogie), position (between / beyond the pivots or axles), distance n, half-width b, height above rail (tare, new wheels) and the lower limit at that position (blank = customer minimum clearance). A car type without rows uses the lower parts of the car body inputs.',
     KE: 'Customer kinematic envelope(s): one row per point, right half (Y >= 0) from the top centre round the outside to rail level, in mm. Repeat the profile name (and n_up = points of the upper envelope) on every row; several profiles may follow each other.',
@@ -270,6 +278,10 @@
         case 'EN_Bogie_Parts': v = readTable(rows, S.bogiePart, msgs, n); if (v) { raw.bogieParts = v; } break;
         case 'EN_Doors_Steps': v = readTable(rows, S.doorStep, msgs, n); if (v) { raw.doorSteps = v; } break;
         case 'EN_Pantographs': v = readTable(rows, S.pantograph, msgs, n); if (v) { raw.pantographs = v; } break;
+        case 'CCD': v = readTable(rows, S.ccd, msgs, n); if (v) { raw.ccds = v; } break;
+        case 'CCD_Points': v = readTable(rows, S.ccdPoint, msgs, n); if (v) { raw.ccdPoints = v; } break;
+        case 'Third_Rail': v = readParams(rows, S.thirdRail, msgs, n); raw.thirdRail = raw.thirdRail || {}; Object.keys(v).forEach(function (k) { raw.thirdRail[k] = v[k]; }); break;
+        case 'Third_Rail_Parts': v = readTable(rows, S.trPart, msgs, n); if (v) { raw.thirdRail = raw.thirdRail || {}; raw.thirdRail.parts = v; } break;
         case 'EN_Params': v = readParams(rows, S.enParams, msgs, n); Object.keys(v).forEach(function (k) { raw.ke.en[k] = v[k]; }); break;
         case 'CustomerLimits': v = readParams(rows, S.customerLimits, msgs, n); Object.keys(v).forEach(function (k) { raw.ke.limits[k] = v[k]; }); break;
         case 'SOD_Settings': v = readParams(rows, S.sodSettings, msgs, n); Object.keys(v).forEach(function (k) { raw.sod[k] = v[k]; }); break;
@@ -370,6 +382,14 @@
       });
       add('EN15273_Static', sc, 10);
     }
+    if (res.ccd) {
+      var cc = [['CCD', 'Bogie', 'Situation', 'Envelope margin (mm)', 'At point', 'Reach: rail rel. lowest (mm)', 'Reach: rail rel. highest (mm)', 'Working range (mm)', 'Reach margin (mm)', 'Face overlap (mm)', 'Overlap margin (mm)', 'Clearance (mm)', 'Required (mm)', 'Clearance margin (mm)', 'To part', 'Status']];
+      res.ccd.ccds.forEach(function (c) { c.cases.forEach(function (k) {
+        cc.push([c.name, c.bogie, k.situation, k.ke ? r2(k.ke.margin, 2) : '', k.ke ? k.ke.pt + ' (' + k.ke.state + ')' : '', r2(k.contact.relLo, 1), r2(k.contact.relHi, 1), r2(k.contact.cmin, 0) + ' – ' + r2(k.contact.cmax, 0),
+          r2(k.contact.reach, 2), r2(k.contact.overlap, 1), r2(k.contact.mOv, 2), k.clear ? r2(k.clear.dist, 1) : '', k.clear ? r2(k.clear.req, 0) : '', k.clear ? r2(k.clear.margin, 2) : '', k.clear ? k.clear.pt + ' – ' + k.clear.part : '', k.ok ? 'OK' : 'CHECK']);
+      }); });
+      add('CCD_Static', cc, 10);
+    }
     var vc = [['Car type', 'Check', 'Value (mm)', 'Limit (mm)', 'Margin (mm)', 'Status']];
     res.cars.forEach(function (c) { c.vertical.forEach(function (v) { vc.push([c.car, v.label, r2(v.value, 2), v.info ? '' : r2(v.limit, 1), v.info ? '' : r2(v.margin, 2), v.info ? '' : (v.ok ? 'OK' : 'BELOW MIN / INFRINGES')]); }); });
     add('Vertical_Checks', vc, 10);
@@ -438,10 +458,23 @@
       ['Minimum clearance to the SOD outline, whole profile (mm)'].concat(ex(sm.sodc), [sm.sodc_req, sm.sodc ? (sm.sodo_n ? sm.sodo_n + ' points CHECK' : 'OK') : 'no SOD on the line']),
       ['Minimum point-item margin over its required clearance (mm)'].concat(ex(sm.itm), [0, sm.itm ? (sm.it_n ? sm.it_n + ' points CHECK' : 'OK') : 'no items']),
       ['Points with any CHECK', sm.check_n, '', '', 0, sm.ok ? 'ALL OK' : 'REVIEW'], [''], ['Options']];
+    if (sm.ccd) {
+      var cx = function (x) { return x ? [r2(x.v, 2), r2(x.ch, 2), x.ccd + ' (' + x.side + ')'] : ['n/a', '', '']; };
+      sum.splice(sum.length - 3, 0, ['Third-rail CCD – minimum envelope margin (mm)'].concat(cx(sm.ccd.ke), [0, sm.ccd.ke ? (sm.ccd.ke.v >= 0 ? 'OK' : 'CHECK') : '']),
+        ['Third-rail CCD – minimum reach margin (mm)'].concat(cx(sm.ccd.reach), [0, sm.ccd.reach ? (sm.ccd.reach.v >= 0 ? 'OK' : 'CHECK') : '']),
+        ['Third-rail CCD – minimum overlap margin (mm)'].concat(cx(sm.ccd.overlap), [0, sm.ccd.overlap ? (sm.ccd.overlap.v >= 0 ? 'OK' : 'CHECK') : '']),
+        ['Third-rail CCD – minimum clearance margin to the rail parts (mm)'].concat(cx(sm.ccd.clear), [0, sm.ccd.clear ? (sm.ccd.clear.v >= 0 ? 'OK' : 'CHECK') : '']),
+        ['Third-rail CCD – points evaluated / with CHECK', sm.ccd.n, '', '', 0, sm.ccd.check_n ? sm.ccd.check_n + ' CHECK' : 'OK']);
+    }
     S.dynamicOptions.forEach(function (fd) { sum.push([fd.l, o[fd.k] === null ? '' : o[fd.k]]); });
     sum.push(['Sweep step (m)', res.sweep.step], ['Common options (Static Simulation tab)']);
     S.staticOptions.forEach(function (fd) { if (fd.k.indexOf('ma_') !== 0) { sum.push([fd.l, so[fd.k] === null ? '' : so[fd.k]]); } });
     add('Dyn_Summary', sum, 44);
+    if (res.ccd && res.ccd.rows.length) {
+      var cl = [['Chainage (m)', 'Element', 'Local R (m)', 'Deficiency (mm)', 'Excess (mm)', 'Rv (m)', 'Governing CCD', 'Rail side', 'Rail on curve', 'Envelope margin (mm)', 'Reach margin (mm)', 'Overlap margin (mm)', 'Clearance margin (mm)', 'Status']];
+      res.ccd.rows.forEach(function (q) { cl.push([r2(q.ch, 2), q.el, r2(q.R, 1), r2(q.def, 2), r2(q.exc, 2), q.Rv, q.ccd, q.side, q.pos, q.ke === null ? '' : r2(q.ke, 2), r2(q.reach, 2), r2(q.overlap, 2), q.clear === null ? '' : r2(q.clear, 2), q.ok ? 'OK' : 'CHECK']); });
+      add('Dyn_CCD', cl, 12);
+    }
     var cars = [['Car type', 'Profile', 's', 'hc (m)', 'Max deficiency (mm)', 'Max OUT excess (mm)', 'at (m)', 'Max IN excess (mm)', 'at (m)', 'SOD checks', 'Min structure clearance (mm)', 'Min underframe (mm)', 'Min platform gap (mm)', 'Min SOD outline clearance (mm)', 'Min item margin (mm)', 'CHECK points']];
     res.cars.forEach(function (c) { var q = c.summary; cars.push([c.car, c.consts.profile, r2(c.consts.s, 4), r2(c.consts.hc, 4), r2(q.def && q.def.v, 2), r2(q.xo && q.xo.v, 2), r2(q.xo && q.xo.ch, 2), r2(q.xi && q.xi.v, 2), r2(q.xi && q.xi.ch, 2), q.sod_n, q.sc ? r2(q.sc.v, 2) : 'n/a', r2(q.uf && q.uf.v, 2), q.gm ? r2(q.gm.v, 2) : 'n/a', q.sodc ? r2(q.sodc.v, 2) : 'n/a', q.itm ? r2(q.itm.v, 2) : 'n/a', q.check_n]); });
     add('Dyn_CarTypes', cars, 12);

@@ -140,6 +140,6 @@ reads every known sheet.
 | 11 | EN 15273-2: bogie parts A.3.11 (independent-axle formulae A.56–A.59), bogie-parts table | Done |
 | 12 | EN 15273-2: static gauge method A.2 (A.2–A.5, s limit, lower parts A.2.3.2) | Done |
 | 13 | EN 15273-2: open doors and deployed steps A.3.14, step position A.3.15.2 | Done |
-| 14 | EN 15273-2: pantograph gauge A.3.12 (A.66–A.85, lowered position) | **This pull request** |
-| 15 | Third-rail current collector (CCD): shoe gear vs KE, shoe–rail contact range, clearance to rail supports / shroud, along the line | Next |
+| 14 | EN 15273-2: pantograph gauge A.3.12 (A.66–A.85, lowered position) | Done |
+| 15 | Third-rail current collector (CCD): shoe gear vs envelope, shoe–rail reach and overlap (bottom / top / side contact), clearance to rail parts, along the line (METHOD §14) | **This pull request** |
 | 16+ | EN 15273-2: other reference profiles, dynamic method | Next, one PR each |
