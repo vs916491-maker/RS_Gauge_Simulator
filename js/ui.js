@@ -287,7 +287,10 @@
   function renderTrain() {
     var t = state.p.train;
     form($('f-train-desc'), S.trainDescription, t);
-    form($('f-train-config'), S.trainConfig, t, function () { changed(false); });
+    form($('f-train-config'), S.trainConfig, t, function (k) {
+      if (k === 'framework' || (k === 'ebo_use' && t.framework === 'ebo')) { applyFramework(); changed(true); return; }
+      changed(false);
+    });
     form($('f-train-load'), S.trainLoad, t);
     grid($('g-cartypes'), t.carTypes, S.carType, {
       refs: { bogie1: bogieNames, bogie2: bogieNames, prof_int: rsNames, prof_ext: rsNames, prof_end: rsNames },
@@ -473,6 +476,29 @@
     });
   }
 
+  // Applies the default checks (and EN rules) of the chosen framework (METHOD §16).
+  function applyFramework() {
+    var t = state.p.train, fw = S.frameworkDefaults[t.framework] || {}, so = state.p.settings['static'];
+    Object.keys(fw['static'] || {}).forEach(function (k) { so[k] = fw['static'][k]; });
+    var g = S.frameworkGauge(t), v = g ? S.enGaugeValues(g) : null;
+    if (v) { Object.keys(v).forEach(function (k) { state.p.ke.en[k] = v[k]; }); state.p.ke.en.en_gauge = g; }
+  }
+  function renderFramework() {
+    var t = state.p.train, fw = S.frameworkDefaults[t.framework] || {}, so = staticOpts(), name = (S.FRAMEWORKS.filter(function (x) { return x[0] === t.framework; })[0] || [])[1] || t.framework;
+    function yn(v) { return v === 'yes' ? 'Yes' : 'No'; }
+    function rowFor(label, key, note) { var def = (fw['static'] || {})[key]; return [label, def === undefined ? '–' : yn(def), { v: yn(so[key]) + (def !== undefined && def !== so[key] ? ' (changed)' : ''), cls: def !== undefined && def !== so[key] ? 'warncell' : '' }, note || '']; }
+    var g = S.frameworkGauge(t), rows = [
+      ['Framework', name, '', t.framework === 'ebo' ? 'EBO Anlage 9 specifics pending the documents' : (t.framework === 'bostrab' ? 'BOStrab-Lichtraum-Richtlinien pending the documents' : '')],
+      ['Customer KE: Method B (six cases) and Method A', 'Yes', 'Yes', 'Always'],
+      rowFor('EN 15273-2 kinematic check', 'en_check', g ? 'Rules of gauge ' + g + (state.p.ke.en.en_gauge !== g ? ' (now ' + state.p.ke.en.en_gauge + ')' : '') : ''),
+      rowFor('EN 15273-2 static gauge method', 'en_static', ''),
+      rowFor('BOStrab §34 vehicle dimensions', 'bst_check', t.bostrab_street === 'yes' ? 'Street-running vehicle' : 'Applies to street-running vehicles only'),
+      ['Third-rail CCD', 'when given', (state.p.ccds || []).length ? 'Yes (' + state.p.ccds.length + ' CCD)' : 'No CCD given', 'METHOD §14'],
+      ['EN dynamic method (Annex O)', 'when given', (state.p.sim.transient || []).length ? 'Yes' : 'No simulation results', 'EN Dynamic Method tab']
+    ];
+    roTable($('ssim-fw'), ['Check', 'Framework default', 'Current', 'Note'], rows);
+  }
+
   // ---------------------------------------------------------------- Track
   function renderTrack() {
     var tp = state.p.track.params;
@@ -494,7 +520,8 @@
   // ---------------------------------------------------------------- Static Simulation
   function renderSsim() {
     var o = staticOpts();
-    form($('f-static'), S.staticOptions, o, function () { changed(false); }, { ke: keNames, en_static_ref: function () { return [''].concat(keNames()); } });
+    form($('f-static'), S.staticOptions, o, function () { changed(false); renderFramework(); }, { ke: keNames, en_static_ref: function () { return [''].concat(keNames()); } });
+    renderFramework();
     carPicker($('ssim-cars'), o);
     readiness($('ready-ssim'), 'static');
   }
@@ -589,6 +616,13 @@
       c.methodA.map(function (x) { return [fmt(x.h, 0), fmt(x.W, 1), fmt(x.max_int, 1), fmt(x.max_ext, 1), fmt(x.max_end, 1), mcell(x.margin_int), mcell(x.margin_ext), mcell(x.margin_end)]; }));
     renderSresEn(r, c);
     renderSresCcd(r);
+    var bst = c.bostrab;
+    $('sres-bst').hidden = !bst;
+    if (bst) {
+      roTable($('sres-bst-table'), ['Check', 'Value', 'Limit', 'Margin', 'Status'], bst.rows.map(function (x) {
+        return [x.label, fmt(x.value, 0) + ' ' + x.unit, fmt(x.limit, 0) + ' ' + x.unit, x.applies ? cCell(x.margin) : '–', x.applies ? (x.ok ? 'OK' : 'EXCEEDS') : x.note];
+      }));
+    }
     renderSresEnStatic(r, c);
     // vertical
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {

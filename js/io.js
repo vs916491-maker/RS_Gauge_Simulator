@@ -407,6 +407,9 @@
       });
       add('EN15273_Static', sc, 10);
     }
+    var bs = [['Car type', 'Check', 'Value (mm)', 'Limit (mm)', 'Margin (mm)', 'Applies', 'Status']];
+    res.cars.forEach(function (c) { if (c.bostrab) { c.bostrab.rows.forEach(function (x) { bs.push([c.car, x.label, r2(x.value, 1), r2(x.limit, 0), r2(x.margin, 1), x.applies ? 'yes' : x.note, x.applies ? (x.ok ? 'OK' : 'EXCEEDS') : '']); }); } });
+    if (bs.length > 1) { add('BOStrab_34', bs, 10); }
     if (res.ccd) {
       var cc = [['CCD', 'Bogie', 'Situation', 'Envelope margin (mm)', 'At point', 'Reach: rail rel. lowest (mm)', 'Reach: rail rel. highest (mm)', 'Working range (mm)', 'Reach margin (mm)', 'Face overlap (mm)', 'Overlap margin (mm)', 'Clearance (mm)', 'Required (mm)', 'Clearance margin (mm)', 'To part', 'Status']];
       res.ccd.ccds.forEach(function (c) { c.cases.forEach(function (k) {

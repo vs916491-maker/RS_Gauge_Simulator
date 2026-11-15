@@ -79,6 +79,8 @@
       ', against the customer kinematic envelope ' + (s ? '**' + s.ke.name + '**' : '') + '. It covers:');
     var scope = ['the static check of the RS profiles with all vehicle movements against the customer KE (Method B, six cases per car type);',
       'the maximum static half-width allowed by the customer KE (Method A) and the vertical checks;'];
+    var FWN = { customer: 'customer KE (metro practice)', en: 'EN 15273-2', ebo: 'EBO (German main line, reference line ' + (t.ebo_use === 'g1' ? 'G1' : 'G2') + ')', bostrab: 'BOStrab (German tram, light rail, U-Bahn)' };
+    scope.unshift('applicable rules: ' + (FWN[t.framework] || FWN.customer) + (t.framework === 'ebo' || t.framework === 'bostrab' ? ' – the ' + (t.framework === 'ebo' ? 'EBO Anlage 9 specifics' : 'BOStrab-Lichtraum-Richtlinien') + ' are not yet included;' : ';'));
     if (en) { scope.push('the check by the EN 15273-2:2009 kinematic method, with the customer KE as reference profile;'); }
     if (enSt) { scope.push('the check by the EN 15273-2:2009 static gauge method (A.2), with ' + s.enStatic.ref + ' as reference profile;'); }
     if (d) { scope.push('the dynamic check along ' + (t.line || 'the line') + ' (' + fmt(len) + ' m, every ' + fmt(d.summary.step) + ' m): required half-widths against the KE and the SOD allowance, structures, underframe height and platform gaps.'); }
@@ -95,6 +97,8 @@
       s.cars.forEach(function (c) { c.vertical.forEach(function (v) { if (!v.info && (!lowV || v.margin < lowV.margin)) { lowV = { margin: v.margin, car: c.car, label: v.label }; } }); });
       rows.push(['Vertical checks – smallest margin', lowV ? fmt(lowV.margin, 1) + ' mm' : '–', lowV ? lowV.car + ', ' + lowV.label : '', status(s.cars.every(function (c) { return c.vertical.every(function (v) { return v.info || v.ok; }); }))]);
       if (enSt) { var sg = s.enStatic.governing; rows.push(['EN 15273-2:2009 static gauge (A.2) – smallest margin', sg ? fmt(sg.margin, 1) + ' mm' : '–', sg ? sg.car + ', ' + SEC[sg.section] + ', h ' + fmt(sg.h) + ' mm' : '', status(s.enStatic.ok)]); }
+      var bsc = s.cars.filter(function (c) { return c.bostrab; });
+      if (bsc.length) { rows.push(['BOStrab §34 vehicle dimensions' + (t.bostrab_street === 'yes' ? '' : ' (not street-running: not applicable)'), '', bsc.map(function (c) { return c.car; }).join(', '), status(bsc.every(function (c) { return c.bostrab.ok; }))]); }
       if (s.ccd) {
         var sm2 = []; s.ccd.ccds.forEach(function (c) { ['ke', 'reach', 'overlap', 'clear'].forEach(function (k) { if (c[k]) { sm2.push({ v: c[k].v, c: c.name, w: c[k].case }); } }); });
         var w2 = sm2.sort(function (a, b) { return a.v - b.v; })[0];
@@ -213,6 +217,14 @@
         ['Wind equivalent cant tare / crush [mm]'].concat(s.cars.map(function (c) { return fmt(c.derived.wind.Dw_t, 1) + ' / ' + fmt(c.derived.wind.Dw_c, 1); })),
         ['Axle load [t]'].concat(s.cars.map(function (c) { return fmt(c.derived.shared.axle_t, 2); }))
       ]);
+      var bstc = s.cars.filter(function (c) { return c.bostrab; });
+      if (bstc.length) {
+        h2('BOStrab §34 vehicle dimensions');
+        para('Public limits of BOStrab §34(3) (street-running vehicles) and §34(2) (extra curve throw on street track at the minimum radius); the Lichtraumbedarf method of the BOStrab-Lichtraum-Richtlinien is not yet included.');
+        var brs = [];
+        bstc.forEach(function (c) { c.bostrab.rows.forEach(function (x) { brs.push([c.car, x.label, fmt(x.value), fmt(x.limit), x.applies ? fmt(x.margin, 1) : '–', x.applies ? status(x.ok) : 'n/a']); }); });
+        table(['Car type', 'Check', 'Value [mm]', 'Limit [mm]', 'Margin [mm]', 'Status'], brs, [0.1, 0.42, 0.12, 0.12, 0.12, 0.12]);
+      }
       if (s.ccd) {
         h2('5.' + (s.cars.length + 3) + ' Third-rail current collector (CCD)');
         var tr = p.thirdRail || {};

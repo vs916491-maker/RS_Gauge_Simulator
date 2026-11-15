@@ -221,6 +221,20 @@ with sync_playwright() as pw:
     page.evaluate("RSGAUGE.app.state.p.pantographs.length = 0")
     page.click('#tabbtn-ssim'); page.wait_for_timeout(200); page.click('#btn-run-static'); page.wait_for_timeout(800)
 
+    # applicable rules (framework)
+    page.click('#tabbtn-train'); page.wait_for_timeout(200)
+    page.select_option('#f-train-config select:has(option[value=ebo])', 'ebo'); page.wait_for_timeout(400)
+    ok(page.evaluate("RSGAUGE.app.state.p.settings.static.en_check") == 'yes' and page.evaluate("RSGAUGE.app.state.p.ke.en.en_gauge") == 'G2', 'framework EBO: EN check on with the rules of G2')
+    page.select_option('#f-train-config select:has(option[value=bostrab])', 'bostrab'); page.wait_for_timeout(400)
+    page.select_option('#f-train-config select >> nth=-1', 'yes'); page.wait_for_timeout(300)
+    page.click('#tabbtn-ssim'); page.wait_for_timeout(300)
+    ok('BOStrab' in page.locator('#ssim-fw').text_content() and page.evaluate("RSGAUGE.app.state.p.settings.static.bst_check") == 'yes', 'framework BOStrab shown in the applicable-rules table')
+    page.click('#btn-run-static'); page.wait_for_timeout(800)
+    ok(page.locator('#sres-bst').is_visible() and 'EXCEEDS' in page.locator('#sres-bst-table').text_content(), 'BOStrab §34 table: the 2,88 m metro exceeds the street-tram width')
+    page.locator('#sres-bst').screenshot(path=os.path.join(out, '20f-bostrab.png'))
+    page.click('#tabbtn-train'); page.wait_for_timeout(200)
+    page.select_option('#f-train-config select:has(option[value=bostrab])', 'customer'); page.wait_for_timeout(300)
+
     # preset
     page.click('#tabbtn-train'); page.wait_for_timeout(200)
     page.select_option('#f-train-config select >> nth=0', 'lrv'); page.wait_for_timeout(200)

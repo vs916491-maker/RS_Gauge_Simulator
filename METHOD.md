@@ -382,6 +382,7 @@ polygon edges (not the horizontal / vertical split of §6.4).
    side contact; static situations and the line sweep on the sample.
 8. **EN dynamic method** (`tests/en-dynamic.test.js`): O.4–O.18 by hand, rigid-body interpolation, curving, case choice, O.6
    import, validation limits of Tables O.1–O.3 and the status of Figure O.1.
+9. **Framework and BOStrab §34** (`tests/framework.test.js`): defaults per framework, §34 widths, height and curve throw by hand.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
 
@@ -898,3 +899,44 @@ matched → *fully validated*; statically validated with notified-body acceptanc
 
 Not covered: the multibody simulation itself, the comparator-vehicle method (Table O.5), pantograph swept envelopes,
 and PSD comparison of the ride test (entered as a judgement). `tests/en-dynamic.test.js`.
+
+## 16. Applicable rules (framework)
+
+### 16.1 Selection
+
+*Applicable rules* on the Train Configuration tab chooses the framework of the project; it loads the default checks
+into the Static Simulation options (and, for EN and EBO, the EN rules of the reference gauge). Every check can then be
+switched individually on the Static Simulation tab; the *Applicable rules* table there shows the framework default and
+the current choice (marked *changed* when they differ).
+
+| Framework | Customer KE (Method A/B) | EN kinematic | EN static gauge | BOStrab §34 | Rules loaded |
+|---|---|---|---|---|---|
+| Customer KE – metro practice | yes | no | no | no | – |
+| EN 15273-2 | yes | yes | no | no | gauge G1 |
+| EBO – German main line | yes | yes | no | no | G1 (§22, cross-border) or G2 (other vehicles) |
+| BOStrab – German tram, light rail, U-Bahn | yes | no | no | yes | – |
+
+The third-rail CCD (§14) and the EN dynamic method (§15) run whenever their data are given.
+
+### 16.2 EBO (pending documents)
+
+EBO §22: G1 (Anlage 7) for vehicles in cross-border traffic, G2 (Anlage 8) for the others, reduced by Anlage 9. The tool
+uses the EN 15273-2 kinematic rules of gauge G1 or G2 (§10), whose terms match the effects listed in Anlage 9 (plays,
+wear, vertical oscillation and curves, tilt for 50 mm cant excess / deficiency, dissymmetry beyond 1°). Not yet
+included, pending the documents: the reduction formula of Anlage 9 item 2, its track gauge of 1,435 m for bogie
+vehicles on curves (1,465 m otherwise), the lower-part reference lines of Anlagen 7 / 8. A warning is given.
+
+### 16.3 BOStrab §34 (public limits)
+
+With *Also check BOStrab §34 vehicle dimensions*, per car type (limits editable, defaults of the regulation):
+
+* §34(3), street-running vehicles (*straßenabhängig*, Train Configuration): largest width `2·x` of the RS profiles up to
+  the split height 3,4 m (including the width at that height) ≤ 2,65 m; above it ≤ 2,25 m; height to the top of the
+  lowered pantograph (pantograph table) or, without one, the RS profile top ≤ 4,0 m.
+* §34(2), street track: extra curve throw against straight track at the minimum radius `R_min` (Track Data), inside at
+  mid-car `(a² + p²)/(8R)` and outside at the car end `(a·n_end + n_end² − p²/4)/(2R)`, each ≤ 0,65 m.
+* For vehicles that are not street-running the checks are shown as not applicable.
+
+Not yet included, pending the documents: the Lichtraumbedarf method of the BOStrab-Lichtraum-Richtlinien (1996), with
+its statistical combination (§18(3); the RSS option of §6 can be used meanwhile) and safety distance (§18(4)). A warning
+is given. `tests/framework.test.js`.
