@@ -192,6 +192,15 @@ with sync_playwright() as pw:
     ok(page.locator('#sres-enst').is_visible() and 'NOT ALLOWED' in page.locator('#sres-enst-info').text_content() and page.locator('#sres-enst-check tbody tr.selrow').count() == 3, 'EN static gauge shown; s above s_max flagged')
     page.locator('#sres-enst').screenshot(path=os.path.join(out, '20c-static-gauge.png'))
     page.evaluate("RSGAUGE.app.state.p.settings.static.en_static = 'no'")
+    # EN pantograph (A.3.12): a fictional pantograph on the MC, shown in the RS tab table and the results
+    page.evaluate("RSGAUGE.app.state.p.pantographs.push({car: 'MC', name: 'Pantograph 1', pos: 'between', n_m: 0.3, ht_mm: 3900, t_mm: 30, theta_mrad: 2.5, tau_mm: 10, bw_mm: 800, h_low_mm: 3900, ins_mm: 0, note: ''})")
+    page.click('#tabbtn-rs'); page.wait_for_timeout(300)
+    ok(page.locator('#t-panto tbody tr').count() == 1, 'EN pantograph table shows the added row')
+    page.click('#tabbtn-ssim'); page.wait_for_timeout(200); page.click('#btn-run-static'); page.wait_for_timeout(800)
+    page.select_option('#sres-car', 'MC'); page.wait_for_timeout(300)
+    ok(page.locator('#sres-en-panto').is_visible() and page.locator('#sres-en-panto-table tbody tr').count() == 3, 'EN pantograph Po / Pu and lowered check listed (A.3.12)')
+    page.locator('#sres-en-panto').screenshot(path=os.path.join(out, '20d-pantograph.png'))
+    page.evaluate("RSGAUGE.app.state.p.pantographs.length = 0")
     page.click('#tabbtn-ssim'); page.wait_for_timeout(200); page.click('#btn-run-static'); page.wait_for_timeout(800)
 
     # preset

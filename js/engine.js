@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.5.0';
+  var VERSION = '4.6.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -497,6 +497,8 @@
     });
     out.doors = enDoors(p, d, r, en, ke);
     if (!out.doors.ok) { out.ok = false; }
+    out.pantographs = enPantographs(p, d, r, en, ke);
+    if (!out.pantographs.ok) { out.ok = false; }
     return out;
   }
 
@@ -717,6 +719,73 @@
         var dg = (beyond ? en.a * n + n * n - pMin * pMin / 4 : en.a * n - n * n + pMax * pMax / 4) / (2 * r.gap_R);
         res.gap = enStepGap(r, it.pos, y, dg, bgap);
         res.gap.forEach(function (gp) { if (!gp.ok) { res.ok = false; } });
+      }
+      if (!res.ok) { ok = false; }
+      rows.push(res);
+    });
+    return { rows: rows, ok: ok };
+  }
+
+  /*
+   * EN 15273-2:2009 A.3.12 pantograph gauge (METHOD §10.11), formulae A.66–A.85 in m. o = { side: i|a, n, a, p, d, q,
+   * wi, wa (w of the far / near bogie at R), R (Infinity = straight track), s, hc, ht, t, theta, tau }.
+   * P ≤ 0: the pantograph stays inside the gauge at the upper (6,5 m, Po) and lower (5,0 m, Pu) collecting point.
+   */
+  function enPantoP(o) {
+    var soft = o.s > 0.225, k = soft ? 0.2 : 0.066, c1 = soft ? 0.2375 : 0.1175, c2 = soft ? 0.1825 : 0.0925;
+    var zo = k * (6.5 - o.hc) / 1.5 * o.s + Math.sqrt(o.t * o.t + o.tau * o.tau + Math.pow(o.theta * (6.5 - o.hc), 2)) - c1;
+    var tl = o.t * (5 - o.ht) / (6.5 - o.ht);
+    var zu = k * (5 - o.hc) / 1.5 * o.s + Math.sqrt(tl * tl + o.tau * o.tau + Math.pow(o.theta * (5 - o.hc), 2)) - c2;
+    var n = o.n, a = o.a, j, geo, play = 0, delta;
+    if (o.side === 'i') {      // A.66 / A.71, A.69–A.70 / A.74–A.75
+      j = o.q + o.wi - 0.0375; delta = a * n - n * n + o.p * o.p / 4 - 5;
+    } else {                   // A.76 / A.81, A.79–A.80 / A.84–A.85
+      j = o.q * (2 * n + a) / a + o.wa * (n + a) / a + o.wi * n / a - 0.0375; delta = a * n + n * n - o.p * o.p / 4 - 5;
+      play = (1.465 - o.d) / 2 * 2 * n / a;
+    }
+    geo = o.R === Infinity ? 0 : pos(delta / (2 * o.R));
+    return { Po: geo + play + j + zo, Pu: geo + play + j + zu, geo: geo, play: play, j: j, zo: zo, zu: zu, soft: soft };
+  }
+  // w of a bogie at radius R: given points w∞ (straight), w(R1), w(R2) linear in 1/R; variable stops: w(Rv) at Rv
+  function wAtR(r, b, R) {
+    if (R === Infinity) { return b.winf; }
+    if (b.Rv > 0 && Math.abs(R - b.Rv) < 1e-9) { return b.wv; }
+    var c = 1 / R, c1 = 1 / r.R1, c2 = 1 / r.R2;
+    if (c <= c1) { return b.winf + (b.w250 - b.winf) * c / c1; }
+    return b.w250 + (b.w150 - b.w250) * (c - c1) / (c2 - c1);
+  }
+  function enPantographs(p, d, r, en, ke) {
+    var g = d.geo, rows = [], ok = true, B = en.bogies;
+    var pMax = Math.max(B[0].p, B[1].p), pMin = Math.min(B[0].p, B[1].p);
+    var radii = [Infinity, r.R2];
+    B.forEach(function (b) { if (b.Rv > 0 && radii.indexOf(b.Rv) < 0) { radii.push(b.Rv); } });
+    (p.pantographs || []).filter(function (x) { return x.car === d.car; }).forEach(function (pg) {
+      var beyond = pg.pos === 'beyond', n = blankOr(pg.n_m, beyond ? g.n_end : g.a / 2), cases = [], wo = null, wu = null;
+      var base = { side: beyond ? 'a' : 'i', n: n, a: en.a, p: beyond ? pMin : pMax, d: en.d, q: en.q, ht: n0(pg.ht_mm) / 1000, t: n0(pg.t_mm) / 1000,
+        theta: n0(pg.theta_mrad) / 1000, tau: n0(pg.tau_mm) / 1000 };
+      radii.forEach(function (R) {
+        en.loads.forEach(function (ld) {
+          [[B[0], B[1]], [B[1], B[0]]].forEach(function (pr, k) {
+            if (k === 1 && B[0].name === B[1].name) { return; }
+            var o = {}, x; for (x in base) { if (Object.prototype.hasOwnProperty.call(base, x)) { o[x] = base[x]; } }
+            o.R = R; o.s = ld.s; o.hc = ld.hc; o.wi = wAtR(r, pr[0], R); o.wa = wAtR(r, pr[1], R);
+            var e = enPantoP(o), row = { R: R === Infinity ? null : R, load: ld.load, far: pr[0].name, near: pr[1].name, wi: o.wi * 1000, wa: o.wa * 1000,
+              geo: e.geo * 1000, play: e.play * 1000, j: e.j * 1000, zo: e.zo * 1000, zu: e.zu * 1000, Po: e.Po * 1000, Pu: e.Pu * 1000, soft: e.soft };
+            cases.push(row);
+            if (!wo || row.Po > wo.Po) { wo = row; }
+            if (!wu || row.Pu > wu.Pu) { wu = row; }
+          });
+        });
+      });
+      var res = { name: pg.name, pos: pg.pos, n: n, ht: n0(pg.ht_mm), cases: cases, worstO: wo, worstU: wu, ok: wo.Po <= 1e-9 && wu.Pu <= 1e-9, lowered: null };
+      if (pg.h_low_mm !== null && pg.h_low_mm !== undefined && pg.h_low_mm !== '') {   // A.3.12.7 lowered pantograph
+        var hl = n0(pg.h_low_mm) / 1000, ins = n0(pg.ins_mm) / 1000, en2 = {}, k2;
+        for (k2 in en) { if (Object.prototype.hasOwnProperty.call(en, k2)) { en2[k2] = en[k2]; } }
+        en2.n = { int: n, ext: n, end: n };
+        var e2 = enSectionE(r, en2, beyond ? 'end' : 'int', hl), W = keWidth(ke, Math.max(hl, ke.hUpBottom));
+        var lw = { h: hl * 1000, ins: ins * 1000, bw: n0(pg.bw_mm), W: W * 1000, E: e2.E * 1000, max: (W - e2.E) * 1000, top: ke.top * 1000 };
+        lw.marginW = lw.max - lw.bw - lw.ins; lw.marginH = lw.top - lw.h - lw.ins; lw.ok = lw.marginW >= 0 && lw.marginH >= 0;
+        res.lowered = lw; if (!lw.ok) { res.ok = false; }
       }
       if (!res.ok) { ok = false; }
       rows.push(res);
@@ -1191,6 +1260,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));
