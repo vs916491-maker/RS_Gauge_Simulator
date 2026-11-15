@@ -226,7 +226,7 @@
       // ---- 6 EN
       if (en) {
         h1('6. EN 15273-2:2009 kinematic method');
-        para('The customer KE is the reference profile; the reductions Ei (between the bogie centres) and Ea (beyond) follow EN 15273-2:2009 Annex A with the rules of §3.5 ' +
+        para('Associated rules of gauge ' + ((p.ke.en || {}).en_gauge || 'G1') + '. The customer KE is the reference profile; the reductions Ei (between the bogie centres) and Ea (beyond) follow EN 15273-2:2009 Annex A with the rules of §3.5 ' +
           '(traction-unit formulae A.3.9.1.1 for a car with a motor bogie, coach formulae A.3.9.3.1 otherwise), worst of tare and crush.');
         table(['Car type', 'Formula set', 'd worn [mm]', 'Margin Int [mm]', 'Margin Ext [mm]', 'Margin End [mm]', 'Status'], s.cars.filter(function (c) { return c.en; }).map(function (c) {
           return [c.car, c.en.clause, fmt(c.en.d, 1)].concat(['int', 'ext', 'end'].map(function (k) { var m = c.en.checks[k].min; return m ? fmt(m.margin, 1) + ' at h ' + fmt(m.h) : '–'; }), [status(c.en.ok)]);
@@ -271,7 +271,7 @@
       }
       if (enSt) {
         if (en) { h2('EN 15273-2:2009 static gauge method (A.2)'); } else { h1('6. EN 15273-2:2009 static gauge method (A.2)'); }
-        para('Reference profile: ' + s.enStatic.ref + '. Reductions A.2 (between the bogie centres) and A.4 (beyond), Δ not below ' + fmt(p.ke.en.st_Dmin_m2, 1) + ' m², allowance ' +
+        para('Rules of gauge ' + ((p.ke.en || {}).en_gauge || 'G1') + ' (height law k above ' + fmt(p.ke.en.st_k_h0_mm) + ' mm when it has one), reference profile: ' + s.enStatic.ref + '. Reductions A.2 (between the bogie centres) and A.4 (beyond), Δ not below ' + fmt(p.ke.en.st_Dmin_m2, 1) + ' m², allowance ' +
           fmt(p.ke.en.st_allow_mm) + ' mm, no roll term; the static gauge may be used only when the flexibility coefficient does not exceed ' + fmt(p.ke.en.st_smax, 2) + ' (A.2.3.1). ' +
           'Lower parts up to ' + fmt(p.ke.en.st_h_low_mm) + ' mm: wheel wear and total suspension displacement (A.2.3.2).');
         table(['Car type', 's / s_max', 'E Int / Ext / End [mm]', 'Margin Int [mm]', 'Margin Ext [mm]', 'Margin End [mm]', 'Lower parts', 'Status'], s.cars.filter(function (c) { return c.enStatic; }).map(function (c) {

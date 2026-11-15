@@ -376,6 +376,7 @@ polygon edges (not the horizontal / vertical split of §6.4).
    Static gauge (`tests/en15273-static.test.js`): A.2–A.5 typed in literally, s limit, hand check of the sample.
    Doors and steps (`tests/en15273-doors.test.js`): A.105 / A.106 typed in, step gaps by hand.
    Pantographs (`tests/en15273-panto.test.js`): A.66–A.85 typed in literally, hand check.
+   Other gauges (`tests/en15273-gauges.test.js`): GA / GB rules B.1–B.10, B.21–B.26 and the DE2 roll term typed in.
 6. Inputs are never mutated; results are deterministic.
 7. **Third-rail CCD** (`tests/ccd.test.js`): movements, reach, overlap, envelope and clearance by hand for bottom, top and
    side contact; static situations and the line sweep on the sample.
@@ -638,7 +639,35 @@ Lowered pantograph (A.3.12.7), when its top is given: `b_w + insulating distance
 `n`, and `h + insulating distance ≤` KE top. Not covered: the special zones and the 25 kV live-part zone of Figure A.16
 as data (A.3.12.2, A.3.12.8), tilting vehicles and `I_p > I_c` (A.3.13).
 
-### 10.12 Results
+### 10.12 Other reference gauges (Annexes B, C, E, L)
+
+*Reference gauge of the associated rules* (Customer KE & SOD tab) loads the rules of a gauge into the rule fields; the
+reference profile of that gauge is entered by the user as a KE profile (the profiles of the standard are not bundled).
+Values can be edited afterwards (a warning lists the differences; *Custom* for own rules).
+
+* **GC, G2, DE3**: the rules of G1 (B.3.3.2, B.3.5.2, E.1.1.1, E.1.2.1, L.3.2); GC static `s_max = 0,3`.
+* **GA, GB, GB1, GB2** – height law (B.2.2, B.3, Tables B.1–B.4, C.1, C.2): `k = (h − h_0)/span`, `0 ≤ k ≤ 1`, with
+  `h_0 = 3,25 m` (kinematic) / `3,22 m` (static) and span 0,63 / 0,86 / 0,96 / 1,10 m (GA / GB / GB1 / GB2). Above
+  `h_0`, for the upper parts:
+  * kinematic: `2·Ck = 7,5 + 32,5·k` (so `e0 + Ck/R1 = 0,030 + 0,065·k`, `Ck/R1 = 0,015 + 0,065·k`, and the coach
+    condition `250·(l_max − d) + 32,5·k`), `Xa = 120 − 20·k` (`Xi = 100` unchanged), `s0 = 0,4 − 0,1·k` in z_kin
+    (`(0,04 − 0,01·k)·(h − 0,5)` of Tables B.2–B.4). These are formulae B.5–B.10 (traction units), B.21–B.26 (coaches)
+    and the same generalisation of §10.4; the non-linear w formulae B.11–B.14 / B.27–B.30 follow §10.6 with this `Ck`.
+    Motor coaches with one motor bogie use A.3.9.2 as it is (B.3.4.1, `k = 0`); the alternative B.15–B.20 is not used.
+  * static: `Δmin = 7,5 + 32,5·k`, allowance `0,075 + 0,065·k` (B.1, B.3), and `Xa = 100` in B.4 (as printed).
+  * static `s_max = 0,3` (B.2, §5.1.3). The pantograph rules stay those of G1 (B.1 c).
+* **DE2** (L.2.2): G2 (= G1) rules, and between 3,765 m and 4,335 m the roll term uses `s0 = 0,19`, `hc0 = 0,695 m` and
+  `k2 = (I or D − C0 + 0,015 + 0,039)/L` with `I or D` the line's maximum (example 0,150 m), i.e.
+  `Δz = s/L·[I or D − 0,05 + 0,054]·(h − hc) − 0,19/L·[…]·(h − 0,695)` added as the bracket of A.24.
+* **DE1** (L.1.2): the same roll rule over the full height with `s0 = 0,28`, `hc0 = 0,70 m`. The radius corrections
+  `Δs` of L.1.2.2 (≤ 0 for 150 m ≤ R ≤ 500 m) are not applied, and the reductions use the G1 formula structure with
+  the reference radius 250 m; a warning says to confirm with the infrastructure manager.
+
+Implementation: `enRulesAt(r, h)` (kinematic) and `enStaticRulesAt(r, h)` (static) return the rules at height `h`; the
+reductions of §10.4–10.11 use them at every height. `tests/en15273-gauges.test.js` types in B.1–B.10, B.21–B.26 and the
+DE2 roll term literally.
+
+### 10.13 Results
 
 * Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
   Method A for comparison.
@@ -650,7 +679,7 @@ as data (A.3.12.2, A.3.12.8), tilting vehicles and `I_p > I_c` (A.3.13).
 * Static gauge (§10.9): per car type, when selected.
 * Doors and steps (§10.10): one row per element and governing height; step position per platform side.
 * Pantographs (§10.11): worst Po and Pu per pantograph, lowered position.
-* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
+* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), the reference-profile outlines of the other gauges (entered as KE profiles), the gauges of Annexes D, F–K, M, N and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
   and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.
 
