@@ -116,6 +116,23 @@
     ];
   }
 
+  // EN 15273-2 maximum construction gauge against the workbook Method A (x = half-width, y = height).
+  function enDatasets(res, car, colors) {
+    colors = colors || {};
+    var c = res.cars.filter(function (x) { return x.car === car; })[0];
+    if (!c || !c.en) { return []; }
+    function col(key) { return c.en.rows.filter(function (r) { return r[key] !== null && r[key] > 0; }).map(function (r) { return { x: r[key], y: r.h }; }); }
+    return [
+      line('Customer KE half-width', c.en.rows.map(function (r) { return { x: r.W, y: r.h }; }), colors.ke || '#2563eb', { w: 2.2 }),
+      line('EN max – interior (Ei)', col('max_int'), colors.int || '#059669', { w: 2 }),
+      line('EN max – exterior (Ea)', col('max_ext'), colors.ext || '#7c3aed', { w: 2, dash: [6, 3] }),
+      line('EN max – car end (Ea)', col('max_end'), colors.end || '#dc2626', { w: 2, dash: [2, 2] }),
+      line('Method A – interior', col('ma_int'), colors.ma || '#94a3b8', { w: 1.2, dash: [8, 4] }),
+      line('Method A – car end', col('ma_end'), colors.ma2 || '#cbd5e1', { w: 1.2, dash: [3, 3] }),
+      line('Profile – interior', col('prof_int'), colors.pint || '#6b7280', { w: 1.2, points: true })
+    ];
+  }
+
   // ---------------------------------------------------------------- dynamic results
   function chainageSeries(rows, key, scale) {
     scale = scale || 1;
@@ -135,5 +152,5 @@
   }
 
   return { chainageSeries: chainageSeries, crossSectionDatasets: crossSectionDatasets, profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries,
-    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
+    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, enDatasets: enDatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
 }));

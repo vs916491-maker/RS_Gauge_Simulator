@@ -548,10 +548,38 @@
     function mcell(v) { return v === null ? '' : { v: fmt(v, 1), cls: v >= 0 ? '' : 'badcell' }; }
     roTable($('sres-methodA'), ['h', 'KE width', 'Max static Int', 'Max static Ext', 'Max static End', 'Margin Int', 'Margin Ext', 'Margin End'],
       c.methodA.map(function (x) { return [fmt(x.h, 0), fmt(x.W, 1), fmt(x.max_int, 1), fmt(x.max_ext, 1), fmt(x.max_end, 1), mcell(x.margin_int), mcell(x.margin_ext), mcell(x.margin_end)]; }));
+    renderSresEn(r, c);
     // vertical
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {
       return v.info ? [v.label, fmt(v.value, 1), '', '', ''] : [v.label, fmt(v.value, 1), fmt(v.limit, 1), cCell(v.margin), { v: v.ok ? 'OK' : (v.id.indexOf('uf') === 0 ? 'BELOW MIN' : 'INFRINGES'), cls: v.ok ? 'okcell' : 'badcell' }];
     }));
+  }
+
+  var SEC_NAMES = { int: 'Interior', ext: 'Exterior', end: 'Car end' };
+  function renderSresEn(r, c) {
+    var box = $('sres-en'), en = c.en;
+    box.hidden = !en;
+    if (!en) { return; }
+    var R = en.rules;
+    roTable($('sres-en-info'), ['Item', 'Interior', 'Exterior', 'Car end'], [
+      ['Formula set', en.set === 'traction' ? 'Traction unit – ' + en.clause : 'Coach – ' + en.clause, '', ''],
+      ['Position n from the bogie centre (m)'].concat(['int', 'ext', 'end'].map(function (k) { return fmt(en.sections[k].n, 3); })),
+      ['Δ = a·n ∓ n² ± p²/4 (m²)'].concat(['int', 'ext', 'end'].map(function (k) { return fmt(en.sections[k].delta, 3); })),
+      ['Formula branch – upper / lower parts'].concat(['int', 'ext', 'end'].map(function (k) { return en.sections[k].branch_up + ' / ' + en.sections[k].branch_low; })),
+      ['x-term at R2 – upper (mm)'].concat(['int', 'ext', 'end'].map(function (k) { return fmt(en.sections[k].x_up, 2); })),
+      ['(l_max − d)/2 with d worn = ' + fmt(en.d, 1) + ' mm', fmt(en.P, 2) + ' mm', '', ''],
+      ['q / w used (mm)', fmt(en.q, 1) + ' / ' + fmt(en.w, 1), '', ''],
+      ['Rules', 'l_max ' + fmt(R.lmax * 1000, 0) + ' mm, R1 ' + fmt(R.R1, 0) + ' m, R2 ' + fmt(R.R2, 0) + ' m, Ck ' + fmt(R.Ck_low, 2) + ' / ' + fmt(R.Ck_up, 2) + ' m², s0 ' + fmt(R.s0, 2) + ', hc0 ' + fmt(R.hc0 * 1000, 0) + ' mm', '', ''],
+      { cls: 'total', cells: ['Minimum margin to the EN maximum construction gauge (mm)'].concat(['int', 'ext', 'end'].map(function (k) { var m = en.checks[k].min; return m ? cCell(m.margin) : ''; })) },
+      ['At height (mm) / profile'].concat(['int', 'ext', 'end'].map(function (k) { var m = en.checks[k].min; return m ? fmt(m.h, 0) + ' / ' + en.checks[k].profile : ''; }))
+    ]);
+    methodAChart(r, c.car, true);
+    function mcell(v) { return v === null ? '' : { v: fmt(v, 1), cls: v >= 0 ? '' : 'badcell' }; }
+    roTable($('sres-en-table'), ['h', 'KE width', 'Ei Int', 'Ea Ext', 'Ea End', 'EN max Int', 'Method A Int', 'EN max End', 'Method A End', 'Margin Int', 'Margin Ext', 'Margin End'],
+      en.rows.map(function (x) { return [fmt(x.h, 0), fmt(x.W, 1), fmt(x.E_int, 1), fmt(x.E_ext, 1), fmt(x.E_end, 1), fmt(x.max_int, 1), fmt(x.ma_int, 1), fmt(x.max_end, 1), fmt(x.ma_end, 1), mcell(x.margin_int), mcell(x.margin_ext), mcell(x.margin_end)]; }));
+    var sec = $('sres-en-sec').value || 'int', ck = en.checks[sec];
+    roTable($('sres-en-check'), ['h', 'Profile half-width', 'KE half-width', 'E', 'z_kin', 'Branch', 'Load', 'EN max', 'Margin', 'Status'],
+      ck.points.map(function (q) { return { cls: q === ck.min ? 'selrow' : '', cells: [fmt(q.h, 0), fmt(q.x, 1), fmt(q.W, 1), fmt(q.E, 2), fmt(q.z, 2), q.branch, q.load, fmt(q.max, 1), cCell(q.margin), q.ok ? 'OK' : 'EXCEEDS'] }; }));
   }
 
   // ---------------------------------------------------------------- Dynamic Simulation
@@ -726,6 +754,10 @@
       return [x.car, x.governing ? x.governing.label : '', cCell(x.governing ? x.governing.c : NaN), { v: vOk ? 'OK' : 'CHECK', cls: vOk ? 'okcell' : 'badcell' }, fmt(x.derived.shared.axle_t, 2), { v: x.ok ? 'OK' : 'CHECK', cls: x.ok ? 'okcell' : 'badcell' }];
     }));
     sb.appendChild(el('p', { class: r.ok ? 'pill ok' : 'pill err', text: (r.ok ? 'ALL OK' : 'CHECK') + (r.governing ? ' – governing: ' + r.governing.car + ', ' + r.governing.label + ', ' + fmt(r.governing.c, 1) + ' mm to ' + r.ke.name : '') }));
+    if (r.en) {
+      var eg = r.en.governing;
+      sb.appendChild(el('p', { class: r.en.ok ? 'pill ok' : 'pill err', text: 'EN 15273-2:2009 kinematic: ' + (r.en.ok ? 'OK' : 'CHECK') + (eg ? ' – smallest margin ' + fmt(eg.margin, 1) + ' mm (' + eg.car + ', ' + SEC_NAMES[eg.section] + ', h ' + fmt(eg.h, 0) + ' mm)' : '') }));
+    }
   }
   function renderSummaryDynamic() {
     var db = clear($('summary-dynamic')), d = state.drun;
@@ -803,14 +835,15 @@
     var ds = P.sectionDatasets(r, car, sec, { ke: cssVar('--c1', '#2563eb'), rs: cssVar('--c3', '#059669'), tare: cssVar('--c4', '#dc2626'), crush: cssVar('--c2', '#d97706') });
     scatterChart(id, ds, P.profileAxes(ds), null, null, null, 'bottom');
   }
-  function methodAChart(r, car) {
-    var ds = P.methodADatasets(r, car, { ke: cssVar('--c1', '#2563eb'), int: cssVar('--c3', '#059669'), ext: cssVar('--c5', '#7c3aed'), end: cssVar('--c4', '#dc2626') });
+  function methodAChart(r, car, en) {
+    var cols = { ke: cssVar('--c1', '#2563eb'), int: cssVar('--c3', '#059669'), ext: cssVar('--c5', '#7c3aed'), end: cssVar('--c4', '#dc2626') };
+    var ds = en ? P.enDatasets(r, car, cols) : P.methodADatasets(r, car, cols);
     var xs = [], ys = [];
     ds.forEach(function (d) { d.data.forEach(function (q) { xs.push(q.x); ys.push(q.y); }); });
     var xmin = Math.floor((Math.min.apply(null, xs.concat([1000])) - 50) / 100) * 100, xmax = Math.ceil((Math.max.apply(null, xs.concat([1500])) + 50) / 100) * 100;
     var ymin = Math.floor(Math.min.apply(null, ys.concat([0])) / 500) * 500, ymax = Math.ceil(Math.max.apply(null, ys.concat([1000])) / 500) * 500;
     if (!root.Chart) { return; }
-    var id = 'chart-methodA';
+    var id = en ? 'chart-en' : 'chart-methodA';
     if (state.charts[id]) { state.charts[id].destroy(); }
     state.charts[id] = new root.Chart($(id).getContext('2d'), {
       type: 'scatter', data: { datasets: ds },
@@ -962,6 +995,7 @@
     });
     $('sres-car').addEventListener('change', function () { state.resCar = this.value; renderSres(); });
     $('sres-case').addEventListener('change', function () { state.resCase = this.value; renderSres(); });
+    $('sres-en-sec').addEventListener('change', function () { renderSres(); });
     $('btn-export-static').addEventListener('click', function () {
       if (!state.run) { return; }
       IO.downloadWorkbook(IO.staticResultsWorkbook(state.run, state.p, { stale: stale() }), IO.fileSlug(state.p.name) + '-static-results.xlsx');

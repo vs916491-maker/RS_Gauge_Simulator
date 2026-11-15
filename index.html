@@ -121,7 +121,8 @@
         <div class="card"><h3>SOD point items</h3>
           <div id="t-sod-items" class="tablewrap"></div>
           <h3 class="gap">SOD settings</h3><div id="f-sod" class="fields"></div></div>
-        <details class="card"><summary><strong>EN 15273-2 reference parameters</strong> <span class="muted">(kept for a later phase; not used by the current method)</span></summary>
+        <details class="card"><summary><strong>EN 15273-2:2009 associated rules</strong> <span class="muted">(kinematic method, G1 values as defaults; used when the EN check is selected on Static Simulation)</span></summary>
+          <p class="hint">The customer KE is the reference profile. Change a value only where the customer's KE comes with its own rules.</p>
           <div id="f-en" class="fields"></div></details>
       </div>
     </div>
@@ -201,6 +202,21 @@
         <div class="card"><h3>Method A table <span class="muted">(mm)</span></h3><div id="sres-methodA" class="tablewrap scrolly"></div></div>
       </div>
       <div class="card"><h3>Vertical checks</h3><div id="sres-vertical" class="tablewrap"></div></div>
+      <div id="sres-en" hidden>
+        <div class="card"><h3>EN 15273-2:2009 kinematic method <span class="muted">(customer KE as reference profile, rules on the Customer KE &amp; SOD tab)</span></h3>
+          <p class="hint">Maximum construction gauge = KE half-width − E<sub>i</sub> (between the bogie centres) or E<sub>a</sub> (beyond), worst of tare and crush.
+            Formula set by Table A.4: a car with a motor bogie uses the traction-unit formulae A.3.9.1.1, otherwise the coach formulae A.3.9.3.1.</p>
+          <div id="sres-en-info" class="tablewrap"></div></div>
+        <div class="grid2">
+          <div class="card"><h3>Maximum construction gauge – EN against workbook Method A</h3>
+            <div class="chartbox tall"><canvas id="chart-en" aria-label="EN 15273-2 maximum construction gauge"></canvas></div></div>
+          <div class="card"><h3>EN table on the Method A heights <span class="muted">(mm)</span></h3><div id="sres-en-table" class="tablewrap scrolly"></div></div>
+        </div>
+        <div class="card"><div class="row"><h3>EN check of the RS profile</h3><label>Section <select id="sres-en-sec">
+          <option value="int">Interior (between the bogie centres)</option><option value="ext">Exterior (beyond)</option><option value="end">Car end (beyond)</option></select></label></div>
+          <p class="hint">At every profile vertex height and every KE vertex height within the profile: margin = KE half-width − E − profile half-width.</p>
+          <div id="sres-en-check" class="tablewrap scrolly"></div></div>
+      </div>
     </div>
   </section>
 

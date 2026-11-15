@@ -86,11 +86,13 @@
     f('s_defl', 'Flexibility coefficient s – deflated', 'num', '', { min: 0, max: 1, d: 0.12 }),
     f('hc_tare_mm', 'Roll-centre height hc – tare', 'num', 'mm', { min: 0, max: 3000, d: 550 }),
     f('hc_crush_mm', 'Roll-centre height hc – crush', 'num', 'mm', { min: 0, max: 3000, d: 530 }),
-    f('hc_defl_mm', 'Roll-centre height hc – deflated', 'num', 'mm', { min: 0, max: 3000, d: 300 })
+    f('hc_defl_mm', 'Roll-centre height hc – deflated', 'num', 'mm', { min: 0, max: 3000, d: 300 }),
+    f('eta0_deg', 'Body dissymmetry η0 (EN 15273-2)', 'num', '°', { min: 0, max: 5, d: 0, h: 'Only the part above the rules value (1°) adds to z_kin' })
   ];
   var bogie = [
     f('name', 'Bogie type name', 'text', '', { d: 'B' }),
     f('p_m', 'Bogie wheelbase p', 'num', 'm', { min: 0.5, max: 5, d: 2.3 }),
+    f('motor', 'Motor bogie (adhesion μ ≥ 0,2)', 'sel', '', { o: [['yes', 'Yes'], ['no', 'No']], d: 'no', h: 'EN 15273-2 Table A.4: a car with a motor bogie uses the traction-unit formulae' }),
     f('play_ld_mm', 'Wheel–rail half play (l − d)/2, worn', 'num', 'mm', { min: 0, max: 50, d: 14, h: 'See the play calculator below' }),
     f('q_mm', 'Primary lateral play q (axlebox ↔ frame)', 'num', 'mm', { min: 0, max: 50, d: 5 }),
     f('w_mm', 'Secondary lateral play to bump stop w – inflated', 'num', 'mm', { min: 0, max: 150, d: 30, h: 'Including bump-stop compression' }),
@@ -142,12 +144,22 @@
     f('h_ref2_mm', 'Reference height 2 (cantrail) h2', 'num', 'mm', { min: 0, max: 6000, d: 3000 })
   ];
   var enParams = [
+    f('lmax_mm', 'Max track gauge in the rules l_max (1,465 m in G1)', 'num', 'mm', { min: 600, max: 1800, d: 1465 }),
+    f('e0_mm', 'Lateral allowance in the reference profile (0,015 m)', 'num', 'mm', { min: 0, max: 100, d: 15 }),
+    f('R1_m', 'Reference radius R1 (250 m)', 'num', 'm', { min: 50, max: 5000, d: 250 }),
+    f('Rmin_m', 'Smaller reference radius R2 (150 m)', 'num', 'm', { min: 20, max: 5000, d: 150, h: 'x-term: (Δ − X)·(1/2R2 − 1/2R1)' }),
+    f('Ck_m2', 'Overthrow allowance Ck – lower parts (k = Ck/R)', 'num', 'm²', { min: 0, max: 20, d: 2.5, h: 'G1: 2,5 (Δ threshold 5)' }),
+    f('Ck_up_m2', 'Overthrow allowance Ck – upper parts', 'num', 'm²', { min: 0, max: 20, d: 3.75, h: 'G1: 3,75 (Δ threshold 7,5)' }),
+    f('Xi_m2', 'x-term constant between the pivots Xi (100)', 'num', 'm²', { min: 0, max: 1000, d: 100 }),
+    f('Xa_m2', 'x-term constant beyond the pivots Xa (120)', 'num', 'm²', { min: 0, max: 1000, d: 120 }),
+    f('h_low_mm', 'Lower parts up to height (0,400 m)', 'num', 'mm', { min: 0, max: 2000, d: 400 }),
     f('s0', 'Reference flexibility s0', 'num', '', { min: 0, max: 1, d: 0.4 }),
     f('hc0_mm', 'Reference roll centre height hc0', 'num', 'mm', { min: 0, max: 2000, d: 500 }),
-    f('D0_mm', 'Cant deficiency allowance D0', 'num', 'mm', { min: 0, max: 300, d: 50 }),
-    f('I0_mm', 'Cant excess allowance I0', 'num', 'mm', { min: 0, max: 300, d: 50 }),
-    f('Ck_m2', 'Overthrow allowance coefficient Ck (k = Ck/R)', 'num', 'm²', { min: 0, max: 20, d: 2.5 }),
-    f('Rmin_m', 'Smallest radius for the formulae', 'num', 'm', { min: 0, max: 1000, d: 150 })
+    f('D0_mm', 'Cant deficiency in the profile D0 (outside)', 'num', 'mm', { min: 0, max: 300, d: 50 }),
+    f('I0_mm', 'Cant excess in the profile I0 (inside)', 'num', 'mm', { min: 0, max: 300, d: 50 }),
+    f('Dlim_mm', 'Cant excess / deficiency limit (0,2 m)', 'num', 'mm', { min: 0, max: 400, d: 200 }),
+    f('Lref_mm', 'Distance between rail centres in the rules L (1,5 m)', 'num', 'mm', { min: 600, max: 1900, d: 1500 }),
+    f('eta_lim_deg', 'Dissymmetry included in the profile (1°)', 'num', '°', { min: 0, max: 5, d: 1 })
   ];
   var sodSettings = [
     f('frame', 'SOD reference frame', 'sel', '', { o: [['track', 'Track plane (same as KE)'], ['vertical', 'Vertical (rotate KE by cant)']], d: 'track' }),
@@ -234,7 +246,8 @@
     f('over_infl', 'Include air-spring over-inflation (abnormal)', 'sel', '', { o: YN, d: 'no' }),
     f('ma_from_mm', 'Method A: first height', 'num', 'mm', { min: 0, max: 6000, d: 900 }),
     f('ma_to_mm', 'Method A: last height', 'num', 'mm', { min: 0, max: 8000, opt: true, h: 'Blank = top of the KE' }),
-    f('ma_step_mm', 'Method A: height step', 'num', 'mm', { min: 10, max: 1000, d: 100 })
+    f('ma_step_mm', 'Method A: height step', 'num', 'mm', { min: 10, max: 1000, d: 100 }),
+    f('en_check', 'Also check EN 15273-2:2009 kinematic (customer KE as reference profile)', 'sel', '', { o: YN, d: 'no', h: 'Reductions Ei / Ea with the rules on the Customer KE & SOD tab; in the verdict when Yes' })
   ];
 
   // ---------------------------------------------------------------- Dynamic Simulation tab (options)

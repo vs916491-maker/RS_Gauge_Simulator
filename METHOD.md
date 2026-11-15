@@ -9,8 +9,8 @@ Formulas, Static Calc, Dynamic Calc, Dynamic Gauge Output). The engine reproduce
 for the same inputs and options; `tests/workbook.test.js` (static) and `tests/workbook-dynamic.test.js`
 (dynamic) check it on fictional inputs recalculated by the workbook.
 
-> **Status:** sections 1–8 are implemented (static: Phase 2, dynamic: Phase 3). Section 10 (EN 15273-2
-> reference profile reductions) is kept for a later phase and is not used.
+> **Status:** sections 1–8 are implemented (static: Phase 2, dynamic: Phase 3); section 10 (EN 15273-2:2009
+> kinematic method, static option) in Phase 4.
 
 ## 1. Purpose and approach
 
@@ -344,14 +344,84 @@ the right, x + T_in on the left) are rotated the same way; rails at ±750 mm.
    outline match.
 3. Closed-form checks: tangent with no movement gives clearance = gap to the KE; yaw factor; wind constant;
    theoretical s from the closed form; axle load by statics.
-4. Inputs are never mutated; results are deterministic.
+4. **EN 15273-2** (`tests/en15273.test.js`): reductions and z_kin against the standard's formulae A.24, A.27–A.31
+   and A.46–A.50 typed in literally, 40 000 random vehicles, both branches; a hand check.
+5. Inputs are never mutated; results are deterministic.
 
-## 10. EN 15273-2 reference-profile reductions (later phase, not used)
+## 10. EN 15273-2:2009 kinematic method (static option)
 
-Kept for a later phase: reductions `Ei` / `Ea` subtracted from a reference profile with its associated rules
-(reference flexibility s0, roll-centre height hc0, cant allowances D0 / I0, overthrow allowance k = Ck/R). The
-parameters are stored on the Customer KE & SOD tab but are not used by the current method. To be checked against
-EN 15273-2 before implementation.
+Optional check on the Static Simulation tab (*Also check EN 15273-2:2009 kinematic*). The **customer KE is the
+reference profile**; its associated rules are the parameters on the Customer KE & SOD tab, with the values of gauge
+G1 (EN 15273-2:2009 Annex A.3) as defaults. Implemented from the 2009 edition (superseded by EN 15273-2:2013; to be
+updated when that edition is used). §5.1.1: the half-width of the vehicle shall not exceed the half-width of the
+reference profile reduced by `Ei` (sections between the bogie centres) or `Ea` (sections beyond them).
+
+### 10.1 Rules (Customer KE & SOD tab, G1 values)
+
+| Symbol | Meaning | G1 |
+|---|---|---|
+| `l_max` | maximum track gauge of the rules | 1,465 m |
+| `e0` | lateral allowance included in the reference profile | 0,015 m |
+| `R1`, `R2` | reference radii | 250 m, 150 m |
+| `Ck` | overthrow allowance `k = Ck/R` – lower parts / upper parts | 2,5 / 3,75 m² |
+| `Xi`, `Xa` | x-term constants between / beyond the bogie centres | 100 / 120 m² |
+| `h_low` | lower parts: up to this height above the rail | 0,400 m |
+| `s0`, `hc0` | reference flexibility and roll-centre height | 0,4; 0,5 m |
+| `I0`, `D0` | cant excess (inside) / deficiency (outside) in the reference profile | 0,05 m |
+| `Dlim` | cant excess / deficiency limit | 0,2 m |
+| `L` | distance between rail centres of the rules | 1,5 m |
+| `η_lim` | dissymmetry included in the reference profile | 1° |
+
+### 10.2 Vehicle data
+
+* Formula set (Table A.4 and its note a): a car type with a motor bogie (bogie input *Motor bogie*, adhesion μ ≥ 0,2)
+  uses the traction-unit formulae A.3.9.1.1; a car type without one uses the coach formulae A.3.9.3.1.
+* `a` pivot distance, `p` bogie wheelbase (larger of the two bogies), `d` = BB + 2·ef worn (smaller of the two bogies:
+  largest play), `q`, `w` of the bogies (larger; deflated `w` when the lateral state is deflated). `w` is constant with
+  the radius (w∞ = w(250) = w(150)), so the non-linear clearance formulae A.3.9.1.2 / A.3.9.3.2 reduce to these.
+* Sections: interior at `n = ni` (between the bogie centres), exterior at `n = na` and car end at `n = n_end` (beyond),
+  with the profiles of §6. `s`, `hc` of tare and crush (§5.4 source and suspension state); `E` is the larger of the two.
+* `η0`: body dissymmetry (car body input, default 0).
+
+### 10.3 Quasi-static term z_kin (A.3.8.1, A.24)
+
+With `C0 = I0` for `Ei` and `C0 = D0` for `Ea`, `k2 = (Dlim − C0)/L`:
+
+`z = s·C0/L·(h − hc)>0 + tan(η0 − η_lim)>0·|h − hc| + [ s·k2·(h − hc)>0 − s0·k2·(h − hc0)>0 ]>0`
+
+Special cases (η0 ≤ η_lim): `z = 0` for `h < hc0`; `z = s·C0/L·(h − hc)>0` for `s ≤ s0`. With the G1 values this is
+`s/30·(h − hc) + [s/10·(h − hc) − 0,04·(h − 0,5)]` of A.24. Unsprung parts (z = 0) are not distinguished: every
+profile point is treated as part of the body.
+
+### 10.4 Reductions (A.3.9.1.1 and A.3.9.3.1, w constant)
+
+`Δi = a·n − n² + p²/4`, `Δa = a·n + n² − p²/4`, `A = (2n + a)/a`, `P = (l_max − d)/2`,
+`x = [(Δ − X)·(1/(2R2) − 1/(2R1))]>0` with `X = Xi` or `Xa`; `Ck` of the lower parts for `h ≤ h_low`, else of the upper parts.
+
+| | straight branch | curve branch |
+|---|---|---|
+| Traction unit, Ei (A.27 / A.28) | `P + q + w + z − e0` | `Δi/2R1 + P + q + w + z + x − e0 − Ck/R1` |
+| Traction unit, Ea (A.30 / A.31) | `(P + q + w)·A + z − e0` | `Δa/2R1 + (P + q + w)·A + z + x − e0 − Ck/R1` |
+| Coach, Ei (A.46 / A.47) | `P + q + w + z − e0` | `Δi/2R1 + q + w + z + x − Ck/R1` |
+| Coach, Ea (A.49 / A.50) | `(P + q + w)·A + z − e0` | `Δa/2R1 + P·(n + a)/a + (q + w)·A + z + x − e0 − Ck/R1` |
+
+`E = max(straight, curve)`. With the G1 values the two branches are equal exactly at the switching conditions of the
+standard (Δ ≤ 5 | 7,5 for traction units; Δi ≤ 250·(1,465 − d) − 2,5 | 0 and Δa ≤ 250·(1,465 − d)·n/a + 5 | 7,5 for
+coaches), and `e0 + Ck/R1` = 0,025 | 0,030 and `Ck/R1` = 0,010 | 0,015, so the maximum is the formula of the standard;
+with other rules values it is the larger (conservative) branch. `tests/en15273.test.js` compares the engine with the
+standard's formulae typed in literally.
+
+### 10.5 Results
+
+* Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
+  Method A for comparison.
+* Check of the RS profiles: at every profile vertex height and every KE vertex height within the profile height range,
+  margin = `W_KE(h) − E(h) − x_prof(h)` (KE half-width at `max(h, bottom of the upper envelope)`, as §6). The car type
+  passes when every margin ≥ 0; when the option is selected, the EN result is part of the car's verdict.
+* Not covered: the lower-part reference profiles GIC1/GIC2 and vertical reductions of A.3.4 (the vertical checks of §7
+  apply), pantograph gauge (A.3.12), doors and steps open (A.3.14), tilting vehicles (A.3.16), motor-coach formulae
+  A.3.9.2 (note a of Table A.4: the traction-unit formulae are used), wagons. Articulated units use the Figure 1
+  equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.
 
 ## 11. Assumptions and limitations
 

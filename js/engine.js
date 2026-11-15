@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '3.0.0';
+  var VERSION = '4.0.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -299,14 +299,117 @@
       cases.forEach(function (r) { if (r.min && (!worst || r.min.c < worst.min.c)) { worst = r; } });
       var res = { car: c.name, count: c.count, derived: d, cases: cases, governing: worst ? { id: worst.id, label: worst.label, c: worst.min.c } : null,
         methodA: methodA(p, d, cases, ke, profs, opt), vertical: verticalChecks(p, d, cases, ke, profs), profiles: { int: profs.int.name, ext: profs.ext.name, end: profs.end.name } };
-      res.ok = cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; });
+      if (yes(opt.en_check)) {
+        res.en = enRun(p, d, ke, profs, opt, res.methodA);
+        if (d.geo.shared1 || d.geo.shared2) { warnings.push(c.name + ': EN 15273-2 formulae applied to an articulated unit by the Figure 1 equivalence (a = distance between the shared pivots).'); }
+        if (n0(d.bogie.b1.n_axle, 2) !== 2 || n0(d.bogie.b2.n_axle, 2) !== 2) { warnings.push(c.name + ': EN 15273-2 formulae are written for two-axle bogies (§5.1.2); adapt them to the actual geometry.'); }
+      }
+      res.ok = cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok);
       if (worst && (!gov || worst.min.c < gov.c)) { gov = { car: c.name, id: worst.id, label: worst.label, c: worst.min.c, pt: worst.min.pt }; }
       return res;
     });
+    var enGov = null;
+    out.forEach(function (c) {
+      if (!c.en) { return; }
+      ['int', 'ext', 'end'].forEach(function (sec) { var m = c.en.checks[sec].min; if (m && (!enGov || m.margin < enGov.margin)) { enGov = { car: c.car, section: sec, margin: m.margin, h: m.h }; } });
+    });
     return {
       engineVersion: VERSION, ke: { name: ke.name, top: ke.top * 1000, nUp: ke.nUp, points: keP.points },
-      cars: out, governing: gov, ok: out.every(function (r) { return r.ok; }), warnings: warnings
+      cars: out, governing: gov, en: yes(opt.en_check) ? { governing: enGov, ok: out.every(function (c) { return !c.en || c.en.ok; }) } : null,
+      ok: out.every(function (r) { return r.ok; }), warnings: warnings
     };
+  }
+
+  // ================================================================ EN 15273-2:2009 KINEMATIC (METHOD §10)
+  // Associated rules in SI (m, m², rad); defaults are those of gauge G1.
+  function enRules(p) {
+    var e = (p.ke && p.ke.en) || {};
+    function v(k, d) { return n0(e[k], d); }
+    return {
+      lmax: v('lmax_mm', 1465) / 1000, e0: v('e0_mm', 15) / 1000, R1: v('R1_m', 250), R2: v('Rmin_m', 150),
+      Ck_low: v('Ck_m2', 2.5), Ck_up: v('Ck_up_m2', 3.75), Xi: v('Xi_m2', 100), Xa: v('Xa_m2', 120), h_low: v('h_low_mm', 400) / 1000,
+      s0: v('s0', 0.4), hc0: v('hc0_mm', 500) / 1000, I0: v('I0_mm', 50) / 1000, D0: v('D0_mm', 50) / 1000, Dlim: v('Dlim_mm', 200) / 1000,
+      Lref: v('Lref_mm', 1500) / 1000, eta_lim: v('eta_lim_deg', 1) * Math.PI / 180
+    };
+  }
+  function pos(v) { return v > 0 ? v : 0; }
+  // Quasi-static term z_kin (A.24 and its special cases), C0 = I0 (inside) or D0 (outside); all in m.
+  function enZ(r, h, s, hc, C0, eta) {
+    if (eta <= r.eta_lim) {
+      if (h < r.hc0) { return 0; }
+      if (s <= r.s0) { return s * C0 / r.Lref * pos(h - hc); }
+    }
+    var k2 = (r.Dlim - C0) / r.Lref;
+    return s * C0 / r.Lref * pos(h - hc) + Math.tan(pos(eta - r.eta_lim)) * Math.abs(h - hc) + pos(s * k2 * pos(h - hc) - r.s0 * k2 * pos(h - r.hc0));
+  }
+  // One reduction E (m) at height h for a section at n from the pivot. set 'traction' (A.3.9.1.1) or 'coach' (A.3.9.3.1),
+  // side 'i' (between the pivots, A.27/28, A.46/47) or 'a' (beyond, A.30/31, A.49/50); w constant with the radius.
+  // Each formula pair meets where the standard switches, so E = larger branch (equal to the standard for G1 rules).
+  function enReduction(r, set, side, h, n, a, pw, d, q, w, z) {
+    var Ck = h <= r.h_low ? r.Ck_low : r.Ck_up, P = (r.lmax - d) / 2, f2 = 1 / (2 * r.R2) - 1 / (2 * r.R1);
+    var inner = side === 'i', A = inner ? 1 : (2 * n + a) / a;
+    var delta = inner ? a * n - n * n + pw * pw / 4 : a * n + n * n - pw * pw / 4;
+    var x = pos((delta - (inner ? r.Xi : r.Xa)) * f2);
+    var straight = (P + q + w) * A + z - r.e0, curve;
+    if (set === 'traction') { curve = delta / (2 * r.R1) + (P + q + w) * A + z + x - r.e0 - Ck / r.R1; }
+    else if (inner) { curve = delta / (2 * r.R1) + q + w + z + x - Ck / r.R1; }
+    else { curve = delta / (2 * r.R1) + P * (n + a) / a + (q + w) * A + z + x - r.e0 - Ck / r.R1; }
+    return { E: Math.max(straight, curve), straight: straight, curve: curve, branch: curve > straight ? 'curve' : 'straight', delta: delta, x: x, z: z, A: A, Ck: Ck };
+  }
+  // EN reductions per section, worst of tare and crush.
+  function enSectionE(r, en, sec, h) {
+    var best = null;
+    en.loads.forEach(function (ld) {
+      var side = sec === 'int' ? 'i' : 'a', z = enZ(r, h, ld.s, ld.hc, side === 'i' ? r.I0 : r.D0, en.eta);
+      var o = enReduction(r, en.set, side, h, en.n[sec], en.a, en.p, en.d, en.q, en.w, z);
+      if (!best || o.E > best.E) { best = o; best.load = ld.load; }
+    });
+    return best;
+  }
+  function enRun(p, d, ke, profs, opt, ma) {
+    var r = enRules(p), g = d.geo, bg = d.bogie, b1 = bg.b1, b2 = bg.b2;
+    var motor = yes(b1.motor) || yes(b2.motor);
+    var dW = Math.min(n0(b1.bb_mm) + 2 * n0(b1.ef_worn_mm), n0(b2.bb_mm) + 2 * n0(b2.ef_worn_mm)) / 1000;
+    var en = {
+      set: motor ? 'traction' : 'coach', a: g.a, p: bg.p, d: dW, q: bg.q / 1000, w: d.w_use / 1000, eta: n0(d.body.eta0_deg) * Math.PI / 180,
+      n: { int: g.ni, ext: g.na, end: g.n_end },
+      loads: [{ load: 'tare', s: d.s_t, hc: d.hc_t }, { load: 'crush', s: d.s_c, hc: d.hc_c }]
+    };
+    var secs = ['int', 'ext', 'end'], out = { rules: r, set: en.set, clause: en.set === 'traction' ? 'A.3.9.1.1' : 'A.3.9.3.1', d: dW * 1000, q: bg.q, w: d.w_use,
+      eta_deg: n0(d.body.eta0_deg), P: (r.lmax - dW) / 2 * 1000, sections: {}, rows: [], checks: {}, ok: true };
+    secs.forEach(function (sec) {
+      var hi = enSectionE(r, en, sec, ke.top), lo = enSectionE(r, en, sec, Math.min(r.h_low, ke.top));
+      out.sections[sec] = { n: en.n[sec], A: hi.A, delta: hi.delta, x_up: hi.x * 1000, x_low: lo.x * 1000, branch_up: hi.branch, branch_low: lo.branch };
+    });
+    // maximum construction gauge on the Method A grid, compared with the workbook Method A
+    ma.forEach(function (m) {
+      var h = m.h / 1000, W = m.W / 1000, row = { h: m.h, W: m.W };
+      secs.forEach(function (sec) {
+        var e = enSectionE(r, en, sec, h), mx = W - e.E, pw = profileWidth(profs[sec], h);
+        row['E_' + sec] = e.E * 1000; row['z_' + sec] = e.z * 1000; row['max_' + sec] = mx * 1000; row['ma_' + sec] = m['max_' + sec];
+        row['prof_' + sec] = pw * 1000; row['margin_' + sec] = pw === 0 ? null : (mx - pw) * 1000;
+      });
+      out.rows.push(row);
+    });
+    // check of the RS profiles: at every profile vertex height and every KE vertex height within the profile
+    secs.forEach(function (sec) {
+      var pr = profs[sec], hs = [], seen = {}, lo = Infinity, hiH = -Infinity, pts = [], min = null;
+      pr.pts.forEach(function (q) { lo = Math.min(lo, q.h); hiH = Math.max(hiH, q.h); });
+      pr.pts.forEach(function (q) { hs.push(q.h); });
+      ke.pts.forEach(function (q) { if (q.h >= lo && q.h <= hiH) { hs.push(q.h); } });
+      hs.sort(function (u, v) { return u - v; });
+      hs.forEach(function (h) {
+        var key = Math.round(h * 1e6); if (seen[key]) { return; } seen[key] = 1;
+        var xw = profileWidth(pr, h); if (!(xw > 0)) { return; }
+        var W = keWidth(ke, Math.max(h, ke.hUpBottom)), e = enSectionE(r, en, sec, h), mg = (W - e.E - xw) * 1000;
+        var row = { h: h * 1000, x: xw * 1000, W: W * 1000, E: e.E * 1000, z: e.z * 1000, branch: e.branch, load: e.load, max: (W - e.E) * 1000, margin: mg, ok: mg >= 0 };
+        pts.push(row);
+        if (!min || mg < min.margin) { min = row; }
+      });
+      out.checks[sec] = { profile: pr.name, points: pts, min: min, ok: min ? min.margin >= 0 : true };
+      if (min && min.margin < 0) { out.ok = false; }
+    });
+    return out;
   }
 
   // Wheel–rail play calculator (information, Bogie Inputs §5): l = nominal gauge + gauge tolerance, d = BB + 2·ef.
@@ -571,6 +674,7 @@
     VERSION: VERSION, CASES: CASES, G_ACC: G_ACC, playCalc: playCalc,
     trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
-    carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun
+    carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
+    enRules: enRules, enZ: enZ, enReduction: enReduction
   };
 }));
