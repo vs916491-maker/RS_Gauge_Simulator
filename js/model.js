@@ -124,6 +124,7 @@
     out.bogies = (p.bogies || []).map(function (b) { return record(b, S.bogie); });
     out.bodies = (p.bodies || []).map(function (b) { return record(b, S.body); });
     out.lowerParts = (p.lowerParts || []).map(function (r) { return record(r, S.lowerPart); });
+    out.bogieParts = (p.bogieParts || []).map(function (r) { return record(r, S.bogiePart); });
     var ke = p.ke || {}, sod = p.sod || {}, rs = p.rs || {}, tr = p.track || {};
     out.ke = { limits: record(ke.limits, S.customerLimits), en: record(ke.en, S.enParams), profiles: profiles(ke.profiles, S.keProfile) };
     var so = record(sod, S.sodSettings);
@@ -328,6 +329,13 @@
       var id = 'Lower part ' + (r.name || k + 1);
       rangeChecks(m, 'bogie', id, r, S.lowerPart);
       if (!r.car || carNames.indexOf(r.car) < 0) { m.add('bogie', 'err', id + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
+    });
+
+    var bogieNames = p.bogies.map(function (b) { return b.name; });
+    (p.bogieParts || []).forEach(function (r, k) {
+      var id = 'Bogie part ' + (r.name || k + 1);
+      rangeChecks(m, 'bogie', id, r, S.bogiePart);
+      if (!r.bogie || bogieNames.indexOf(r.bogie) < 0) { m.add('bogie', 'err', id + ': bogie type "' + (r.bogie || '') + '" is not on the Car body & Bogie tab.'); }
     });
 
     // ---- Tests (sway test rows)

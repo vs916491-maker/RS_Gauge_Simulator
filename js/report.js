@@ -222,6 +222,13 @@
         });
         if (lw.length) { table(['Car type', 'Lower part', 'Zone', 'Height [mm]', 'Displacement [mm]', 'Limit [mm]', 'Margin [mm]', 'Status'], lw); }
         if (up.length) { table(['Car type', 'Section', 'Profile top [mm]', 'Extension + gradient [mm]', 'KE top [mm]', 'Margin [mm]', 'Status'], up); }
+        var bpr = s.en && s.en.bogieParts ? s.en.bogieParts.rows : [];
+        if (bpr.length) {
+          para('Bogie parts (A.3.11): reduction formulae of independent-axle vehicles A.56–A.59 with w = 0 and a = distance between the end axles; KE half-width taken as the smallest over the height range of the part.');
+          table(['Bogie type', 'Part', 'Position', 'Height [mm]', 'Half-width [mm]', 'E [mm]', 'EN max [mm]', 'Margin [mm]', 'Status'], bpr.map(function (q) {
+            return [q.bogie, q.name, q.pos === 'beyond' ? 'Beyond, n ' + fmt(q.n, 2) + ' m' : 'Between, n ' + fmt(q.n, 2) + ' m', fmt(q.h), fmt(q.y), fmt(q.E, 1), fmt(q.max, 1), fmt(q.margin, 1), status(q.ok)];
+          }));
+        }
       }
     }
 
@@ -283,7 +290,7 @@
     h1('9. Assumptions and limitations');
     var a11 = methodSection(ctx.methodMd, 11), a12 = methodSection(ctx.methodMd, 12);
     add({ type: 'list', ordered: true, items: a11.items.map(plain) });
-    if (en) { para('EN 15273-2: implemented from the 2009 edition (superseded by EN 15273-2:2013). Vertical (A.3.4): the GIC1 / GIC2 lower profiles are not encoded (lower limits as entered or the customer minimum), hump-shunting terms of A.3.4.1.5 and contact ramps (A.3.5) are not applied. Not covered: pantograph, doors and steps open, tilting vehicles, wagons.'); }
+    if (en) { para('EN 15273-2: implemented from the 2009 edition (superseded by EN 15273-2:2013). Vertical (A.3.4): the GIC1 / GIC2 lower profiles are not encoded (lower limits as entered or the customer minimum), hump-shunting terms of A.3.4.1.5 and contact ramps (A.3.5) are not applied. Bogie parts (A.3.11) by A.56–A.59. Not covered: pantograph, doors and steps open, tilting vehicles, wagons.'); }
     if (a12.text) { para('Out of scope: ' + plain(a12.text)); }
 
     // ---- 9 warnings
