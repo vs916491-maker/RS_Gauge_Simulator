@@ -28,14 +28,15 @@ function run(withDyn, en) {
   p.settings['static'].en_check = en ? 'yes' : 'no';
   p.name = 'Test & <project>';
   var s = E.staticRun(p, p.settings['static']), d = withDyn ? E.dynamicRun(p, p.settings['static'], p.settings.dynamic) : null;
-  return { p: p, sres: s, dres: d, opt: p.settings.report, date: '15/11/2026', engineVersion: s.engineVersion, messages: M.validate(p).messages, methodMd: MD };
+  var sw = E.swayEval(p, p.settings['static']);
+  return { p: p, sres: s, dres: d, opt: p.settings.report, date: '15/11/2026', engineVersion: s.engineVersion, messages: M.validate(p).messages, methodMd: MD, sway: sw, plan: E.gaugeTestPlan(p, s, sw) };
 }
 var PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 test('Report blocks: all chapters with static, EN and dynamic results', function () {
   var ctx = run(true, true), bl = RP.blocks(ctx), h1 = bl.filter(function (b) { return b.type === 'h1'; }).map(function (b) { return b.text; });
   ['1. Purpose and scope', '2. Summary of results', '3. Input data', '4. Method and options', '5. Static results', '6. EN 15273-2:2009 kinematic method', '7. Dynamic results',
-    '8. Assumptions and limitations', 'Appendix A – Track data', 'Appendix B – Points of the governing static cases'].forEach(function (t) { assert.ok(h1.indexOf(t) >= 0, 'missing ' + t); });
+    '8. Test calculations', '9. Assumptions and limitations', 'Appendix A – Track data', 'Appendix B – Points of the governing static cases'].forEach(function (t) { assert.ok(h1.indexOf(t) >= 0, 'missing ' + t); });
   var sum = bl.filter(function (b) { return b.type === 'table' && b.head[0] === 'Check'; })[0];
   assert.ok(/39\.7 mm/.test(sum.rows[0][1]) && /TC, Exterior – Tare/.test(sum.rows[0][2]), 'governing static result in the summary: ' + sum.rows[0]);
   assert.ok(sum.rows.some(function (r) { return /SOD outline/.test(r[0]) && r[3] === 'OK'; }) && sum.rows.some(function (r) { return /point-item margin/.test(r[0]); }), 'SOD outline and item rows in the summary');

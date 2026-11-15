@@ -34,7 +34,7 @@ with sync_playwright() as pw:
     ok(page.locator('#train-drawing svg rect.car-body').count() == 6, 'train drawing has 6 cars')
     ok('14.8' in page.locator('#calc-geometry').text_content(), 'calculated pivot distance shown')
 
-    tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'summary', 'method']
+    tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'method']
     for i, t in enumerate(tabs):
         page.click('#tabbtn-' + t)
         page.wait_for_timeout(300)
@@ -45,7 +45,18 @@ with sync_playwright() as pw:
     page.click('#tabbtn-method'); page.wait_for_timeout(200)
     ok(page.locator('#method-toc button').count() > 15, 'method table of contents built')
 
-    for t in ['train', 'bogie', 'ke', 'rs', 'track']:
+    page.click('#tabbtn-tests'); page.wait_for_timeout(300)
+    ok(page.locator('#tests-sway-res tbody tr').count() == 3 and page.locator('#tests-sway-res tbody tr td.okcell').count() == 3, 'sway test: 3 evaluations, all OK')
+    ok(page.evaluate("!!Chart.getChart('chart-sway')"), 'sway chart drawn')
+    ok('Run the static simulation' in page.locator('#tests-plan-status').text_content(), 'test plan waits for a static run')
+    y2 = page.locator('#t-sway tbody tr').first.locator('input').nth(4)   # inputs: D, h1, y1, h2, y2 (car, load, low side are selects)
+    orig = y2.input_value()
+    y2.fill('60'); page.wait_for_timeout(500)
+    ok('CHECK' in page.locator('#tests-sway-res').text_content(), 'larger roll reading turns the sway evaluation to CHECK (live update)')
+    y2.fill(orig); page.wait_for_timeout(400)
+    ok('CHECK' not in page.locator('#tests-sway-res').text_content(), 'restored reading: all OK again')
+
+    for t in ['train', 'bogie', 'ke', 'rs', 'track', 'tests']:
         page.click('#tabbtn-' + t); page.wait_for_timeout(250)
         with page.expect_download() as d:
             page.click('[data-io="%s"] button:nth-of-type(2)' % t)
@@ -79,6 +90,17 @@ with sync_playwright() as pw:
         page.click('#btn-export-static')
     f = os.path.join(out, 'static-results.xlsx'); d.value.save_as(f)
     ok(os.path.getsize(f) > 10000, 'static results workbook exported (%d bytes)' % os.path.getsize(f))
+
+    # gauge test plan
+    page.click('#tabbtn-tests'); page.wait_for_timeout(400)
+    ok(page.locator('#tests-plan-body').is_visible() and page.evaluate("!!Chart.getChart('chart-plan')"), 'gauge test plan shown after the static run')
+    page.select_option('#tests-car', 'TC'); page.wait_for_timeout(200); page.select_option('#tests-case', 'ext_t'); page.wait_for_timeout(300)
+    ok('39.7' in page.locator('#tests-plan-setup').text_content(), 'TC exterior tare: expected test clearance = static governing 39.7 mm')
+    with page.expect_download() as d:
+        page.click('#btn-export-tests')
+    f = os.path.join(out, 'tests.xlsx'); d.value.save_as(f)
+    ok(os.path.getsize(f) > 10000, 'tests workbook exported (%d bytes)' % os.path.getsize(f))
+    page.screenshot(path=os.path.join(out, '25-tests.png'), full_page=True)
 
     # dynamic run
     page.click('#tabbtn-dsim'); page.wait_for_timeout(250)

@@ -25,7 +25,7 @@ KE/SOD, tender specs or alignment data into this repo or these notes. The owner'
 | `METHOD.md` | **The specification** (every equation, symbol, assumption), written from the workbook's Method & Formulas |
 | `js/schema.js` | All input fields (labels, units, ranges, defaults) — shared by forms, templates, importers, checks |
 | `js/model.js` | Project structure, `normalizeProject`, `validate` (messages per tab), profile/track helpers |
-| `js/engine.js` | Calculation: `deriveCar` (pivots, A, wind Cw, Σd/Σu, theoretical s/hc, shared-bogie check), `staticRun` (6 cases per car type, Method A, vertical checks, EN 15273-2 `enRun` when selected), `dynamicRun` (chainage sweep per car type, worst per chainage, summaries, speed steps, SOD outline + point items `sodCheck`), `crossSection`, `playCalc` |
+| `js/engine.js` | Calculation: `deriveCar` (pivots, A, wind Cw, Σd/Σu, theoretical s/hc, shared-bogie check), `staticRun` (6 cases per car type, Method A, vertical checks, EN 15273-2 `enRun` when selected), `dynamicRun` (chainage sweep per car type, worst per chainage, summaries, speed steps, SOD outline + point items `sodCheck`), `crossSection`, `swayEval` / `gaugeTestPlan` (Tests tab, METHOD §13), `playCalc` |
 | `js/io.js` | Excel/CSV templates + importers per tab, export/import all, static and dynamic results workbooks, project file `*.rsgauge.json` (v2; v1 migrated) |
 | `js/plot.js` | Chart.js datasets (profiles mirrored, track vs chainage, section outlines, Method A, chainage series, cross-section) |
 | `js/report.js` | Word gauging report: blocks from project + runs, .docx parts (zipped in the page with `vendor/jszip.min.js`; charts drawn by `ui.js`) |
@@ -35,7 +35,7 @@ KE/SOD, tender specs or alignment data into this repo or these notes. The owner'
 
 ## Tabs
 Train Configuration · Car body & Bogie · Customer KE & SOD · RS Profile · Track Data · Static Simulation · Static Results ·
-Dynamic Simulation · Dynamic Results · Overall Summary · Method & Assumptions.
+Dynamic Simulation · Dynamic Results · Tests · Overall Summary · Method & Assumptions.
 
 ## Workflow
 1. Change maths: METHOD.md first, then `js/engine.js`, then a test. Keep the workbook reproduction tests passing
