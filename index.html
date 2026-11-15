@@ -45,6 +45,7 @@
   <button type="button" role="tab" id="tabbtn-sres" aria-controls="tab-sres" aria-selected="false" tabindex="-1">Static Results</button>
   <button type="button" role="tab" id="tabbtn-dsim" aria-controls="tab-dsim" aria-selected="false" tabindex="-1">Dynamic Simulation</button>
   <button type="button" role="tab" id="tabbtn-dres" aria-controls="tab-dres" aria-selected="false" tabindex="-1">Dynamic Results</button>
+  <button type="button" role="tab" id="tabbtn-tests" aria-controls="tab-tests" aria-selected="false" tabindex="-1">Tests</button>
   <button type="button" role="tab" id="tabbtn-summary" aria-controls="tab-summary" aria-selected="false" tabindex="-1">Overall Summary</button>
   <button type="button" role="tab" id="tabbtn-method" aria-controls="tab-method" aria-selected="false" tabindex="-1">Method &amp; Assumptions</button>
 </nav>
@@ -281,6 +282,36 @@
         <div class="card"><h3>Speed-step table <span class="muted">(mm)</span></h3><div id="dres-ss" class="tablewrap"></div></div>
       </div>
     </div>
+  </section>
+
+  <!-- ======================= TESTS ======================= -->
+  <section id="tab-tests" class="panel" role="tabpanel" aria-labelledby="tabbtn-tests" hidden>
+    <div class="toolbar" data-io="tests"></div>
+    <div class="messages" data-msgs="tests" aria-live="polite"></div>
+    <div class="card"><h3>Sway (roll) test readings</h3>
+      <p class="hint">Vehicle on straight, level track; shims of height D under the wheels of the low side. One row per shim step: lateral body displacement in the track plane
+        (perpendicular to the shimmed rail plane) at 2 or 3 heights above the rail, relative to the reading without shims, positive towards the low rail. Paste rows from Excel.</p>
+      <div id="t-sway" class="tablewrap"></div></div>
+    <div class="grid2">
+      <div class="card"><h3>Sway test evaluation <span class="muted">(least squares y = s·D/L·(h − hc))</span></h3>
+        <p class="hint">Accepted when the measured roll displacement per 100 mm of cant is not larger than the one used in gauging at h1, h2 and the top of the RS profiles.</p>
+        <div id="tests-sway-res" class="tablewrap"></div></div>
+      <div class="card"><div class="row"><h3>Roll displacement per 100 mm cant</h3><label>Test <select id="tests-sway-sel"></select></label></div>
+        <div class="chartbox"><canvas id="chart-sway" aria-label="Measured and used roll displacement against height"></canvas></div></div>
+    </div>
+    <div class="card"><div class="row"><h3>Kinematic gauge test plan</h3>
+        <label>Car type <select id="tests-car"></select></label><label>Case <select id="tests-case"></select></label>
+        <button type="button" id="btn-export-tests" class="ghost">Export tests (Excel)</button></div>
+      <p class="hint">Reproduced on the test stand: wheel–rail play, primary and secondary lateral play pushed to the stops (× A), and the roll by shims = cant + wind equivalent cant.
+        The test template is the customer KE minus the terms that the test does not reproduce (overthrow at Rs, rail wear, widening, tolerances, random roll, upward movement).</p>
+      <p id="tests-plan-status" class="muted"></p>
+      <div id="tests-plan-body" hidden>
+        <div class="grid2">
+          <div><div id="tests-plan-setup" class="tablewrap"></div></div>
+          <div class="chartbox"><canvas id="chart-plan" aria-label="Test template, expected test positions and static profile"></canvas></div>
+        </div>
+        <div id="tests-plan-pts" class="tablewrap scrolly"></div>
+      </div></div>
   </section>
 
   <!-- ======================= OVERALL SUMMARY ======================= -->

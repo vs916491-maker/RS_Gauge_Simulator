@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.0.0';
+  var VERSION = '4.1.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -412,6 +412,106 @@
     return out;
   }
 
+  // ================================================================ TEST CALCULATIONS (METHOD §13)
+  // Least-squares fit of y = a·(D·h) + b·D over readings [{D, h, y}] (mm): s = a·L, hc = −b/a.
+  function swayFit(pts, L) {
+    var suu = 0, suv = 0, svv = 0, suy = 0, svy = 0, hs = {};
+    pts.forEach(function (q) { var u = q.D * q.h, v = q.D; suu += u * u; suv += u * v; svv += v * v; suy += u * q.y; svy += v * q.y; hs[Math.round(q.h)] = 1; });
+    var det = suu * svv - suv * suv;
+    if (Object.keys(hs).length < 2 || !(Math.abs(det) > 1e-9 * Math.max(1, suu * svv)) ) { return null; }
+    var a = (suy * svv - svy * suv) / det, b = (suu * svy - suv * suy) / det;
+    if (a === 0) { return null; }
+    var ss = 0;
+    pts.forEach(function (q) { var e = q.y - (a * q.D * q.h + b * q.D); ss += e * e; });
+    return { s: a * L, hc: -b / a, rms: Math.sqrt(ss / pts.length), n: pts.length };
+  }
+  // Values of s, hc used in gauging for a load state (source as the static options, §5.4), hc in mm.
+  function usedSway(d, load, opt) {
+    var th = d.theoretical, b = d.body || {}, theo = opt.flex === 'theoretical';
+    if (load === 'crush') { return theo ? { s: th.crush.s, hc: th.crush.hc * 1000 } : { s: n0(b.s_crush), hc: n0(b.hc_crush_mm) }; }
+    if (load === 'deflated') { return theo ? { s: th.defl.s, hc: th.defl.hc * 1000 } : { s: n0(b.s_defl), hc: n0(b.hc_defl_mm) }; }
+    return theo ? { s: th.tare.s, hc: th.tare.hc * 1000 } : { s: n0(b.s_tare), hc: n0(b.hc_tare_mm) };
+  }
+  /*
+   * Sway-test evaluation (§13.1): one result per car type and load state with readings.
+   */
+  function swayEval(p, sOpt) {
+    sOpt = sOpt || {};
+    var L = n0(p.train.L_mm, 1500), lim = p.ke.limits || {}, rows = ((p.tests || {}).sway) || [], groups = {}, order = [];
+    rows.forEach(function (r, i) {
+      if (!r.car || !(n0(r.D_mm) > 0)) { return; }
+      var key = r.car + '|' + (r.load || 'tare');
+      if (!groups[key]) { groups[key] = { car: r.car, load: r.load || 'tare', pts: [], rows: [] }; order.push(key); }
+      var g = groups[key];
+      g.rows.push(i + 1);
+      [1, 2, 3].forEach(function (j) {
+        var h = r['h' + j + '_mm'], y = r['y' + j + '_mm'];
+        if (h !== null && h !== undefined && y !== null && y !== undefined) { g.pts.push({ D: n0(r.D_mm), h: n0(h), y: n0(y), side: r.low || 'L', row: i + 1 }); }
+      });
+    });
+    return order.map(function (key) {
+      var g = groups[key], c = findBy(p.train.carTypes, 'name', g.car), out = { car: g.car, load: g.load, rows: g.rows, n: g.pts.length, ok: false };
+      if (!c) { out.error = 'Unknown car type ' + g.car; return out; }
+      var fit = swayFit(g.pts, L);
+      if (!fit) { out.error = 'At least two different heights are needed'; return out; }
+      var d = deriveCar(p, c, sOpt), used = usedSway(d, g.load, sOpt);
+      var top = 0;
+      ['prof_int', 'prof_ext', 'prof_end'].forEach(function (k) {
+        var pr = findBy(p.rs.profiles, 'name', c[k]);
+        if (pr) { pr.points.forEach(function (q) { if (q.z !== null && q.z > top) { top = q.z; } }); }
+      });
+      var hs = [{ id: 'h1', h: n0(lim.h_ref1_mm) }, { id: 'h2', h: n0(lim.h_ref2_mm) }, { id: 'top', h: top }];
+      var checks = hs.map(function (x) {
+        var mm = 100 * fit.s * (x.h - fit.hc) / L, mu = 100 * used.s * (x.h - used.hc) / L;
+        return { id: x.id, h: x.h, measured: mm, used: mu, margin: mu - mm, ok: mm <= mu + 1e-9 };
+      });
+      var sides = {};
+      ['L', 'R'].forEach(function (sd) { var f = swayFit(g.pts.filter(function (q) { return q.side === sd; }), L); if (f) { sides[sd] = f; } });
+      out.s = fit.s; out.hc = fit.hc; out.rms = fit.rms; out.used = used; out.checks = checks; out.sides = sides;
+      out.maxD = Math.max.apply(null, g.pts.map(function (q) { return q.D; }));
+      out.theoretical = { s: (g.load === 'crush' ? d.theoretical.crush : (g.load === 'deflated' ? d.theoretical.defl : d.theoretical.tare)).s,
+        hc: (g.load === 'crush' ? d.theoretical.crush : (g.load === 'deflated' ? d.theoretical.defl : d.theoretical.tare)).hc * 1000 };
+      out.points = g.pts.map(function (q) { var e = fit.s * q.D / L * (q.h - fit.hc); return { D: q.D, h: q.h, y: q.y, side: q.side, row: q.row, fit: e, res: q.y - e, y100: q.y * 100 / q.D }; });
+      var hmax = Math.max(top, n0(lim.h_ref2_mm)); g.pts.forEach(function (q) { hmax = Math.max(hmax, q.h); });
+      out.curve = [];
+      for (var hh = 0; hh <= hmax + 1e-9; hh += Math.max(50, Math.ceil(hmax / 40 / 50) * 50)) { out.curve.push({ h: hh, measured: 100 * fit.s * (hh - fit.hc) / L, used: 100 * used.s * (hh - used.hc) / L }); }
+      out.ok = checks.every(function (x) { return x.ok; });
+      return out;
+    });
+  }
+  /*
+   * Kinematic gauge test plan (§13.2) from a static run: per car type and case the shims, the lateral displacements to
+   * impose, and per profile point the expected test position and the test template (KE minus the terms not reproduced).
+   */
+  function gaugeTestPlan(p, sres, sway) {
+    var L = n0(p.train.L_mm, 1500);
+    return sres.cars.map(function (c) {
+      var cases = c.cases.map(function (k) {
+        var cp = k.params, Dt = cp.cant + cp.wind, Rlat = cp.play + cp.q + cp.w, hcm = cp.hc * 1000;
+        var sw = (sway || []).filter(function (x) { return x.car === c.car && x.load === k.load && !x.error; })[0] || null;
+        var min = null, minM = null;
+        var pts = k.points.map(function (q) {
+          var roll = cp.thq * (q.h0 - hcm), xt = q.x0 + Rlat + roll, ht = q.h0 - cp.thq * q.x0 - cp.drop;
+          var N = q.E - Rlat - roll, V = cp.up - (cp.thr + cp.tht) * q.x0;
+          var Wt = q.W - N, Ht = q.H - V, dX = Wt - xt, dH = Ht - ht, cl = clearance(dX, dH);
+          var r = { pt: q.pt, x0: q.x0, h0: q.h0, xt: xt, ht: ht, N: N, V: V, Wt: Wt, Ht: Ht, dX: dX, dH: dH, c: cl, ok: cl >= 0 };
+          if (sw) {
+            var th = sw.s * Dt / L;
+            r.xm = q.x0 + Rlat + th * (q.h0 - sw.hc); r.hm = q.h0 - th * q.x0 - cp.drop;
+            r.cm = clearance(Wt - r.xm, Ht - r.hm);
+            if (minM === null || r.cm < minM.cm) { minM = r; }
+          }
+          if (!min || cl < min.c) { min = r; }
+          return r;
+        });
+        return { id: k.id, label: k.label, section: k.section, load: k.load, profile: k.profile, D: Dt, cant: cp.cant, wind: cp.wind, A: cp.A,
+          play: cp.play, q: cp.q, w: cp.w, Rlat: Rlat, thq: cp.thq, s: cp.s, hc: cp.hc, drop: cp.drop,
+          sway: sw ? { s: sw.s, hc: sw.hc, maxD: sw.maxD } : null, beyondSway: !!(sw && Dt > sw.maxD + 1e-9), points: pts, min: min, minMeasured: minM };
+      });
+      return { car: c.car, cases: cases };
+    });
+  }
+
   // Wheel–rail play calculator (information, Bogie Inputs §5): l = nominal gauge + gauge tolerance, d = BB + 2·ef.
   function playCalc(p, b) {
     var l = n0(p.train.gauge_mm) + n0(p.track.params.g_tol_mm), dNew = n0(b.bb_mm) + 2 * n0(b.ef_new_mm), dWorn = n0(b.bb_mm) + 2 * n0(b.ef_worn_mm);
@@ -779,6 +879,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction
+    enRules: enRules, enZ: enZ, enReduction: enReduction, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));

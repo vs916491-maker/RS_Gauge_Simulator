@@ -468,6 +468,63 @@ standard's formulae typed in literally.
 
 ## 12. Out of scope
 
-Pantograph sway and catenary checks, multibody dynamic simulation, coupled-train (rescue) gauging, the
-validation and test calculations (sway-test evaluation, kinematic-test shims), and curves below 150 m by the
-graphic method.
+Pantograph sway and catenary checks, multibody dynamic simulation, coupled-train (rescue) gauging, and curves below
+150 m by the graphic method. (The sway-test evaluation and the kinematic gauge test plan are in §13.)
+
+## 13. Test calculations (Tests tab)
+
+### 13.1 Sway-test evaluation
+
+The vehicle stands on straight, level track; shims of height `D` are put under the wheels of one side (cant `D` over
+the rail-centre distance `L`). Each test row gives: car type, load state (tare, crush, deflated), `D`, the low side, and
+the lateral displacement `y` of the body at two or three heights `h` above the rail — measured in the track plane
+(perpendicular to the plane of the shimmed rails), relative to the reading at `D = 0` of the same load state, positive
+towards the low rail.
+
+Model (as §5): `y = s·(D/L)·(h − hc)`, i.e. `y = a·(D·h) + b·D` with `a = s/L`, `b = −s·hc/L`. For each car type and load
+state, `a` and `b` are fitted by least squares over all readings (no intercept: the zero-cant reading is the reference):
+
+`[Σu² Σuv; Σuv Σv²]·[a; b] = [Σu·y; Σv·y]`, `u = D·h`, `v = D`  →  `s = a·L`, `hc = −b/a`
+
+with the RMS residual. At least two different heights are needed. When both sides were tested, `s` is also fitted per
+side (the difference shows suspension asymmetry).
+
+Acceptance (owner's choice: the roll displacement decides): the roll displacement per 100 mm of cant,
+`m(h) = 100·s·(h − hc)/L`, measured ≤ the value used in gauging at `h1`, `h2` (Customer KE & SOD tab) and at the top of
+the car type's RS profiles. Values used: `s`, `hc` of that load state from the source chosen for gauging (sway-test
+inputs on the Car body tab or the theoretical values, §5.4).
+
+### 13.2 Kinematic gauge test plan
+
+For each car type and static case (§6, needs a static run), the case is reproduced on straight test track, and every
+term of the static displacement is either **reproduced** on the test stand or **taken off the KE** to form the test
+template (owner's choice: plays and shims are reproduced):
+
+* Reproduced — shims: `D_test = cant + D_w` (cant excess for the interior, deficiency for the exterior and car end, plus
+  the wind equivalent cant) under the low side, giving the roll `θq·(h − hc)` through the vehicle's own suspension.
+* Reproduced — lateral, towards the low side: wheel–rail play, primary `q` and secondary `w`, each × `A` of the section
+  (interior: both bogies pushed the same way; exterior / car end: bogies pushed in opposite directions to yaw the body),
+  total `R_lat = (play + q + w)·A`.
+* Taken off the KE: geometric overthrow at `Rs`, rail gauge-face wear, gauge widening, the random terms (gauge and
+  alignment tolerance, cross-level roll and rigid tilt, linear or RSS as selected) and, vertically, the upward movement
+  and the vertical shift of the random roll.
+
+For each profile point with static `(x0, h0)` and the static run's displaced point `(x, h)`, KE width `W(h)` and KE height
+`H(x)`:
+
+| Quantity | Formula |
+|---|---|
+| Expected position on the test | `x_t = x0 + R_lat + θq·(h0 − hc)`, `h_t = h0 − θq·x0 − drop` |
+| Lateral terms not reproduced | `N = E(h0) − R_lat − θq·(h0 − hc)` (E of §6.2) |
+| Vertical terms not reproduced | `V = up − (θr + θt)·x0` |
+| Test template | half-width `W_t = W(h) − N` at height `h_t`; height `H_t = H(x) − V` |
+| Expected margins | `W_t − x_t = ΔX`, `H_t − h_t = ΔH`: equal to the static run (§6.4), so the plan is consistent with Method B |
+
+Positions are measured perpendicular to the shimmed rail plane, as in the sway test. Crush cases need the crush load on
+the vehicle (body lowering `drop`). When a sway test of the car type and load state is entered, the expected position
+is also given with the measured `s`, `hc`: `x_m = x0 + R_lat + s_m·(D_test/L)·(h0 − hc_m)`, `h_m = h0 − s_m·(D_test/L)·x0 − drop`,
+and its clearance to the template (§6.4); when `D_test` exceeds the largest shim of that sway test, the linear roll
+model is used beyond the tested range and the plan says so. Note: a stiffer vehicle than assumed (smaller roll) moves less laterally but
+its roof corners on the low side drop less (`h − θ·x`), so the clearance with the measured values can be smaller near the
+KE top even when the sway-test acceptance of §13.1 is met; the plan shows both clearances.
+

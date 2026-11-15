@@ -7,7 +7,7 @@
   'use strict';
   var R = root.RSGAUGE, S = R.schema, M = R.model, IO = R.io, P = R.plot, E = R.engine, MD = R.markdown;
   var doc = root.document, STORE = 'rsgauge.last.v2';
-  var INPUT_TABS = { train: 'Train Configuration', bogie: 'Car body & Bogie', ke: 'Customer KE & SOD', rs: 'RS Profile', track: 'Track Data', ssim: 'Static Simulation', dsim: 'Dynamic Simulation' };
+  var INPUT_TABS = { train: 'Train Configuration', bogie: 'Car body & Bogie', ke: 'Customer KE & SOD', rs: 'RS Profile', track: 'Track Data', ssim: 'Static Simulation', dsim: 'Dynamic Simulation', tests: 'Tests' };
 
   var state = {
     p: null, dirty: false, tab: 'train', restored: false, charts: {},
@@ -43,7 +43,7 @@
     while (names[base + (i === 1 ? '' : ' ' + i)]) { i++; }
     return base + (i === 1 ? '' : ' ' + i);
   }
-  function inputsKey(p) { var q = JSON.parse(JSON.stringify(p)); delete q.name; delete q.notes; if (q.settings) { delete q.settings.report; } return JSON.stringify(q); }   // report fields do not make results stale
+  function inputsKey(p) { var q = JSON.parse(JSON.stringify(p)); delete q.name; delete q.notes; if (q.settings) { delete q.settings.report; } delete q.tests; return JSON.stringify(q); }   // report fields and test readings do not make results stale
   function staticOpts() { return state.p.settings['static']; }
   function dynOpts() { return state.p.settings.dynamic; }
 
@@ -748,6 +748,78 @@
     ]);
   }
 
+  // ---------------------------------------------------------------- Tests (METHOD §13)
+  function swayResults() { try { return E.swayEval(state.p, staticOpts()); } catch (e) { return []; } }
+  function renderTests() {
+    table($('t-sway'), state.p.tests.sway, S.swayTest, {
+      addLabel: 'Add test row',
+      refs: { car: function () { return state.p.train.carTypes.map(function (c) { return c.name; }); } },
+      newRow: function () { var t = state.p.tests.sway, last = t[t.length - 1], r = S.defaults(S.swayTest); if (last) { ['car', 'load', 'h1_mm', 'h2_mm', 'h3_mm'].forEach(function (k) { r[k] = last[k]; }); } else { r.car = (state.p.train.carTypes[0] || {}).name || ''; } return r; }
+    });
+    renderTestsResults();
+  }
+  function renderTestsResults() {
+    var sw = swayResults(), LOAD = { tare: 'Tare', crush: 'Crush', deflated: 'Deflated' };
+    function st(ok, txt) { return { v: txt, cls: ok ? 'okcell' : 'badcell' }; }
+    roTable($('tests-sway-res'), ['Car type', 'Load', 'Readings', 's measured', 'hc measured (mm)', 'RMS residual (mm)', 's / hc used', 'Per 100 mm cant at h1 / h2 / top: measured vs used (mm)', 'Status'], sw.map(function (r) {
+      if (r.error) { return [r.car, LOAD[r.load] || r.load, String(r.n), '', '', '', '', r.error, st(false, 'ERROR')]; }
+      return [r.car, LOAD[r.load], String(r.n), fmt(r.s, 3) + (r.sides.L && r.sides.R ? ' (L ' + fmt(r.sides.L.s, 3) + ', R ' + fmt(r.sides.R.s, 3) + ')' : ''), fmt(r.hc, 0), fmt(r.rms, 2),
+        fmt(r.used.s, 3) + ' / ' + fmt(r.used.hc, 0), r.checks.map(function (c) { return fmt(c.measured, 1) + ' vs ' + fmt(c.used, 1); }).join(' · '), st(r.ok, r.ok ? 'OK' : 'CHECK')];
+    }));
+    var sel = clear($('tests-sway-sel')), good = sw.filter(function (r) { return !r.error; });
+    good.forEach(function (r, i) { sel.appendChild(el('option', { value: String(i), text: r.car + ' – ' + LOAD[r.load], selected: i === (state.swaySel || 0) })); });
+    var cur = good[Math.min(state.swaySel || 0, good.length - 1)];
+    if (cur) { scatterChart('chart-sway', P.swayDatasets(cur, { l: cssVar('--c1', '#2563eb'), r: cssVar('--c5', '#7c3aed'), fit: cssVar('--c3', '#059669'), used: cssVar('--c4', '#dc2626') }), swayAxes(cur), null, 'Lateral displacement per 100 mm cant [mm]', 'Height above rail [mm]'); }
+    else if (state.charts['chart-sway']) { state.charts['chart-sway'].destroy(); delete state.charts['chart-sway']; }
+    // gauge test plan
+    var r = state.run, body = $('tests-plan-body');
+    body.hidden = !r;
+    $('tests-plan-status').textContent = !r ? 'Run the static simulation to get the test plan.' : (stale() ? 'Inputs changed since the static run – run it again before using this plan.' : '');
+    if (!r) { return; }
+    var plan = E.gaugeTestPlan(state.p, r, sw), cs = clear($('tests-car'));
+    plan.forEach(function (c) { cs.appendChild(el('option', { value: c.car, text: c.car, selected: c.car === state.testCar })); });
+    var pc = plan.filter(function (c) { return c.car === state.testCar; })[0] || plan[0];
+    state.testCar = pc.car;
+    var ks = clear($('tests-case'));
+    pc.cases.forEach(function (k) { ks.appendChild(el('option', { value: k.id, text: k.label, selected: k.id === state.testCase })); });
+    var k = pc.cases.filter(function (x) { return x.id === state.testCase; })[0] || pc.cases[0];
+    state.testCase = k.id;
+    var lowWord = k.section === 'int' ? 'inside of the curve (cant excess)' : 'outside of the curve (cant deficiency)';
+    roTable($('tests-plan-setup'), ['Test set-up – ' + pc.car + ', ' + k.label, 'Value'], [
+      ['Shims under the low side: D = cant + wind equivalent cant', fmt(k.D, 1) + ' mm (' + fmt(k.cant, 1) + ' + ' + fmt(k.wind, 1) + ')'],
+      ['Case represents', 'the ' + lowWord + '; body leans to the low side'],
+      ['Section / yaw factor A', SEC_NAMES[k.section] + ' / ' + fmt(k.A, 4)],
+      ['Wheel–rail play × A (wheelsets against the low-side rail)', fmt(k.play, 2) + ' mm'],
+      ['Primary lateral play q × A (to the stops)', fmt(k.q, 2) + ' mm'],
+      ['Secondary lateral play w × A (to the bump stops)', fmt(k.w, 2) + ' mm'],
+      [k.section === 'int' ? 'Total lateral, both bogies pushed the same way' : 'Total lateral at the section, bogies pushed in opposite directions', fmt(k.Rlat, 2) + ' mm'],
+      ['Load on the vehicle', k.load === 'crush' ? 'Crush (body lowering ' + fmt(k.drop, 1) + ' mm)' : 'Tare'],
+      ['Design s / hc', fmt(k.s, 3) + ' / ' + fmt(k.hc * 1000, 0) + ' mm'],
+      ['Measured s / hc (sway test)', k.sway ? fmt(k.sway.s, 3) + ' / ' + fmt(k.sway.hc, 0) + ' mm' : 'no sway test for this car type and load'],
+      k.beyondSway ? { cells: ['Note', { v: 'Shim height above the largest shim of the sway test (' + fmt(k.sway.maxD) + ' mm): the roll is linear only by assumption beyond it', cls: 'warncell' }] } : null,
+      { cls: 'total', cells: ['Smallest expected clearance to the template (= static run)', cCell(k.min.c)] },
+      k.minMeasured ? { cells: ['Smallest clearance with the measured s, hc', cCell(k.minMeasured.cm)] } : null
+    ].filter(function (x) { return x; }));
+    scatterChart('chart-plan', P.testPlanDatasets(k, { tpl: cssVar('--c1', '#2563eb'), exp: cssVar('--c4', '#dc2626'), rs: cssVar('--c3', '#059669'), meas: cssVar('--c5', '#7c3aed') }),
+      halfAxes(k.points), null, 'Half-width from the track centre in the shimmed track plane [mm]', 'Height above rail [mm]');
+    roTable($('tests-plan-pts'), ['Pt', 'x0', 'h0', 'Expected x', 'Expected h', 'Template half-width', 'Template height', 'Not reproduced lat. N', 'Not reproduced vert. V', 'ΔX', 'ΔH', 'Clearance'].concat(k.sway ? ['x measured s', 'h measured s', 'Clearance measured s'] : []),
+      k.points.map(function (q) {
+        return { cls: q === k.min ? 'selrow' : '', cells: [q.pt, fmt(q.x0, 1), fmt(q.h0, 1), fmt(q.xt, 1), fmt(q.ht, 1), fmt(q.Wt, 1), fmt(q.Ht, 1), fmt(q.N, 2), fmt(q.V, 2), fmt(q.dX, 1), fmt(q.dH, 1), cCell(q.c)]
+          .concat(k.sway ? [fmt(q.xm, 1), fmt(q.hm, 1), cCell(q.cm)] : []) };
+      }));
+  }
+  function swayAxes(r) {
+    var xs = r.curve.map(function (q) { return q.measured; }).concat(r.curve.map(function (q) { return q.used; }), r.points.map(function (q) { return q.y100; }));
+    return { xmin: Math.floor(Math.min.apply(null, xs.concat([0])) / 10) * 10, xmax: Math.ceil(Math.max.apply(null, xs) / 10) * 10, ymin: 0, ymax: Math.ceil(r.curve[r.curve.length - 1].h / 500) * 500, step: 10, stepY: 500, aspect: 1 };
+  }
+  function halfAxes(pts) {
+    var xs = [], ys = [];
+    pts.forEach(function (q) { xs.push(q.x0, q.xt, q.Wt); ys.push(q.h0, q.ht); });
+    var xmin = Math.floor((Math.min.apply(null, xs) - 100) / 200) * 200, xmax = Math.ceil((Math.max.apply(null, xs) + 100) / 200) * 200;
+    return { xmin: xmin, xmax: xmax, ymin: Math.floor((Math.min.apply(null, ys) - 200) / 500) * 500, ymax: Math.ceil((Math.max.apply(null, ys) + 200) / 500) * 500,
+      step: xmax - xmin > 1200 ? 400 : 200, stepY: 500, aspect: 1.1 };
+  }
+
   // ---------------------------------------------------------------- Overall Summary
   function renderSummary() {
     renderSummaryDynamic();
@@ -854,7 +926,7 @@
     var o = state.p.settings.report, date = new Date().toLocaleDateString('en-GB'), images;
     try { images = reportImages(); } catch (e) { st.textContent = 'Could not draw the charts: ' + e.message; return; }
     var bl = R.report.blocks({ p: state.p, sres: state.run, dres: state.drun, opt: o, date: date, engineVersion: state.run.engineVersion, staleS: stale(), staleD: dstale(),
-      messages: state.validation.messages, methodMd: R.methodMd, images: images });
+      messages: state.validation.messages, methodMd: R.methodMd, images: images, sway: swayResults(), plan: E.gaugeTestPlan(state.p, state.run, swayResults()) });
     var title = o.title || 'Vehicle gauging report';
     var parts = R.report.docxParts(bl, images, { header: title + (state.p.name ? ' – ' + state.p.name : ''), headerRight: (o.doc_no ? o.doc_no + '  ' : '') + 'Rev ' + (o.revision || '–'),
       footer: 'Rolling Stock Gauge Simulator · ' + date, title: title, creator: o.prepared || '' });
@@ -883,7 +955,7 @@
     methodDone = true;
   }
   var RENDER = { train: renderTrain, bogie: renderBogie, ke: renderKE, rs: renderRS, track: renderTrack, ssim: renderSsim, sres: renderSres,
-    summary: renderSummary, method: renderMethod, dsim: renderDsim, dres: renderDres };
+    summary: renderSummary, method: renderMethod, dsim: renderDsim, dres: renderDres, tests: renderTests };
   function renderTab(tab) {
     if (!state.validation) { state.validation = M.validate(state.p); }
     RENDER[tab]();
@@ -1000,6 +1072,7 @@
     if (state.tab === 'rs') { profileChart('chart-rs', 'rs'); }
     if (state.tab === 'track') { trackChart(); }
     if (state.tab === 'summary') { renderSummary(); }
+    if (state.tab === 'tests') { renderTestsResults(); }
     if (state.tab === 'ssim') { readiness($('ready-ssim'), 'static'); }
     if (state.tab === 'dsim') { readiness($('ready-dsim'), 'dynamic'); }
     if (state.tab === 'dres') { $('dres-stale').textContent = dstale() ? 'Inputs or options changed since this run – press Run dynamic simulation again.' : ''; }
@@ -1007,7 +1080,7 @@
   }
 
   // ---------------------------------------------------------------- tab switching
-  var TABS = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'summary', 'method'];
+  var TABS = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'method'];
   function activate(tab) {
     state.tab = tab;
     TABS.forEach(function (t) {
@@ -1093,6 +1166,13 @@
     $('sres-case').addEventListener('change', function () { state.resCase = this.value; renderSres(); });
     $('sres-en-sec').addEventListener('change', function () { renderSres(); });
     $('btn-report').addEventListener('click', downloadReport);
+    $('tests-sway-sel').addEventListener('change', function () { state.swaySel = Number(this.value); renderTestsResults(); });
+    $('tests-car').addEventListener('change', function () { state.testCar = this.value; renderTestsResults(); });
+    $('tests-case').addEventListener('change', function () { state.testCase = this.value; renderTestsResults(); });
+    $('btn-export-tests').addEventListener('click', function () {
+      if (!state.run) { return; }
+      IO.downloadWorkbook(IO.testsWorkbook(swayResults(), E.gaugeTestPlan(state.p, state.run, swayResults()), state.p, { stale: stale() }), IO.fileSlug(state.p.name) + '-tests.xlsx');
+    });
     $('btn-export-static').addEventListener('click', function () {
       if (!state.run) { return; }
       IO.downloadWorkbook(IO.staticResultsWorkbook(state.run, state.p, { stale: stale() }), IO.fileSlug(state.p.name) + '-static-results.xlsx');
