@@ -465,7 +465,7 @@
   // ---------------------------------------------------------------- Static Simulation
   function renderSsim() {
     var o = staticOpts();
-    form($('f-static'), S.staticOptions, o, function () { changed(false); }, { ke: keNames });
+    form($('f-static'), S.staticOptions, o, function () { changed(false); }, { ke: keNames, en_static_ref: function () { return [''].concat(keNames()); } });
     carPicker($('ssim-cars'), o);
     readiness($('ready-ssim'), 'static');
   }
@@ -559,6 +559,7 @@
     roTable($('sres-methodA'), ['h', 'KE width', 'Max static Int', 'Max static Ext', 'Max static End', 'Margin Int', 'Margin Ext', 'Margin End'],
       c.methodA.map(function (x) { return [fmt(x.h, 0), fmt(x.W, 1), fmt(x.max_int, 1), fmt(x.max_ext, 1), fmt(x.max_end, 1), mcell(x.margin_int), mcell(x.margin_ext), mcell(x.margin_end)]; }));
     renderSresEn(r, c);
+    renderSresEnStatic(r, c);
     // vertical
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {
       return v.info ? [v.label, fmt(v.value, 1), '', '', ''] : [v.label, fmt(v.value, 1), fmt(v.limit, 1), cCell(v.margin), { v: v.ok ? 'OK' : (v.id.indexOf('uf') === 0 ? 'BELOW MIN' : 'INFRINGES'), cls: v.ok ? 'okcell' : 'badcell' }];
@@ -599,6 +600,27 @@
     roTable($('sres-en-bogie-table'), ['Bogie', 'Part', 'Mounted', 'Position', 'n (m)', 'Height range', 'Half-width', 'z_kin', 'Branch', 'E', 'KE half-width', 'EN max', 'Margin', 'Status'],
       bp.map(function (q) { return [q.bogie, q.name, q.mount === 'axle' ? 'Axle' : 'Frame', q.pos === 'beyond' ? 'Beyond' : 'Between', fmt(q.n, 2), fmt(q.h_lo, 0) + ' – ' + fmt(q.h_hi, 0), fmt(q.y, 0),
         fmt(q.z, 2), q.branch, fmt(q.E, 2), fmt(q.W, 1), fmt(q.max, 1), cCell(q.margin), q.ok ? 'OK' : 'EXCEEDS']; }));
+  }
+  function renderSresEnStatic(r, c) {
+    var st = c.enStatic, SEC = { int: 'Interior', ext: 'Exterior', end: 'Car end' }, ks = ['int', 'ext', 'end'];
+    $('sres-enst').hidden = !st;
+    if (!st) { return; }
+    roTable($('sres-enst-info'), ['Item', 'Interior', 'Exterior', 'Car end'], [
+      ['Reference profile', st.ref, '', ''],
+      { cls: '', cells: ['Flexibility coefficient s used / s_max (A.2.3.1)', { v: fmt(st.s, 3) + ' / ' + fmt(st.smax, 2) + (st.sOk ? ' – static gauge allowed' : ' – NOT ALLOWED: use the kinematic or dynamic method'), cls: st.sOk ? 'okcell' : 'badcell' }, '', ''] },
+      ['(l_max − d)/2 with d worn = ' + fmt(st.d, 1) + ' mm / q / w (mm)', fmt(st.P, 2) + ' / ' + fmt(st.q, 1) + ' / ' + fmt(st.w, 1), '', ''],
+      ['Position n (m)'].concat(ks.map(function (k) { return fmt(st.sections[k].n, 3); })),
+      ['Δ used (m²) – not below the minimum'].concat(ks.map(function (k) { return fmt(st.sections[k].delta, 3); })),
+      ['x-term (mm)'].concat(ks.map(function (k) { return fmt(st.sections[k].x, 2); })),
+      ['Reduction E (mm)'].concat(ks.map(function (k) { return fmt(st.sections[k].E, 2); })),
+      ['Profile top / reference top (mm)'].concat(ks.map(function (k) { var q = st.checks[k]; return { v: fmt(q.top, 0) + ' / ' + fmt(q.refTop, 0), cls: q.topOk ? '' : 'badcell' }; })),
+      { cls: 'total', cells: ['Minimum margin (mm)'].concat(ks.map(function (k) { var m = st.checks[k].min; return m ? cCell(m.margin) : ''; })) }
+    ]);
+    var rows = [];
+    ks.forEach(function (k) { var q = st.checks[k]; q.points.forEach(function (x) { rows.push({ cls: x === q.min ? 'selrow' : '', cells: [SEC[k], q.profile, fmt(x.h, 0), fmt(x.x, 1), fmt(x.W, 1), fmt(x.E, 2), fmt(x.max, 1), cCell(x.margin), x.ok ? 'OK' : 'EXCEEDS'] }); }); });
+    roTable($('sres-enst-check'), ['Section', 'Profile', 'h', 'Profile half-width', 'Reference half-width', 'E', 'Static max', 'Margin', 'Status'], rows);
+    roTable($('sres-enst-lower'), ['Lower part', 'Mounted', 'Height', 'Wear + suspension', 'Min. height', 'Limit', 'Margin', 'Status'],
+      st.lower.map(function (q) { return [q.name, q.mount === 'bogie' ? 'Bogie' : 'Body', fmt(q.h, 0), fmt(q.disp, 1), fmt(q.hmin, 1), fmt(q.lim, 0), cCell(q.margin), q.ok ? 'OK' : 'BELOW MIN']; }));
   }
   function renderSresEnVertical(v) {
     if (!v) { return; }

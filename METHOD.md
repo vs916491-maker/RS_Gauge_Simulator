@@ -373,6 +373,7 @@ polygon edges (not the horizontal / vertical split of §6.4).
    and A.46–A.50 typed in literally, 40 000 random vehicles, both branches; a hand check. Heights of A.3.4
    (`tests/en15273-vertical.test.js`): Table A.1 zones and A.16–A.19 typed in literally, hand checks of the sample.
    Bogie parts (`tests/en15273-bogie.test.js`): A.56–A.59 typed in literally, hand check of the sample.
+   Static gauge (`tests/en15273-static.test.js`): A.2–A.5 typed in literally, s limit, hand check of the sample.
 6. Inputs are never mutated; results are deterministic.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
@@ -542,7 +543,34 @@ values (`2Ck` = 5 | 7,5, `e0` = 0,015, `e0 + Ck/R1` = 0,025 | 0,030) these are t
   verdict). The heights of bogie-mounted parts are checked in §10.7 (lower parts table, mounting *bogie frame*).
 * Not applied: the 5 mm reduction of z for two-axle wagons (A.3.10.1, wagons only).
 
-### 10.9 Results
+### 10.9 Static gauge method (A.2)
+
+Optional (*Also check EN 15273-2:2009 static gauge method*, Static Simulation tab), independent of the kinematic check.
+The reference profile is a profile on the Customer KE & SOD tab (option; blank = the KE of the static check), read like
+a KE (upper envelope to `n_up`). Rules (Customer KE & SOD tab, G1 values): allowance `0,075 m`, minimum `Δ = 7,5 m²`,
+`s_max = 0,2` (§5.1.3: 0,3 for GA, GB, GC), lower parts up to `0,43 m`; `l_max`, `R1`, `R2`, `Xi`, `Xa` as §10.1.
+
+* A.2.3.1: the static gauge may be used only when the flexibility coefficient does not exceed `s_max`; `s` = larger of
+  the tare and crush values used (§5.4 source and lateral state). Otherwise the car type fails the static-gauge check
+  ("use the kinematic or dynamic method").
+* Reductions, `P = (l_max − d)/2`, `w` = secondary lateral play used (§5.2), `q` primary, `k1 = 1/(2·R1)`,
+  `kx = 1/(2·R2) − 1/(2·R1)`:
+  * between the pivots (A.2, A.3): `Δi = max(a·n − n² + p²/4 ; Δmin)`, `x = (a·n − n² + p²/4 − Xi)·kx`,
+    `Ei = [Δi·k1 + P + q + w + [x]>0 − allowance]>0`;
+  * beyond them (A.4, A.5): `Δa = max(a·n + n² − p²/4 ; Δmin)`, `x = (a·n + n² − p²/4 − Xa)·kx`,
+    `Ea = [Δa·k1 + (P + q + w)·(2n + a)/a + [x]>0 − allowance]>0`.
+  With the G1 values (`2R1` = 500, `kx` = 1/750, 7,5, 100, 120, 0,075) these are A.2–A.5. `p` = larger wheelbase
+  between the pivots, smaller beyond (conservative); `d` from the bogie with the larger play. No roll term: the static
+  gauge contains no quasi-static allowance and is limited by `s_max` instead.
+* Check of the RS profiles: at every profile vertex height and every reference vertex height within the profile,
+  margin = `W_ref(h) − E − x_prof(h)` (reference half-width at `max(h, bottom of the upper envelope)`); the profile top
+  shall not exceed the reference top.
+* A.2.3.2 lower parts (rows of §10.7 with height ≤ 0,43 m): `h − Usr − (dp + dsd)` (bogie parts `h − Usr − dp`, total
+  bottoming displacement) `≥` lower limit (entered, or the customer minimum). The GIS1 / GIS2 outlines are not encoded.
+* The car type passes when s ≤ s_max, every margin ≥ 0, the tops fit and the lower parts are above their limits; the
+  result is part of the verdict when the option is selected. Tests: `tests/en15273-static.test.js` (A.2–A.5 typed in).
+
+### 10.10 Results
 
 * Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
   Method A for comparison.
@@ -551,7 +579,8 @@ values (`2Ck` = 5 | 7,5, `e0` = 0,015, `e0 + Ck/R1` = 0,025 | 0,030) these are t
   passes when every margin ≥ 0; when the option is selected, the EN result is part of the car's verdict.
 * Heights (§10.7): one row per lower part and per section, in the EN verdict.
 * Bogie parts (§10.8): one row per part and bogie type.
-* Not covered yet: the GIC1/GIC2 outlines as data (limits are entered), the static gauge method (A.2), pantograph gauge (A.3.12), doors and steps open
+* Static gauge (§10.9): per car type, when selected.
+* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), pantograph gauge (A.3.12), doors and steps open
   (A.3.14), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
   and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.

@@ -6,7 +6,7 @@ check our RS profile + movements against the customer KE (static), and check our
 chainage by chainage along the line (dynamic). The method is the owner's gauging workbook ("Vehicle Gauging Calculation
 Tool"): Method B (generated KE, point clearance) and Method A (maximum static half-width); optional static check by the
 EN 15273-2:2009 kinematic method (customer KE as reference profile, G1 rules as editable defaults; traction units,
-motor coaches and coaches, w varying with the radius and variable stops, heights A.3.4 with a lower-parts table, bogie parts A.3.11; METHOD §10). The engine
+motor coaches and coaches, w varying with the radius and variable stops, heights A.3.4 with a lower-parts table, bogie parts A.3.11; static gauge method A.2 as a second option; METHOD §10). The engine
 reproduces the workbook exactly (`tests/workbook.test.js`, `tests/workbook-dynamic.test.js`); `tests/en15273*.test.js` check the
 EN formulae against the standard typed in literally.
 
@@ -26,7 +26,7 @@ KE/SOD, tender specs or alignment data into this repo or these notes. The owner'
 | `METHOD.md` | **The specification** (every equation, symbol, assumption), written from the workbook's Method & Formulas |
 | `js/schema.js` | All input fields (labels, units, ranges, defaults) — shared by forms, templates, importers, checks |
 | `js/model.js` | Project structure, `normalizeProject`, `validate` (messages per tab), profile/track helpers |
-| `js/engine.js` | Calculation: `deriveCar` (pivots, A, wind Cw, Σd/Σu, theoretical s/hc, shared-bogie check), `staticRun` (6 cases per car type, Method A, vertical checks, EN 15273-2 `enRun` + heights `enVertical` + `enBogieParts` when selected), `dynamicRun` (chainage sweep per car type, worst per chainage, summaries, speed steps, SOD outline + point items `sodCheck`), `crossSection`, `swayEval` / `gaugeTestPlan` (Tests tab, METHOD §13), `playCalc` |
+| `js/engine.js` | Calculation: `deriveCar` (pivots, A, wind Cw, Σd/Σu, theoretical s/hc, shared-bogie check), `staticRun` (6 cases per car type, Method A, vertical checks, EN 15273-2 `enRun` + heights `enVertical` + `enBogieParts` when selected, static gauge `enStaticRun`), `dynamicRun` (chainage sweep per car type, worst per chainage, summaries, speed steps, SOD outline + point items `sodCheck`), `crossSection`, `swayEval` / `gaugeTestPlan` (Tests tab, METHOD §13), `playCalc` |
 | `js/io.js` | Excel/CSV templates + importers per tab, export/import all, static and dynamic results workbooks, project file `*.rsgauge.json` (v2; v1 migrated) |
 | `js/plot.js` | Chart.js datasets (profiles mirrored, track vs chainage, section outlines, Method A, chainage series, cross-section) |
 | `js/calcsteps.js` | Calculation Method tab: step-by-step explanation (EN 15273-1/-2/-3, UIC 505-1/-4/-5, metro SOD practice) with live examples taken from engine results; no equations |
