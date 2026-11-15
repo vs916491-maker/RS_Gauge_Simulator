@@ -24,11 +24,11 @@ index.html              single page; loads the scripts in the order below
 css/style.css           all styling (light/dark via CSS variables)
 js/schema.js            every input field: key, label, type, unit, range, default, help (forms, templates, importers, checks)
 js/model.js             project structure, normalisation (safe copy, defaults), input checks per tab, profile/track helpers (DOM-free)
-js/engine.js            CALCULATION ENGINE (pure, DOM-free): derived car data, static run (Method B points, Method A, vertical checks)
+js/engine.js            CALCULATION ENGINE (pure, DOM-free): derived car data, static run (Method B, Method A, vertical checks), dynamic run (sweep, summaries, speed steps, cross-section)
 js/markdown.js          small Markdown renderer for the Method tab (DOM nodes, never innerHTML)
 js/method.js            GENERATED from METHOD.md by tools/make-presets.js
 js/presets.js           GENERATED from samples/*.json by tools/make-presets.js (fictional sample + vehicle-type presets)
-js/io.js                Excel/CSV templates and importers per tab, export all, static results workbook, project file (*.rsgauge.json)
+js/io.js                Excel/CSV templates and importers per tab, export all, static and dynamic results workbooks, project file (*.rsgauge.json)
 js/plot.js              Chart.js dataset builders (reshape data only)
 js/ui.js                tabs, forms, grids, tables, previews, messages; the only file building the page (exposes RSGAUGE.app)
 vendor/                 xlsx.full.min.js (SheetJS 0.18.5), chart.umd.js (Chart.js 4.4.1), licences, README
@@ -65,7 +65,9 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
             segments: [{ from_m, to_m, element: tangent|transition|circular, side, R_start_m, R_end_m, cant_start_mm, cant_end_mm,
                          speed_kmh, Rv_m, ke, location: open|tunnel|platform|depot, wind: Y|N, struct_mm, platform_mm, platform_side, sod, remarks }] },
   settings: { static: { ke, flex, latflex, lat_state, vert_state, comb, K_rss, gtol_ext, align, tilt, up_roll, wind, over_infl,
-                        ma_from_mm, ma_to_mm, ma_step_mm, cars: 'all' | 'A,B' } }
+                        ma_from_mm, ma_to_mm, ma_step_mm, cars: 'all' | 'A,B' },
+              dynamic: { ov_meth: max|local, load: tare|crush, profile, ch_from_m, ch_to_m, ss_R_m, ss_cant_mm, ss_wind_kmh,
+                         ss_step_kmh, ss_n, ss_ke, cars } }   // the static options are the common options of both runs
 }
 ```
 
@@ -88,14 +90,17 @@ inputs of the last run and flags the results as out of date when anything change
 
 Headers end with `(key)`; select values may be given as their key or label in any case (e.g. `Circular`, `Open`, `Y`);
 the static results export (Static Results tab) writes Static_Summary, Static_BuildUp, Static_Points, Method_A,
-Vertical_Checks and Derived_Values. The importer matches on the key (and on simple names such as `Profile`, `Point`, `Y`, `Z`
+Vertical_Checks and Derived_Values; the dynamic export (Dynamic Results tab) writes Dyn_Summary, Dyn_CarTypes,
+Dyn_Elements, Dyn_SpeedStep and Dyn_Sweep (every sweep row of every car type). The importer matches on the key (and on simple names such as `Profile`, `Point`, `Y`, `Z`
 for CSV files). A single-sheet file or CSV is read as the tab's main sheet. Profile coordinates that look like
 metres (all ≤ 20) are converted to mm with a message. Each tab imports only its own sheets; *Import all inputs*
 reads every known sheet.
 
 ## 5. Testing
 
-* `node tests/run-tests.js` — Node built-ins only. `workbook.test.js`: the engine against the reference gauging workbook
+* `node tests/run-tests.js` — Node built-ins only. `workbook-dynamic.test.js`: the dynamic run against the workbook's
+  Dynamic Calc for four option sets (every sweep column, summaries, speed steps, cross-section).
+  `workbook.test.js`: the engine against the reference gauging workbook
   recalculated with fictional inputs for seven option sets (every case minimum, governing point, Method A row, vertical
   check, theoretical s and hc, wind constants, axle load). Plus engine closed forms, model checks and migration,
   import/export round trips, offline rules, generated files, chart data. CI runs it on every pull request.
@@ -110,6 +115,6 @@ reads every known sheet.
 | Phase | Content | Status |
 |---|---|---|
 | 1 | Input tabs, templates, import/export, project file, previews, checks | Done (PR #1) |
-| 2 | Inputs aligned to the workbook, METHOD.md from the workbook, static engine (Method B, Method A, vertical checks), theoretical s/hc, shared-bogie check, presets, Static Simulation and Static Results | **This pull request** |
-| 3 | Dynamic Simulation (chainage sweep, speed-step study) and Dynamic Results with chainage selector | Next |
-| 4 | Overall Summary of static + dynamic, report; EN 15273-2 option | |
+| 2 | Inputs aligned to the workbook, METHOD.md from the workbook, static engine, theoretical s/hc, shared-bogie check, presets, Static Simulation and Static Results | Done (PR #2) |
+| 3 | Dynamic Simulation (chainage sweep, speed-step study) and Dynamic Results with chainage selector and cross-section | **This pull request** |
+| 4 | Report; full SOD outline and point-item checks; EN 15273-2 option; validation calculations | Later |

@@ -5,12 +5,12 @@ written here first and then coded in `js/engine.js`. If the code and this file d
 and the code is a bug.
 
 The method is the one of the owner's gauging workbook *Vehicle Gauging Calculation Tool* (sheets Method &
-Formulas, Static Calc, Dynamic Calc). The static engine reproduces that workbook to within 10⁻⁹ mm for the
-same inputs and options; `tests/workbook.test.js` checks it on fictional inputs recalculated by the workbook.
+Formulas, Static Calc, Dynamic Calc, Dynamic Gauge Output). The engine reproduces that workbook to within 10⁻⁹ mm
+for the same inputs and options; `tests/workbook.test.js` (static) and `tests/workbook-dynamic.test.js`
+(dynamic) check it on fictional inputs recalculated by the workbook.
 
-> **Status:** sections 1–7 (inputs, derived values, static calculation) are implemented (Phase 2).
-> Section 8 (dynamic, chainage sweep) is the specification for Phase 3. Section 10 (EN 15273-2 reference
-> profile reductions) is kept for a later phase and is not used.
+> **Status:** sections 1–8 are implemented (static: Phase 2, dynamic: Phase 3). Section 10 (EN 15273-2
+> reference profile reductions) is kept for a later phase and is not used.
 
 ## 1. Purpose and approach
 
@@ -254,33 +254,82 @@ the KE top):
 | Body-mounted equipment height, worst case | `zu − Σd − a²/(8Rv) − θ·yu` | ≥ cb |
 | Bogie-mounted equipment height, worst case | `zbg − Δw − dp` | ≥ cbg |
 
-## 8. Dynamic calculation (Phase 3 specification)
+## 8. Dynamic calculation (chainage sweep)
 
-Chainage sweep at a fixed step from the start of the track data:
+### 8.1 Track model and sweep
 
-* Local curvature `k` (+ left) and cant interpolated linearly in the element (transitions); speed, Rv, KE,
-  location, wind, structure and platform data of the element.
-* Overthrow method: local radius, or (conservative, default) the largest |k| within ± (a/2 + nE + p/2) of the car
-  centre (covers transitions and reverse curves).
-* Equilibrium cant `Eeq = G·V²·|k|/g` (≈ 11.8·V²/R); deficiency `max(Eeq − E, 0)` at line speed; excess = E
-  (train stopped).
-* Wind speed by location (open / platform / none), wind equivalent cant `Cw·Vw²` (load case for the dynamic
-  calculation, tare normally governs).
-* Required half-width OUTSIDE (car end at speed) at h:
-  `W_out(h) = x_prof(h) + dga + A_end·[(l−d)/2 + q + w* + fw] + A_end·wd/2 + s·(Idef + D)/G·(h − hc) + random`
-* Required half-width INSIDE (mid-car, stopped):
-  `W_in(h) = x_prof(h) + dgi + (l−d)/2 + q + w* + fw + wd/2 + s·(E + D)/G·(h − hc) + random`,
-  with dgi = (a² + p²)/(8R), dga = (a·nE + nE² − p²/4)/(2R), evaluated at h1 and h2.
-* Excess over the tangent KE half-width at h1 and h2, compared with the SOD extra horizontal allowance:
-  `T_out = max((L² − C²)/(8R) − nosing, 0) + wd/2`, `T_in = max((C² + b²)/(8R) − nosing, 0) + wd/2`.
-* Structure clearance at h2: `lean = h2·E/G`, `S − max(W_out − lean, W_in + lean)`.
-* Underframe height: `zu − Σd − vertical-curve effect − s·(max(Idef, E) + Dcrush + CL)/G·yu` ≥ cb, where the
-  vertical-curve effect is `a²/(8Rv)` (crest) or `(a·nE + nE²)/(2|Rv|)` (sag).
-* Platform gap: nominal `PE − bs − throw towards the platform` (inside: dgi, outside: dga), minimum = nominal −
-  movement at floor height; contact if negative; information if nominal > PRM value.
-* Speed-step study: a set radius, cant and wind, speeds in steps from 0; maximum excess over the KE.
-* Cross-section at a chosen chainage (outside = car end at line speed, inside = mid-car stopped), rotated by the
-  cant angle `asin(E/G)` into the vertical frame.
+* Elements sorted by start chainage; signed curvature at start and end `k = ±1/R` (+ left, − right, 0 for R = 0).
+* Sweep chainages: `ch0, ch0 + Δx, …` while ≤ the end of the track data (`Δx` = sweep step on the Track Data
+  tab; start / end chainage options, blank = whole line). The end chainage itself is also evaluated and
+  flagged *not valid*: it enters the maxima and minima but not the point counts (the workbook's repeated end rows).
+* At chainage `x`: the element is the last one whose start is ≤ x; position `t = (x − s0)/(s1 − s0)` clamped to
+  0…1; `k = ks + (ke − ks)·t`, cant `E = Es + (Ee − Es)·t` (linear in transitions); speed limit, Rv, KE,
+  location, wind, structure and platform data of the element (blank KE = the KE of the static check).
+
+### 8.2 Constants per car type
+
+* Load case for the dynamic calculation (option, tare default): `s`, `hc`, `Cw` of that load (§5.4 rules for the
+  suspension state).
+* `dT_in = (l−d)/2 + q + w* + fw`, `dT_out = A_end·dT_in`.
+* Random terms at height h: interior `Δl + al* + θr·(h − hc) + θt·h` (or K·√Σ²), exterior with `Δl·A_end`
+  only if gauge tolerance in the exterior is selected; `θr = s·CL/G`, `θt = CL/G` if selected.
+* Profile for the dynamic gauge: the option, blank = car-end section profile of the car type; its half-widths
+  `x_prof(h1)`, `x_prof(h2)` (all segments, §3).
+* Window for the governing curvature: `ROUNDUP((a/2 + nE + p/2)/Δx)` sweep points each side.
+* SOD design vehicle: `C`, `L`, `b` from the customer limits, blank = this car type's `a`, `Lb`, `p`.
+
+### 8.3 At each sweep point
+
+| Quantity | Formula |
+|---|---|
+| Governing curvature | local `|k|`, or (conservative, default) the largest `|k|` within ± window points |
+| Governing radius | `Rg = 1/|k_gov|` (0 = straight) |
+| Equilibrium cant | `Eeq = G·(V/3.6)²·|k|/g` (local curvature, speed limit of the element) |
+| Cant deficiency / excess | `I = max(Eeq − E, 0)` at line speed; excess = E (train stopped) |
+| Wind speed | 0 if wind N; platform → `Vwp`; else `Vw` |
+| Wind equivalent cant | `D = Cw·Vwind²` (if wind selected) |
+| Gauge widening | `wd` if 0 < Rg < Rw |
+| Overthrow | `dgi = (a² + p²)/8·|k_gov|`, `dga = (a·nE + nE² − p²/4)/2·|k_gov|` |
+| Required half-width OUTSIDE at h | `x_prof(h) + dga + dT_out + A_end·wd/2 + s·(I + D)/G·(h − hc) + random_out(h)` |
+| Required half-width INSIDE at h | `x_prof(h) + dgi + dT_in + wd/2 + s·(E + D)/G·(h − hc) + random_in(h)` |
+| KE half-width | `W_KE(h1)`, `W_KE(h2)` of the element's KE (upper envelope) |
+| Excess over the tangent KE | OUT `max(OUT(h1) − W_KE(h1), OUT(h2) − W_KE(h2))`, IN likewise |
+| SOD extra allowance | `T_out = max((L² − C²)/8·|k_gov| − nosing, 0) + wd/2`; `T_in = max((C² + b²)/8·|k_gov| − nosing, 0) + wd/2` |
+| SOD check | OK if excess OUT ≤ T_out + 0.05 and excess IN ≤ T_in + 0.05 |
+| Lean due to cant | `h2·E/G` |
+| Structure clearance at h2 | `S − max(OUT(h2) − lean, IN(h2) + lean)` (S = structure distance; none if 0) |
+| Vertical-curve effect | crest `a²/(8Rv)`, sag `(a·nE + nE²)/(2|Rv|)` |
+| Underframe height | `zu − Σd − vc − s_crush·(max(I, E) + Cw_crush·Vwind² + CL)/G·yu` ≥ cb |
+| Platform position | at a platform: tangent if k = 0; inside if (side L and k > 0) or (side R and k < 0); else outside |
+| Platform gap nominal | `PE − bs − (dgi inside, dga outside, 0 tangent)` |
+| Platform gap minimum | `nominal − (dT_in + wd/2 + s·((E if inside) + D)/G·(hf − hc) + random_in(hf))`; < 0 → CONTACT; nominal > PRM → information |
+| Overall | CHECK if SOD check, structure, underframe or platform fails |
+
+### 8.4 Summaries
+
+* Line summary: length, points, maximum deficiency (vs the limit), maximum excess OUT / IN, points above the SOD
+  allowance, minimum structure clearance, minimum underframe height, minimum and maximum nominal platform gap,
+  points with any CHECK; each with its chainage (first occurrence).
+* Per element: maximum deficiency, OUT(h2), IN(h2), excess OUT / IN; minimum structure clearance and underframe
+  height; status (not evaluated if no sweep point falls in the element).
+* All car types: each car type is swept; the line summary takes the worst car type at each chainage (largest
+  excesses and nominal gap, smallest clearances; CHECK if any car type checks), and names the governing car.
+
+### 8.5 Speed-step study
+
+Radius `R` (0 = tangent), cant `E`, wind speed and KE set in the options; speeds `0, ΔV, …` (13 steps by default):
+`Eeq = G·(V/3.6)²/(g·R)`, `I = Eeq − E` (deficiency = max(I, 0), excess = max(−I, 0)), overthrow at R, the OUT / IN
+half-widths of §8.3 at h1, h2, the KE half-widths and the maximum excess; remarks above the cant-deficiency limit
+or above the design speed.
+
+### 8.6 Cross-section at a chainage
+
+Sweep point at or before the chainage (blank = largest outside excess). For each profile point: right side
+(OUTSIDE) lateral `dga + dT_out + A_end·wd/2 + s·(I + D)/G·(h − hc) + random_out(h)` and roll
+`θo = s·(I + D)/G + θr + θt`; left side (INSIDE) with dgi, dT_in, wd/2, E and `θi`. Track-plane point
+`(±(x + E_lat), h − θ·x)`, rotated by `φ = asin(E/G)` into the vertical frame:
+`X = x·cos φ − z·sin φ`, `Z = x·sin φ + z·cos φ`. The static profile, the KE and the KE + SOD allowance (x + T_out on
+the right, x + T_in on the left) are rotated the same way; rails at ±750 mm.
 
 ## 9. Verification
 
@@ -288,9 +337,14 @@ Chainage sweep at a fixed step from the start of the track data:
    and recalculated (LibreOffice); for several option sets (linear / RSS, deflated, theoretical s and hc, gauge
    and alignment tolerance, rigid tilt, upward movement with roll, static curve with widening, shared bogies) the
    engine matches every case minimum, governing point, Method A row and vertical check.
-2. Closed-form checks: tangent with no movement gives clearance = gap to the KE; yaw factor; wind constant;
+2. **Dynamic reproduction** (`tests/workbook-dynamic.test.js`): a fictional 4.4 km line with transitions,
+   vertical curves, platforms, tunnels and a depot curve, swept in the workbook for four option sets (conservative
+   / local overthrow, tare / crush, RSS, deflated, tolerances and tilt, theoretical s and hc, no wind): every
+   column of every sweep row, the line summary, the per-element table, the speed-step study and the cross-section
+   outline match.
+3. Closed-form checks: tangent with no movement gives clearance = gap to the KE; yaw factor; wind constant;
    theoretical s from the closed form; axle load by statics.
-3. Inputs are never mutated; results are deterministic.
+4. Inputs are never mutated; results are deterministic.
 
 ## 10. EN 15273-2 reference-profile reductions (later phase, not used)
 

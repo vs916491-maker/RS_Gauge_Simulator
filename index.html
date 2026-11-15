@@ -206,14 +206,63 @@
 
   <!-- ======================= DYNAMIC SIMULATION ======================= -->
   <section id="tab-dsim" class="panel" role="tabpanel" aria-labelledby="tabbtn-dsim" hidden>
-    <div class="card phase"><h3>Dynamic simulation &mdash; Phase 3</h3>
-      <p>Chainage sweep along the Track Data (local or governing curvature under the car, cant, speed, wind by location): required half-widths outside (car end at speed) and inside
-        (mid-car, train stopped) at the two reference heights against the KE and the SOD curve allowance, structure clearance with lean due to cant, underframe height and platform gap;
-        plus the speed-step study.</p></div>
+    <div class="messages" data-msgs="dsim" aria-live="polite"></div>
+    <div class="grid2">
+      <div class="card"><h3>Dynamic options</h3>
+        <p class="hint">Chainage sweep along the Track Data: at each point the local curvature and cant (linear in transitions), speed, wind by location and KE of the element.
+          OUTSIDE = car end at line speed (cant deficiency), INSIDE = mid-car with the train stopped (cant excess). The suspension states, combination of random terms,
+          tolerances, wind and s/hc source are the <strong>common options on the Static Simulation tab</strong>.</p>
+        <div id="f-dynamic" class="fields"></div>
+        <h3 class="gap">Sweep step</h3><div id="f-dyn-step" class="fields"></div></div>
+      <div>
+        <div class="card"><h3>Car types to sweep</h3><div id="dsim-cars" class="inline wrap"></div>
+          <p class="hint">The results report the worst car type at each chainage.</p></div>
+        <div class="card key-card"><h3>Run</h3>
+          <div id="ready-dsim"></div>
+          <p class="tools"><button type="button" id="btn-run-dynamic" class="primary">Run dynamic simulation</button><span id="dsim-status" class="muted"></span></p></div>
+      </div>
+    </div>
   </section>
+
+  <!-- ======================= DYNAMIC RESULTS ======================= -->
   <section id="tab-dres" class="panel" role="tabpanel" aria-labelledby="tabbtn-dres" hidden>
-    <div class="card phase"><h3>Dynamic results &mdash; Phase 3</h3>
-      <p>Line summary, charts against chainage, a chainage selector with the cross-section at that point, per-element summary and the speed-step table.</p></div>
+    <div id="dres-empty" class="card"><p>No dynamic results yet. Set the options on the <strong>Dynamic Simulation</strong> tab and press <strong>Run dynamic simulation</strong>.</p></div>
+    <div id="dres-body" hidden>
+      <div id="dres-stale" class="banner"></div>
+      <div class="toolbar"><button type="button" id="btn-export-dynamic" title="Summary, car types, elements, speed-step study and every sweep row">Export results (Excel)</button></div>
+      <div id="dres-cards" class="cards"></div>
+      <div class="grid2">
+        <div class="card"><h3>Line summary <span class="muted">(all car types, worst per chainage)</span></h3><div id="dres-summary" class="tablewrap"></div></div>
+        <div class="card"><h3>By car type</h3><div id="dres-cars" class="tablewrap"></div></div>
+      </div>
+      <div class="card sticky-sel">
+        <div class="row">
+          <div class="inline wrap"><label>Car type <select id="dres-car"></select></label>
+            <label>Chainage [m] <input type="number" id="dres-ch" step="any"></label>
+            <button type="button" id="dres-worst" class="ghost small" title="Chainage of the largest outside excess for this car type">Worst outside excess</button></div>
+          <input type="range" id="dres-slider" class="slider" aria-label="Chainage">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h3>Alignment: curvature <span class="muted">(1/km, + left)</span></h3><div class="chartbox short"><canvas id="chart-d-curv"></canvas></div></div>
+        <div class="card"><h3>Speed limit, applied cant and cant deficiency</h3><div class="chartbox short"><canvas id="chart-d-speed"></canvas></div></div>
+        <div class="card"><h3>Required half-width at h2 vs customer KE</h3><div class="chartbox short"><canvas id="chart-d-hw"></canvas></div></div>
+        <div class="card"><h3>Excess over the tangent KE vs SOD curve allowance</h3><div class="chartbox short"><canvas id="chart-d-excess"></canvas></div></div>
+        <div class="card"><h3>Structure clearance at h2 <span class="muted">(incl. lean due to cant)</span></h3><div class="chartbox short"><canvas id="chart-d-struct"></canvas></div></div>
+        <div class="card"><h3>Lowest body-mounted equipment height, worst case</h3><div class="chartbox short"><canvas id="chart-d-uf"></canvas></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h3>Dynamic envelope at the selected chainage <span class="muted">(vertical frame: track rotated by the cant)</span></h3>
+          <div class="chartbox square"><canvas id="chart-d-xs"></canvas></div>
+          <p class="hint">Right side = OUTSIDE of the curve (car end at line speed); left side = INSIDE (mid-car, train stopped). On straight track both sides use the same rule.</p></div>
+        <div class="card"><h3>At the selected chainage</h3><div id="dres-xs" class="tablewrap"></div></div>
+      </div>
+      <div class="card"><h3>Per element <span class="muted">(selected car type)</span></h3><div id="dres-elements" class="tablewrap scrolly"></div></div>
+      <div class="grid2">
+        <div class="card"><h3>Speed-step study</h3><p class="hint" id="dres-ss-note"></p><div class="chartbox short"><canvas id="chart-d-ss"></canvas></div></div>
+        <div class="card"><h3>Speed-step table <span class="muted">(mm)</span></h3><div id="dres-ss" class="tablewrap"></div></div>
+      </div>
+    </div>
   </section>
 
   <!-- ======================= OVERALL SUMMARY ======================= -->
@@ -222,7 +271,7 @@
     <div class="card"><h3>Input readiness</h3>
       <p class="hint">Errors must be fixed before a simulation can run. Warnings are worth reading.</p>
       <div id="summary-inputs" class="tablewrap"></div></div>
-    <div class="card phase"><h3>Dynamic results summary &mdash; Phase 3 / 4</h3></div>
+    <div class="card"><h3>Dynamic results</h3><div id="summary-dynamic"></div></div>
     <div class="card"><h3>All messages</h3><div class="messages" data-msgs="all"></div></div>
   </section>
 

@@ -131,8 +131,8 @@
     out.rs = { profiles: profiles(rs.profiles, S.rsProfile) };
     out.track = { params: record(tr.params, S.trackParams), segments: (tr.segments || []).map(function (s) { return record(s, S.segment); }) };
     var st = p.settings || {};
-    out.settings = { 'static': record(st['static'], S.staticOptions) };
-    Object.keys(st).forEach(function (k) { if (k !== 'static') { out.settings[k] = clean(st[k]); } });
+    out.settings = { 'static': record(st['static'], S.staticOptions), dynamic: record(st.dynamic, S.dynamicOptions) };
+    Object.keys(st).forEach(function (k) { if (k !== 'static' && k !== 'dynamic') { out.settings[k] = clean(st[k]); } });
     syncBodies(out);
     fillRefs(out);
     return out;
@@ -346,8 +346,21 @@
     rangeChecks(m, 'ssim', 'Static options', so, S.staticOptions);
     if (!so.ke) { m.add('ssim', 'err', 'Static options: no customer KE selected.'); }
     else if (p.ke.profiles.length && !keNames[so.ke]) { m.add('ssim', 'err', 'Static options: KE "' + so.ke + '" not found.'); }
+    // ---- dynamic options
+    var dyo = p.settings.dynamic;
+    rangeChecks(m, 'dsim', 'Dynamic options', dyo, S.dynamicOptions);
+    if (dyo.profile && !rsNames[dyo.profile]) { m.add('dsim', 'err', 'Dynamic options: RS profile "' + dyo.profile + '" not found.'); }
+    if (dyo.ss_ke && !keNames[dyo.ss_ke]) { m.add('dsim', 'err', 'Dynamic options: KE "' + dyo.ss_ke + '" not found.'); }
+    if (dyo.ch_from_m !== null && dyo.ch_to_m !== null && dyo.ch_to_m <= dyo.ch_from_m) { m.add('dsim', 'err', 'Dynamic options: end chainage must be greater than the start chainage.'); }
+    if (!seg.length) { m.add('dsim', 'err', 'No track data: the dynamic simulation needs the Track Data tab.'); }
     var errors = m.list.filter(function (x) { return x.level === 'err'; }).length;
     return { ok: errors === 0, errors: errors, warnings: m.list.length - errors, messages: m.list };
+  }
+
+  // Errors that block a run: the static run ignores the dynamic-only checks; the dynamic run needs everything.
+  function readiness(v, run) {
+    var errs = v.messages.filter(function (m) { return m.level === 'err' && (run === 'dynamic' || m.tab !== 'dsim'); });
+    return { ok: errs.length === 0, errors: errs.length, messages: errs };
   }
 
   function sortSegments(seg) { return seg.slice().sort(function (a, b) { return (a.from_m || 0) - (b.from_m || 0); }); }
@@ -362,6 +375,6 @@
     FORMAT: FORMAT, VERSION: VERSION,
     clean: clean, num: num, record: record, emptyProject: emptyProject, normalizeProject: normalizeProject, migrate1: migrate1,
     syncBodies: syncBodies, fillRefs: fillRefs, applyVehicleType: applyVehicleType, formationTokens: formationTokens, fullProfile: fullProfile, extent: extent,
-    toMillimetres: toMillimetres, validate: validate, sortSegments: sortSegments, trackLength: trackLength
+    toMillimetres: toMillimetres, validate: validate, readiness: readiness, sortSegments: sortSegments, trackLength: trackLength
   };
 }));
