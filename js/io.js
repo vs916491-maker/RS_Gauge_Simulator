@@ -33,10 +33,11 @@
     ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params', 'Third_Rail', 'Third_Rail_Parts'],
     rs: ['RSProfile', 'EN_Doors_Steps', 'EN_Pantographs'],
     track: ['TrackParams', 'Track'],
-    tests: ['Sway_Test']
+    tests: ['Sway_Test'],
+    endyn: ['Sim_Settings', 'Sim_Cars', 'Sim_Transient', 'Sim_Curving', 'Val_Weighbridge', 'Val_BogieRotation', 'Val_Sway', 'Val_Ride']
   };
-  var PRIMARY = { train: 'Train', bogie: 'Bogies', ke: 'KE', rs: 'RSProfile', track: 'Track', tests: 'Sway_Test' };
-  var ALL_SHEETS = [].concat(TAB_SHEETS.train, TAB_SHEETS.bogie, TAB_SHEETS.ke, TAB_SHEETS.rs, TAB_SHEETS.track, TAB_SHEETS.tests);
+  var PRIMARY = { train: 'Train', bogie: 'Bogies', ke: 'KE', rs: 'RSProfile', track: 'Track', tests: 'Sway_Test', endyn: 'Sim_Transient' };
+  var ALL_SHEETS = [].concat(TAB_SHEETS.train, TAB_SHEETS.bogie, TAB_SHEETS.ke, TAB_SHEETS.rs, TAB_SHEETS.track, TAB_SHEETS.tests, TAB_SHEETS.endyn);
 
   function head(fd) { return fd.l + (fd.u ? ' [' + fd.u + ']' : '') + ' (' + fd.k + ')'; }
   function keyOf(cell) {
@@ -110,6 +111,14 @@
       case 'TrackParams': return paramRows(p.track.params, S.trackParams);
       case 'Track': return tableRows(p.track.segments, S.segment);
       case 'Sway_Test': return tableRows(p.tests.sway, S.swayTest);
+      case 'Sim_Settings': return paramRows((p.sim || {}).settings || {}, S.simSettings);
+      case 'Sim_Cars': return tableRows((p.sim || {}).cars || [], S.simCar);
+      case 'Sim_Transient': return tableRows((p.sim || {}).transient || [], S.simTransient);
+      case 'Sim_Curving': return tableRows((p.sim || {}).curving || [], S.simCurving);
+      case 'Val_Weighbridge': return tableRows((p.sim || {}).weigh || [], S.valWeigh);
+      case 'Val_BogieRotation': return tableRows((p.sim || {}).rot || [], S.valRot);
+      case 'Val_Sway': return tableRows((p.sim || {}).sway || [], S.valSway);
+      case 'Val_Ride': return tableRows((p.sim || {}).ride || [], S.valRide);
     }
     throw new Error('Unknown sheet ' + name);
   }
@@ -124,6 +133,14 @@
     CCD: 'Third-rail current collector devices (CCD): one row per CCD type with its bogie type, mounting (frame / axleboxes), distance x of the shoe from the bogie centre, working range of the shoe on the contact axis and the extent of its contact face on the other axis.',
     CCD_Points: 'Outline points of each CCD in the working and retracted positions (tare, new wheels, rail side): CCD name, position, part (shoe follows the rail when working; gear moves with the bogie), Y and Z.',
     Third_Rail: 'Conductor rail: envelope used for the CCD check, contact type (bottom / top / side), contact surface position and face extent, installation tolerances, wear and the minimum shoe–rail overlap.',
+    Sim_Settings: 'EN 15273-2 dynamic method: reference profile for the tangent check, factor on the standard deviation (3/√2), line check, units of the O.6 import.',
+    Sim_Cars: 'Per car type: distance of the outer datum points from the body centre, datum height, and the quasi-static drop terms f_z, f_cr, f_w, f_tol of O.10.',
+    Sim_Transient: 'Transient simulation results (Annex O.3.8): per car type, condition, speed and cant-excess case and datum point (lead / centre / trail) the mean and standard deviation of the transverse and vertical displacement (mm) and of the roll angle (mrad).',
+    Sim_Curving: 'Quasi-static curving results (Annex O.3.9): per car type, condition and radius the displacement towards the outside and the inside at the leading and trailing datums (mm), without the geometric overthrow.',
+    Val_Weighbridge: 'Model validation (O.2.4): measured and simulated wheel loads per wheelset and side.',
+    Val_BogieRotation: 'Model validation (O.2.5): measured and simulated maximum X factor per bogie and rotation velocity.',
+    Val_Sway: 'Model validation (O.2.6): measured and simulated four-part averages per output and applied cant, and the average error of the hysteresis loop.',
+    Val_Ride: 'Model validation (O.2.7): dynamic ride test matched (competent person) and notified-body acceptance of a partial validation.',
     Third_Rail_Parts: 'Points of the conductor-rail assembly (brackets, shroud / cover board, insulators) with the required clearance to the CCD.',
     EN_Bogie_Parts: 'Bogie parts checked laterally by EN 15273-2 A.3.11 (static option): one row per part with bogie type, mounting (frame / axle), position (between / beyond the end axles), distance n from the nearer end axle, half-width and height above rail (tare, new wheels).',
     EN_Lower_Parts: 'Lower parts checked by EN 15273-2 A.3.4.1 (static option): one row per part with car type, mounting (body / bogie), position (between / beyond the pivots or axles), distance n, half-width b, height above rail (tare, new wheels) and the lower limit at that position (blank = customer minimum clearance). A car type without rows uses the lower parts of the car body inputs.',
@@ -289,6 +306,14 @@
         case 'TrackParams': v = readParams(rows, S.trackParams, msgs, n); Object.keys(v).forEach(function (k) { raw.track.params[k] = v[k]; }); break;
         case 'Track': v = readTable(rows, S.segment, msgs, n); if (v) { raw.track.segments = v; } break;
         case 'Sway_Test': v = readTable(rows, S.swayTest, msgs, n); if (v) { raw.tests = raw.tests || {}; raw.tests.sway = v; } break;
+        case 'Sim_Settings': v = readParams(rows, S.simSettings, msgs, n); raw.sim = raw.sim || {}; raw.sim.settings = raw.sim.settings || {}; Object.keys(v).forEach(function (k) { raw.sim.settings[k] = v[k]; }); break;
+        case 'Sim_Cars': v = readTable(rows, S.simCar, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.cars = v; } break;
+        case 'Sim_Transient': v = readTable(rows, S.simTransient, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.transient = v; } break;
+        case 'Sim_Curving': v = readTable(rows, S.simCurving, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.curving = v; } break;
+        case 'Val_Weighbridge': v = readTable(rows, S.valWeigh, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.weigh = v; } break;
+        case 'Val_BogieRotation': v = readTable(rows, S.valRot, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.rot = v; } break;
+        case 'Val_Sway': v = readTable(rows, S.valSway, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.sway = v; } break;
+        case 'Val_Ride': v = readTable(rows, S.valRide, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.ride = v; } break;
         default:
           list = readProfiles(rows, PROFILE_SHEETS[n].fields, msgs, n);
           if (list) {
@@ -458,6 +483,7 @@
       ['Minimum clearance to the SOD outline, whole profile (mm)'].concat(ex(sm.sodc), [sm.sodc_req, sm.sodc ? (sm.sodo_n ? sm.sodo_n + ' points CHECK' : 'OK') : 'no SOD on the line']),
       ['Minimum point-item margin over its required clearance (mm)'].concat(ex(sm.itm), [0, sm.itm ? (sm.it_n ? sm.it_n + ' points CHECK' : 'OK') : 'no items']),
       ['Points with any CHECK', sm.check_n, '', '', 0, sm.ok ? 'ALL OK' : 'REVIEW'], [''], ['Options']];
+    if (sm.simc) { sum.splice(sum.length - 3, 0, ['EN dynamic method – minimum clearance of the swept envelope to the SOD (mm)'].concat(ex(sm.simc), [sm.sodc_req, sm.sim_n ? sm.sim_n + ' points CHECK' : 'OK' + (sm.sim_flags ? ' (' + sm.sim_flags + ' points beyond the analysed cases)' : '')])); }
     if (sm.ccd) {
       var cx = function (x) { return x ? [r2(x.v, 2), r2(x.ch, 2), x.ccd + ' (' + x.side + ')'] : ['n/a', '', '']; };
       sum.splice(sum.length - 3, 0, ['Third-rail CCD – minimum envelope margin (mm)'].concat(cx(sm.ccd.ke), [0, sm.ccd.ke ? (sm.ccd.ke.v >= 0 ? 'OK' : 'CHECK') : '']),
@@ -492,7 +518,7 @@
       ['kw1', 'KE w h1 (mm)', 2], ['kw2', 'KE w h2 (mm)', 2], ['xo', 'Excess OUT (mm)', 2], ['xi', 'Excess IN (mm)', 2], ['To', 'SOD allowance OUT (mm)', 2], ['Ti', 'SOD allowance IN (mm)', 2], ['sod', 'SOD check'],
       ['lean', 'Lean at h2 (mm)', 2], ['ho', 'Req. horizontal OUT (mm)', 2], ['hi', 'Req. horizontal IN (mm)', 2], ['sc', 'Structure clearance (mm)', 2], ['ss', 'Structure status'], ['vc', 'Vertical-curve effect (mm)', 2],
       ['uf', 'Underframe height (mm)', 2], ['ufs', 'Underframe status'], ['pl', 'Platform position'], ['gn', 'Gap nominal (mm)', 2], ['gm', 'Gap minimum (mm)', 2], ['gs', 'Gap status'], ['sodn', 'SOD profile'], ['sodc', 'SOD outline clearance (mm)', 2], ['sodp', 'Governing profile point'], ['sods', 'SOD outline status'],
-      ['itn', 'Governing item'], ['itc', 'Item clearance (mm)', 2], ['itm', 'Item margin (mm)', 2], ['its', 'Item status'], ['ok', 'Overall'], ['valid', 'Valid row']];
+      ['itn', 'Governing item'], ['itc', 'Item clearance (mm)', 2], ['itm', 'Item margin (mm)', 2], ['its', 'Item status'], ['simc', 'EN dynamic: swept envelope to SOD (mm)', 2], ['simn', 'EN dynamic: governing point and case'], ['sims', 'EN dynamic status'], ['ok', 'Overall'], ['valid', 'Valid row']];
     var sw = [['Car type'].concat(cols.map(function (c) { return c[1]; }))];
     res.cars.forEach(function (c) { c.rows.forEach(function (q) { sw.push([c.car].concat(cols.map(function (k) { var v = q[k[0]]; return k[0] === 'valid' ? (v ? 1 : 0) : (k[2] === undefined ? (v === null ? '' : v) : r2(v, k[2])); }))); }); });
     add('Dyn_Sweep', sw, 10);
@@ -535,7 +561,78 @@
     if (isCsv || isJson) { fr.readAsText(file); } else { fr.readAsArrayBuffer(file); }
   }
 
+  /*
+   * EN 15273-2 Annex O.6 spreadsheet (first sheet): A2 = number of speeds, B2 = cants, C2 = radii, D2 = vehicles; speeds
+   * (m/s) from A4, cants (mm) from B4, radii (m) from C4; transient blocks of 3 rows (lead, centre, trail) per speed × cant
+   * case from row N = max(counts) + 5, 6 columns per vehicle from column C (transverse mean, σ, vertical mean, σ, roll mean,
+   * σ); curving rows from N + Nv·Nc·3 + 2, radius in A and 4 columns per vehicle from B (outside lead, outside trail,
+   * inside lead, inside trail). Vehicle k is car type `cars[k-1]`. Rows are 1-based as in the standard.
+   */
+  // EN dynamic method results (tangent check, displacements per case, validation).
+  function simResultsWorkbook(res, p, meta) {
+    var XL = X(), wb = XL.utils.book_new();
+    function add(name, rows, w) { var sh = XL.utils.aoa_to_sheet(rows); sh['!cols'] = rows[0].map(function (c, i) { return { wch: i === 0 ? (w || 18) : 13 }; }); XL.utils.book_append_sheet(wb, sh, name); }
+    var t = res.tangent, sum = [['Rolling Stock Gauge Simulator – EN 15273-2 dynamic method (Annex O)'], ['Project', p.name], ['Engine version', res.engineVersion], ['Fictional example data', p.fictional ? 'YES' : 'no'],
+      ['Inputs changed since', meta && meta.stale ? 'YES' : 'no'], [''], ['Car type', 'Reference profile', 'Outer datums from centre (m)', 'Datum height (mm)', 'f_max (mm)', 'Factor on σ', 'Points', 'Min margin (mm)', 'Condition', 'Case', 'Section', 'Point', 'Status']];
+    (t ? t.cars : []).forEach(function (c) { var w = c.worst; sum.push([c.car, t.ref, r2(c.xd, 3), r2(c.hd, 0), r2(c.fmax, 1), r2(c.kS, 4), c.n, w ? r2(w.margin, 2) : '', w ? w.cond : '', w ? w.v + ' km/h ' + (w.kind === 'def' ? 'D ' : 'I ') + w.c + ' mm' : '', w ? w.sec + ' x ' + r2(w.x, 2) : '', w ? w.pt : '', c.ok ? 'OK' : 'EXCEEDS']); });
+    add('Sim_Tangent', sum, 14);
+    var dp = [['Car type', 'Condition', 'Speed (km/h)', 'Case', 'Cant (mm)', 'Dpl centre (mm)', 'Dpl lead (mm)', 'Δh down centre (mm)', 'Δh up centre (mm)', 'θ centre (mrad)', 'θ lead (mrad)']];
+    (t ? t.cars : []).forEach(function (c) { c.conds.forEach(function (cd) { cd.disp.forEach(function (x) { dp.push([c.car, cd.cond, x.v, x.kind === 'def' ? 'deficiency' : 'excess', x.c, r2(x.dplC, 2), r2(x.dplL, 2), r2(x.hdC, 2), r2(x.huC, 2), r2(x.thC, 3), r2(x.thL, 3)]); }); }); });
+    add('Sim_Displacements', dp, 10);
+    var va = [['Car type', 'Condition', 'Check', 'Max error', 'Limit', 'Average error', 'Limit', 'Values', 'Matched']];
+    res.validation.forEach(function (v) {
+      function row(lbl, x, u) { if (x) { va.push([v.car, v.cond, lbl, r2(x.max, 2) + u, x.lmax + u, x.avg !== undefined ? r2(x.avg, 2) + u : (x.loop === null ? 'not given' : r2(x.loop, 2)), x.lavg + u, x.n, x.ok ? 'yes' : 'NO']); } }
+      if (v.weigh) { row('Wheel loads', v.weigh.wheel, ' %'); row('Wheelset loads', v.weigh.wheelset, ' %'); row('Side loads', v.weigh.side, ' %'); }
+      row('Bogie rotation – max X factor', v.rot, ' %');
+      if (v.sway) { [['roll1', 'Primary roll angle', ' mrad'], ['roll2', 'Secondary roll angle', ' mrad'], ['sway', 'Solebar sway', ' mm'], ['drop', 'Solebar drop', ' mm']].forEach(function (q) { row('Sway – ' + q[1] + ' (four-part avg / loop avg)', v.sway[q[0]], q[2]); }); }
+      va.push([v.car, v.cond, 'Dynamic ride test (competent person)', '', '', '', '', '', v.ride ? 'yes' : 'NO']);
+      va.push([v.car, v.cond, 'Model status', v.status, '', '', '', '', '']);
+    });
+    add('Sim_Validation', va, 10);
+    return wb;
+  }
+  function importO6(wb, project, opts) {
+    opts = opts || {};
+    var XL = X(), ws = wb.Sheets[wb.SheetNames[0]], ref = ws && ws['!ref'] ? XL.utils.decode_range(ws['!ref']) : null, msgs = [], raw = JSON.parse(JSON.stringify(project));
+    if (ref) { ref.s.r = 0; ref.s.c = 0; }
+    var rows = ref ? XL.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true, raw: true, range: ref }) : [];   // row r of the standard = rows[r - 1]
+    function cell(r, c) { var row = rows[r - 1] || []; var v = row[c]; return (v === '' || v === undefined || v === null) ? null : Number(v); }
+    var st = (raw.sim && raw.sim.settings) || {}, lenF = (opts.len || st.o6_len) === 'm' ? 1000 : 1, rotF = (opts.rot || st.o6_rot) === 'rad' ? 1000 : 1, cond = opts.cond || st.o6_cond || 'tare';
+    var Nv = cell(2, 0), Nc = cell(2, 1), Nr = cell(2, 2), Nveh = cell(2, 3), cars = (opts.cars || raw.train.carTypes.map(function (c) { return c.name; }));
+    if (!(Nv > 0) || !(Nc > 0) || !(Nveh > 0)) { msgs.push({ level: 'err', text: 'O.6 file: cells A2 (speeds), B2 (cants) and D2 (vehicles) must hold the counts.' }); return { project: project, messages: msgs, imported: [] }; }
+    Nr = Nr > 0 ? Nr : 0;
+    var V = [], C = [], R = [], i, j, k;
+    for (i = 0; i < Nv; i++) { V.push(cell(4 + i, 0)); }
+    for (i = 0; i < Nc; i++) { C.push(cell(4 + i, 1)); }
+    for (i = 0; i < Nr; i++) { R.push(cell(4 + i, 2)); }
+    var Nd = Math.max(Nv, Nc, Nr, Nveh) + 5, tr = [], cv = [], DAT = ['lead', 'centre', 'trail'], used = [];
+    for (k = 0; k < Nveh; k++) {
+      var car = cars[k]; if (!car) { msgs.push({ level: 'warn', text: 'O.6 file: vehicle ' + (k + 1) + ' has no car type in the Train Configuration; skipped.' }); continue; }
+      used.push(car);
+      for (i = 0; i < Nv; i++) { for (j = 0; j < Nc; j++) {
+        var base = Nd + (i * Nc + j) * 3 + 1;
+        DAT.forEach(function (dn, m) {
+          var r = base + m, c0 = 2 + 6 * k, vals = [0, 1, 2, 3, 4, 5].map(function (x) { return cell(r, c0 + x); });
+          if (vals.some(function (x) { return x === null || !isFinite(x); })) { msgs.push({ level: 'warn', text: 'O.6 file: row ' + r + ', vehicle ' + (k + 1) + ': incomplete values; skipped.' }); return; }
+          tr.push({ car: car, cond: cond, v_kmh: Math.round(V[i] * 3.6 * 1000) / 1000, cant_mm: C[j], datum: dn, y_mean: Math.abs(vals[0]) * lenF, y_sd: vals[1] * lenF, z_mean: Math.abs(vals[2]) * lenF, z_sd: vals[3] * lenF, th_mean: Math.abs(vals[4]) * rotF, th_sd: vals[5] * rotF });
+        });
+      } }
+      var Ncd = Nd + Nv * Nc * 3 + 2;
+      for (i = 0; i < Nr; i++) {
+        var rr = Ncd + 1 + i, rad = cell(rr, 0), q = [0, 1, 2, 3].map(function (x) { return cell(rr, 1 + 4 * k + x); });
+        if (rad === null || q.some(function (x) { return x === null; })) { continue; }
+        cv.push({ car: car, cond: cond, R_m: rad, yo_lead: q[0] * lenF, yo_trail: q[1] * lenF, yi_lead: q[2] * lenF, yi_trail: q[3] * lenF });
+      }
+    }
+    raw.sim = raw.sim || {};
+    raw.sim.transient = (raw.sim.transient || []).filter(function (r) { return !(used.indexOf(r.car) >= 0 && r.cond === cond); }).concat(tr);
+    raw.sim.curving = (raw.sim.curving || []).filter(function (r) { return !(used.indexOf(r.car) >= 0 && r.cond === cond); }).concat(cv);
+    msgs.push({ level: 'ok', text: 'O.6 file: ' + tr.length + ' transient rows (' + Nv + ' speeds × ' + Nc + ' cants × 3 datums) and ' + cv.length + ' curving rows imported for ' + used.join(', ') + ', condition "' + cond + '".' });
+    return { project: raw, messages: msgs, imported: ['Sim_Transient', 'Sim_Curving'] };
+  }
+
   return {
+    importO6: importO6, simResultsWorkbook: simResultsWorkbook,
     TAB_SHEETS: TAB_SHEETS, ALL_SHEETS: ALL_SHEETS, sheetRows: sheetRows, keyOf: keyOf,
     tabWorkbook: tabWorkbook, allInputsWorkbook: allInputsWorkbook, workbookBytes: workbookBytes, staticResultsWorkbook: staticResultsWorkbook, dynamicResultsWorkbook: dynamicResultsWorkbook, testsWorkbook: testsWorkbook,
     importWorkbook: importWorkbook, readWorkbookBytes: readWorkbookBytes,

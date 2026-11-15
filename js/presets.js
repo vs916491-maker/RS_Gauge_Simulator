@@ -489,6 +489,764 @@
           }
         ]
       },
+      "sim": {
+        "settings": {
+          "ref": "",
+          "k_sigma": 2.1213203435596424,
+          "line": "yes",
+          "o6_len": "mm",
+          "o6_rot": "mrad",
+          "o6_cond": "tare"
+        },
+        "cars": [
+          {
+            "car": "DMC",
+            "xd_m": null,
+            "hd_mm": 1000,
+            "fz_mm": 10,
+            "fcr_mm": 5,
+            "fw_mm": 0,
+            "ftol_mm": 5
+          }
+        ],
+        "transient": [
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 0,
+            "datum": "lead",
+            "y_mean": 10,
+            "y_sd": 1.9,
+            "z_mean": 3,
+            "z_sd": 1.3,
+            "th_mean": 0,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 0,
+            "datum": "centre",
+            "y_mean": 8,
+            "y_sd": 1.55,
+            "z_mean": 3,
+            "z_sd": 1.3,
+            "th_mean": 0,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 0,
+            "datum": "trail",
+            "y_mean": 10,
+            "y_sd": 1.9,
+            "z_mean": 3,
+            "z_sd": 1.3,
+            "th_mean": 0,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 50,
+            "datum": "lead",
+            "y_mean": 16,
+            "y_sd": 1.9,
+            "z_mean": 5,
+            "z_sd": 1.3,
+            "th_mean": 6,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 50,
+            "datum": "centre",
+            "y_mean": 13,
+            "y_sd": 1.55,
+            "z_mean": 5,
+            "z_sd": 1.3,
+            "th_mean": 6,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 50,
+            "datum": "trail",
+            "y_mean": 16,
+            "y_sd": 1.9,
+            "z_mean": 5,
+            "z_sd": 1.3,
+            "th_mean": 6,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 100,
+            "datum": "lead",
+            "y_mean": 22,
+            "y_sd": 1.9,
+            "z_mean": 7,
+            "z_sd": 1.3,
+            "th_mean": 12,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 100,
+            "datum": "centre",
+            "y_mean": 18,
+            "y_sd": 1.55,
+            "z_mean": 7,
+            "z_sd": 1.3,
+            "th_mean": 12,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 100,
+            "datum": "trail",
+            "y_mean": 22,
+            "y_sd": 1.9,
+            "z_mean": 7,
+            "z_sd": 1.3,
+            "th_mean": 12,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 150,
+            "datum": "lead",
+            "y_mean": 28,
+            "y_sd": 1.9,
+            "z_mean": 9,
+            "z_sd": 1.3,
+            "th_mean": 18,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 150,
+            "datum": "centre",
+            "y_mean": 23,
+            "y_sd": 1.55,
+            "z_mean": 9,
+            "z_sd": 1.3,
+            "th_mean": 18,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 30,
+            "cant_mm": 150,
+            "datum": "trail",
+            "y_mean": 28,
+            "y_sd": 1.9,
+            "z_mean": 9,
+            "z_sd": 1.3,
+            "th_mean": 18,
+            "th_sd": 0.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 0,
+            "datum": "lead",
+            "y_mean": 10,
+            "y_sd": 2.8,
+            "z_mean": 3,
+            "z_sd": 1.6,
+            "th_mean": 0,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 0,
+            "datum": "centre",
+            "y_mean": 8,
+            "y_sd": 2.3,
+            "z_mean": 3,
+            "z_sd": 1.6,
+            "th_mean": 0,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 0,
+            "datum": "trail",
+            "y_mean": 10,
+            "y_sd": 2.8,
+            "z_mean": 3,
+            "z_sd": 1.6,
+            "th_mean": 0,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 50,
+            "datum": "lead",
+            "y_mean": 16,
+            "y_sd": 2.8,
+            "z_mean": 5,
+            "z_sd": 1.6,
+            "th_mean": 6,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 50,
+            "datum": "centre",
+            "y_mean": 13,
+            "y_sd": 2.3,
+            "z_mean": 5,
+            "z_sd": 1.6,
+            "th_mean": 6,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 50,
+            "datum": "trail",
+            "y_mean": 16,
+            "y_sd": 2.8,
+            "z_mean": 5,
+            "z_sd": 1.6,
+            "th_mean": 6,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 100,
+            "datum": "lead",
+            "y_mean": 22,
+            "y_sd": 2.8,
+            "z_mean": 7,
+            "z_sd": 1.6,
+            "th_mean": 12,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 100,
+            "datum": "centre",
+            "y_mean": 18,
+            "y_sd": 2.3,
+            "z_mean": 7,
+            "z_sd": 1.6,
+            "th_mean": 12,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 100,
+            "datum": "trail",
+            "y_mean": 22,
+            "y_sd": 2.8,
+            "z_mean": 7,
+            "z_sd": 1.6,
+            "th_mean": 12,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 150,
+            "datum": "lead",
+            "y_mean": 28,
+            "y_sd": 2.8,
+            "z_mean": 9,
+            "z_sd": 1.6,
+            "th_mean": 18,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 150,
+            "datum": "centre",
+            "y_mean": 23,
+            "y_sd": 2.3,
+            "z_mean": 9,
+            "z_sd": 1.6,
+            "th_mean": 18,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 60,
+            "cant_mm": 150,
+            "datum": "trail",
+            "y_mean": 28,
+            "y_sd": 2.8,
+            "z_mean": 9,
+            "z_sd": 1.6,
+            "th_mean": 18,
+            "th_sd": 1.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 0,
+            "datum": "lead",
+            "y_mean": 10,
+            "y_sd": 3.7,
+            "z_mean": 3,
+            "z_sd": 1.9,
+            "th_mean": 0,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 0,
+            "datum": "centre",
+            "y_mean": 8,
+            "y_sd": 3.05,
+            "z_mean": 3,
+            "z_sd": 1.9,
+            "th_mean": 0,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 0,
+            "datum": "trail",
+            "y_mean": 10,
+            "y_sd": 3.7,
+            "z_mean": 3,
+            "z_sd": 1.9,
+            "th_mean": 0,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 50,
+            "datum": "lead",
+            "y_mean": 16,
+            "y_sd": 3.7,
+            "z_mean": 5,
+            "z_sd": 1.9,
+            "th_mean": 6,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 50,
+            "datum": "centre",
+            "y_mean": 13,
+            "y_sd": 3.05,
+            "z_mean": 5,
+            "z_sd": 1.9,
+            "th_mean": 6,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 50,
+            "datum": "trail",
+            "y_mean": 16,
+            "y_sd": 3.7,
+            "z_mean": 5,
+            "z_sd": 1.9,
+            "th_mean": 6,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 100,
+            "datum": "lead",
+            "y_mean": 22,
+            "y_sd": 3.7,
+            "z_mean": 7,
+            "z_sd": 1.9,
+            "th_mean": 12,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 100,
+            "datum": "centre",
+            "y_mean": 18,
+            "y_sd": 3.05,
+            "z_mean": 7,
+            "z_sd": 1.9,
+            "th_mean": 12,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 100,
+            "datum": "trail",
+            "y_mean": 22,
+            "y_sd": 3.7,
+            "z_mean": 7,
+            "z_sd": 1.9,
+            "th_mean": 12,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 150,
+            "datum": "lead",
+            "y_mean": 28,
+            "y_sd": 3.7,
+            "z_mean": 9,
+            "z_sd": 1.9,
+            "th_mean": 18,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 150,
+            "datum": "centre",
+            "y_mean": 23,
+            "y_sd": 3.05,
+            "z_mean": 9,
+            "z_sd": 1.9,
+            "th_mean": 18,
+            "th_sd": 1.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "v_kmh": 90,
+            "cant_mm": 150,
+            "datum": "trail",
+            "y_mean": 28,
+            "y_sd": 3.7,
+            "z_mean": 9,
+            "z_sd": 1.9,
+            "th_mean": 18,
+            "th_sd": 1.4
+          }
+        ],
+        "curving": [
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "R_m": 150,
+            "yo_lead": 12,
+            "yo_trail": 12,
+            "yi_lead": 6,
+            "yi_trail": 6
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "R_m": 300,
+            "yo_lead": 8,
+            "yo_trail": 8,
+            "yi_lead": 4,
+            "yi_trail": 4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "R_m": 600,
+            "yo_lead": 5,
+            "yo_trail": 5,
+            "yi_lead": 2,
+            "yi_trail": 2
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "R_m": 1500,
+            "yo_lead": 2,
+            "yo_trail": 2,
+            "yi_lead": 1,
+            "yi_trail": 1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "R_m": 20000,
+            "yo_lead": 0,
+            "yo_trail": 0,
+            "yi_lead": 0,
+            "yi_trail": 0
+          }
+        ],
+        "weigh": [
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 1,
+            "side": "L",
+            "meas_kN": 61.2,
+            "sim_kN": 62.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 1,
+            "side": "R",
+            "meas_kN": 60.8,
+            "sim_kN": 60.1
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 2,
+            "side": "L",
+            "meas_kN": 59.9,
+            "sim_kN": 60.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 2,
+            "side": "R",
+            "meas_kN": 60.4,
+            "sim_kN": 59.6
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 3,
+            "side": "L",
+            "meas_kN": 62,
+            "sim_kN": 61.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 3,
+            "side": "R",
+            "meas_kN": 61.5,
+            "sim_kN": 62.3
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 4,
+            "side": "L",
+            "meas_kN": 60.2,
+            "sim_kN": 59.4
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "axle": 4,
+            "side": "R",
+            "meas_kN": 60.9,
+            "sim_kN": 61.6
+          }
+        ],
+        "rot": [
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "bogie": "1",
+            "vel": 0.5,
+            "meas_X": 0.052,
+            "sim_X": 0.054
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "bogie": "1",
+            "vel": 1,
+            "meas_X": 0.058,
+            "sim_X": 0.056
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "bogie": "2",
+            "vel": 0.5,
+            "meas_X": 0.05,
+            "sim_X": 0.052
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "bogie": "2",
+            "vel": 1,
+            "meas_X": 0.057,
+            "sim_X": 0.059
+          }
+        ],
+        "sway": [
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "roll1",
+            "cant_mm": 100,
+            "meas": 4,
+            "sim": 4.6,
+            "loop_err": 0.36
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "roll2",
+            "cant_mm": 100,
+            "meas": 13,
+            "sim": 14.2,
+            "loop_err": 0.72
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "sway",
+            "cant_mm": 100,
+            "meas": 22,
+            "sim": 25,
+            "loop_err": 1.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "drop",
+            "cant_mm": 100,
+            "meas": 6,
+            "sim": 8,
+            "loop_err": 1.2
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "roll1",
+            "cant_mm": 200,
+            "meas": 8,
+            "sim": 8.6,
+            "loop_err": 0.36
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "roll2",
+            "cant_mm": 200,
+            "meas": 26,
+            "sim": 27.2,
+            "loop_err": 0.72
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "sway",
+            "cant_mm": 200,
+            "meas": 44,
+            "sim": 47,
+            "loop_err": 1.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "drop",
+            "cant_mm": 200,
+            "meas": 12,
+            "sim": 14,
+            "loop_err": 1.2
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "roll1",
+            "cant_mm": 250,
+            "meas": 10,
+            "sim": 10.6,
+            "loop_err": 0.36
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "roll2",
+            "cant_mm": 250,
+            "meas": 32.5,
+            "sim": 33.7,
+            "loop_err": 0.72
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "sway",
+            "cant_mm": 250,
+            "meas": 55,
+            "sim": 58,
+            "loop_err": 1.8
+          },
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "qty": "drop",
+            "cant_mm": 250,
+            "meas": 15,
+            "sim": 17,
+            "loop_err": 1.2
+          }
+        ],
+        "ride": [
+          {
+            "car": "DMC",
+            "cond": "tare",
+            "ride_ok": "yes",
+            "by": "Fictional reviewer",
+            "nobo": "no",
+            "note": "Fictional"
+          }
+        ]
+      },
       "ke": {
         "limits": {
           "uf_min_body_mm": 100,

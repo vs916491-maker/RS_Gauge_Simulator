@@ -405,6 +405,82 @@
     f('note', 'Note', 'text', '', { d: '' })
   ];
 
+  // ---------------------------------------------------------------- EN Dynamic Method tab (METHOD §15, EN 15273-2 §5.2 / Annex O)
+  var DATUM = [['lead', 'Leading end'], ['centre', 'Centre'], ['trail', 'Trailing end']];
+  var simSettings = [
+    f('ref', 'Reference profile for the tangent check (Customer KE & SOD tab)', 'text', '', { d: '', h: 'Blank = the KE of the static check' }),
+    f('k_sigma', 'Factor on the standard deviation (3/√2, O.11–O.18)', 'num', '', { min: 0, max: 10, d: 2.1213203435596424 }),
+    f('line', 'Check the swept envelope against the SOD along the line', 'sel', '', { o: YN, d: 'yes', h: 'Runs with the dynamic simulation' }),
+    f('o6_len', 'O.6 import: unit of displacements', 'sel', '', { o: [['mm', 'mm'], ['m', 'm']], d: 'mm' }),
+    f('o6_rot', 'O.6 import: unit of roll angles', 'sel', '', { o: [['mrad', 'mrad'], ['rad', 'rad']], d: 'mrad' }),
+    f('o6_cond', 'O.6 import: condition name for the imported results', 'text', '', { d: 'tare' })
+  ];
+  var simCar = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('xd_m', 'Outer datum points: distance from the body centre', 'num', 'm', { min: 0, max: 20, opt: true, h: 'Blank = a/2 (over the bogie centres)' }),
+    f('hd_mm', 'Datum height (roll is applied about it)', 'num', 'mm', { min: 0, max: 5000, d: 1000 }),
+    f('fz_mm', 'O.10: deflection under maximum payload f_z', 'num', 'mm', { min: 0, max: 200, d: 0 }),
+    f('fcr_mm', 'O.10: creep of suspension components f_cr', 'num', 'mm', { min: 0, max: 100, d: 0 }),
+    f('fw_mm', 'O.10: uncompensated wheel wear f_w', 'num', 'mm', { min: 0, max: 100, d: 0 }),
+    f('ftol_mm', 'O.10: suspension set-up tolerance f_tol', 'num', 'mm', { min: 0, max: 100, d: 0 })
+  ];
+  var simTransient = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('cond', 'Condition', 'text', '', { d: 'tare', h: 'e.g. tare, crush, deflated' }),
+    f('v_kmh', 'Speed', 'num', 'km/h', { min: 0, max: 400 }),
+    f('cant_mm', 'Cant excess of the case', 'num', 'mm', { min: 0, max: 300 }),
+    f('datum', 'Datum point', 'sel', '', { o: DATUM, d: 'lead' }),
+    f('y_mean', 'Transverse – mean |TH_y|', 'num', 'mm', { min: 0, max: 500 }),
+    f('y_sd', 'Transverse – standard deviation', 'num', 'mm', { min: 0, max: 200 }),
+    f('z_mean', 'Vertical – mean |TH_z|', 'num', 'mm', { min: 0, max: 500 }),
+    f('z_sd', 'Vertical – standard deviation', 'num', 'mm', { min: 0, max: 200 }),
+    f('th_mean', 'Roll – mean |TH_θ|', 'num', 'mrad', { min: 0, max: 200 }),
+    f('th_sd', 'Roll – standard deviation', 'num', 'mrad', { min: 0, max: 100 })
+  ];
+  var simCurving = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('cond', 'Condition', 'text', '', { d: 'tare' }),
+    f('R_m', 'Curve radius', 'num', 'm', { min: 10, max: 100000 }),
+    f('yo_lead', 'Towards the outside – leading', 'num', 'mm', { min: -200, max: 500 }),
+    f('yo_trail', 'Towards the outside – trailing', 'num', 'mm', { min: -200, max: 500 }),
+    f('yi_lead', 'Towards the inside – leading', 'num', 'mm', { min: -200, max: 500 }),
+    f('yi_trail', 'Towards the inside – trailing', 'num', 'mm', { min: -200, max: 500 })
+  ];
+  var valWeigh = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('cond', 'Condition', 'text', '', { d: 'tare' }),
+    f('axle', 'Wheelset', 'int', '', { min: 1, max: 20 }),
+    f('side', 'Side', 'sel', '', { o: [['L', 'Left'], ['R', 'Right']], d: 'L' }),
+    f('meas_kN', 'Measured wheel load', 'num', 'kN', { min: 0, max: 500 }),
+    f('sim_kN', 'Simulated wheel load', 'num', 'kN', { min: 0, max: 500 })
+  ];
+  var valRot = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('cond', 'Condition', 'text', '', { d: 'tare' }),
+    f('bogie', 'Bogie', 'text', '', { d: '1' }),
+    f('vel', 'Rotation velocity', 'num', '°/s', { min: 0, max: 100 }),
+    f('meas_X', 'Measured maximum X factor', 'num', '', { min: 0, max: 10 }),
+    f('sim_X', 'Simulated maximum X factor', 'num', '', { min: 0, max: 10 })
+  ];
+  var SWAYQ = [['roll1', 'Primary roll angle (mrad)'], ['roll2', 'Secondary roll angle (mrad)'], ['sway', 'Solebar sway (mm)'], ['drop', 'Solebar drop (mm)']];
+  var valSway = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('cond', 'Condition', 'text', '', { d: 'tare' }),
+    f('qty', 'Output', 'sel', '', { o: SWAYQ, d: 'roll2' }),
+    f('cant_mm', 'Applied cant', 'num', 'mm', { min: 0, max: 400 }),
+    f('meas', 'Measured four-part average', 'num', '', { min: -1000, max: 1000 }),
+    f('sim', 'Simulated four-part average', 'num', '', { min: -1000, max: 1000 }),
+    f('loop_err', 'Average error of the hysteresis loop at this cant', 'num', '', { min: 0, max: 1000, opt: true, h: 'From the loop comparison; blank = not assessed' })
+  ];
+  var valRide = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('cond', 'Condition', 'text', '', { d: 'tare' }),
+    f('ride_ok', 'Dynamic ride test matched (PSD and time histories, competent person)', 'sel', '', { o: YN, d: 'no' }),
+    f('by', 'Judged by', 'text', '', { d: '' }),
+    f('nobo', 'Partial validation accepted by the notified body', 'sel', '', { o: YN, d: 'no' }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
+
   // Word report (Overall Summary tab); saved in the project file
   var reportOptions = [
     f('title', 'Report title', 'text', '', { d: 'Vehicle gauging report' }),
@@ -458,6 +534,7 @@
     trainDescription: trainDescription, trainConfig: trainConfig, trainLoad: trainLoad, trainWind: trainWind,
     trainFields: trainDescription.concat(trainConfig, trainLoad, trainWind),
     carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep, pantograph: pantograph, ccd: ccd, ccdPoint: ccdPoint, thirdRail: thirdRail, trPart: trPart,
+    simSettings: simSettings, simCar: simCar, simTransient: simTransient, simCurving: simCurving, valWeigh: valWeigh, valRot: valRot, valSway: valSway, valRide: valRide,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
