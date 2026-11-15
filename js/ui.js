@@ -561,8 +561,11 @@
     box.hidden = !en;
     if (!en) { return; }
     var R = en.rules;
-    roTable($('sres-en-info'), ['Item', 'Interior', 'Exterior', 'Car end'], [
-      ['Formula set', en.set === 'traction' ? 'Traction unit – ' + en.clause : 'Coach – ' + en.clause, '', ''],
+    roTable($('sres-en-info'), ['Item', 'Interior', 'Exterior', 'Car end'], [].concat([
+      ['Formula set', ({ traction: 'Traction unit', coach: 'Coach', motor: 'Motor coach' })[en.set] + ' – ' + en.clause, '', ''],
+      en.varW || en.nonlin ? ['Secondary play w per bogie: ∞ / 250 m / 150 m' + (en.nonlin ? ' / variable stops' : '') + ' (mm)', en.bogies.map(function (b) {
+        return b.name + ': ' + fmt(b.winf * 1000, 1) + ' / ' + fmt(b.w250 * 1000, 1) + ' / ' + fmt(b.w150 * 1000, 1) + (b.Rv ? ' / ' + fmt(b.wv * 1000, 1) + ' from R ' + fmt(b.Rv, 0) + ' m' : '');
+      }).join('; '), '', ''] : null,
       ['Position n from the bogie centre (m)'].concat(['int', 'ext', 'end'].map(function (k) { return fmt(en.sections[k].n, 3); })),
       ['Δ = a·n ∓ n² ± p²/4 (m²)'].concat(['int', 'ext', 'end'].map(function (k) { return fmt(en.sections[k].delta, 3); })),
       ['Formula branch – upper / lower parts'].concat(['int', 'ext', 'end'].map(function (k) { return en.sections[k].branch_up + ' / ' + en.sections[k].branch_low; })),
@@ -572,7 +575,7 @@
       ['Rules', 'l_max ' + fmt(R.lmax * 1000, 0) + ' mm, R1 ' + fmt(R.R1, 0) + ' m, R2 ' + fmt(R.R2, 0) + ' m, Ck ' + fmt(R.Ck_low, 2) + ' / ' + fmt(R.Ck_up, 2) + ' m², s0 ' + fmt(R.s0, 2) + ', hc0 ' + fmt(R.hc0 * 1000, 0) + ' mm', '', ''],
       { cls: 'total', cells: ['Minimum margin to the EN maximum construction gauge (mm)'].concat(['int', 'ext', 'end'].map(function (k) { var m = en.checks[k].min; return m ? cCell(m.margin) : ''; })) },
       ['At height (mm) / profile'].concat(['int', 'ext', 'end'].map(function (k) { var m = en.checks[k].min; return m ? fmt(m.h, 0) + ' / ' + en.checks[k].profile : ''; }))
-    ]);
+    ]).filter(function (x) { return x; }));
     methodAChart(r, c.car, true);
     function mcell(v) { return v === null ? '' : { v: fmt(v, 1), cls: v >= 0 ? '' : 'badcell' }; }
     roTable($('sres-en-table'), ['h', 'KE width', 'Ei Int', 'Ea Ext', 'Ea End', 'EN max Int', 'Method A Int', 'EN max End', 'Method A End', 'Margin Int', 'Margin Ext', 'Margin End'],

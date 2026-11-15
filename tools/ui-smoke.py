@@ -170,6 +170,14 @@ with sync_playwright() as pw:
     page.click('#btn-run-static'); page.wait_for_timeout(600)
     ok('Static results are out of date' not in page.locator('#data-banner').text_content(), 'static stale flag cleared after re-run')
 
+    # EN motor-coach formulae option
+    page.click('#tabbtn-ssim'); page.wait_for_timeout(200)
+    page.evaluate("RSGAUGE.app.state.p.settings.static.en_mc = 'motor'")
+    page.click('#btn-run-static'); page.wait_for_timeout(800)
+    ok('Motor coach – A.3.9.2' in page.locator('#sres-en-info').text_content(), 'EN motor-coach formulae selectable (DMC uses A.3.9.2)')
+    page.evaluate("RSGAUGE.app.state.p.settings.static.en_mc = 'traction'")
+    page.click('#tabbtn-ssim'); page.wait_for_timeout(200); page.click('#btn-run-static'); page.wait_for_timeout(800)
+
     # preset
     page.click('#tabbtn-train'); page.wait_for_timeout(200)
     page.select_option('#f-train-config select >> nth=0', 'lrv'); page.wait_for_timeout(200)

@@ -112,6 +112,10 @@
           "q_mm": 5,
           "w_mm": 30,
           "w_defl_mm": 30,
+          "w250_mm": null,
+          "w150_mm": null,
+          "wv_R_m": null,
+          "wv_mm": null,
           "wheel_new_mm": 860,
           "wheel_worn_mm": 780,
           "pack_step_mm": 20,
@@ -150,6 +154,10 @@
           "q_mm": 5,
           "w_mm": 30,
           "w_defl_mm": 30,
+          "w250_mm": null,
+          "w150_mm": null,
+          "wv_R_m": null,
+          "wv_mm": null,
           "wheel_new_mm": 860,
           "wheel_worn_mm": 780,
           "pack_step_mm": 20,
@@ -1159,7 +1167,8 @@
           "ma_from_mm": 900,
           "ma_to_mm": null,
           "ma_step_mm": 100,
-          "en_check": "yes"
+          "en_check": "yes",
+          "en_mc": "traction"
         },
         "dynamic": {
           "ov_meth": "max",
