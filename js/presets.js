@@ -107,6 +107,7 @@
         {
           "name": "M",
           "p_m": 2.3,
+          "motor": "yes",
           "play_ld_mm": 14,
           "q_mm": 5,
           "w_mm": 30,
@@ -144,6 +145,7 @@
         {
           "name": "T",
           "p_m": 2.3,
+          "motor": "no",
           "play_ld_mm": 14,
           "q_mm": 5,
           "w_mm": 30,
@@ -243,12 +245,22 @@
           "h_ref2_mm": 3000
         },
         "en": {
+          "lmax_mm": 1465,
+          "e0_mm": 15,
+          "R1_m": 250,
+          "Rmin_m": 150,
+          "Ck_m2": 2.5,
+          "Ck_up_m2": 3.75,
+          "Xi_m2": 100,
+          "Xa_m2": 120,
+          "h_low_mm": 400,
           "s0": 0.4,
           "hc0_mm": 500,
           "D0_mm": 50,
           "I0_mm": 50,
-          "Ck_m2": 2.5,
-          "Rmin_m": 150
+          "Dlim_mm": 200,
+          "Lref_mm": 1500,
+          "eta_lim_deg": 1
         },
         "profiles": [
           {
@@ -1117,7 +1129,8 @@
           "over_infl": "no",
           "ma_from_mm": 900,
           "ma_to_mm": null,
-          "ma_step_mm": 100
+          "ma_step_mm": 100,
+          "en_check": "yes"
         },
         "dynamic": {
           "ov_meth": "max",
