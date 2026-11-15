@@ -133,6 +133,31 @@
     ];
   }
 
+  // ---------------------------------------------------------------- Tests tab
+  // Sway test: readings per 100 mm cant (points), fitted and used lines; x = displacement, y = height.
+  function swayDatasets(sr, colors) {
+    colors = colors || {};
+    if (!sr || !sr.points) { return []; }
+    function pts(side) { return sr.points.filter(function (q) { return q.side === side; }).map(function (q) { return { x: q.y100, y: q.h, label: 'D ' + q.D + ' mm, row ' + q.row }; }); }
+    return [
+      { label: 'Readings – low side left', data: pts('L'), showLine: false, pointRadius: 4, borderColor: colors.l || '#2563eb', backgroundColor: colors.l || '#2563eb' },
+      { label: 'Readings – low side right', data: pts('R'), showLine: false, pointRadius: 4, pointStyle: 'rectRot', borderColor: colors.r || '#7c3aed', backgroundColor: colors.r || '#7c3aed' },
+      line('Fitted (s ' + sr.s.toFixed(3) + ', hc ' + Math.round(sr.hc) + ' mm)', sr.curve.map(function (q) { return { x: q.measured, y: q.h }; }), colors.fit || '#059669', { w: 2 }),
+      line('Used in gauging (s ' + sr.used.s.toFixed(3) + ', hc ' + Math.round(sr.used.hc) + ' mm)', sr.curve.map(function (q) { return { x: q.used, y: q.h }; }), colors.used || '#dc2626', { w: 1.6, dash: [6, 4] })
+    ];
+  }
+  // Gauge test plan of one case: template, expected positions (design and measured s), static profile.
+  function testPlanDatasets(k, colors) {
+    colors = colors || {};
+    var ds = [
+      line('Test template (KE minus terms not reproduced)', k.points.map(function (q) { return { x: q.Wt, y: q.ht, label: q.pt }; }), colors.tpl || '#2563eb', { w: 2 }),
+      line('Expected position on the test', k.points.map(function (q) { return { x: q.xt, y: q.ht, label: q.pt }; }), colors.exp || '#dc2626', { w: 1.8, points: true }),
+      line('Static profile', k.points.map(function (q) { return { x: q.x0, y: q.h0, label: q.pt }; }), colors.rs || '#059669', { w: 1.2 })
+    ];
+    if (k.sway) { ds.push(line('Expected with measured s, hc', k.points.map(function (q) { return { x: q.xm, y: q.hm, label: q.pt }; }), colors.meas || '#7c3aed', { w: 1.4, dash: [5, 3] })); }
+    return ds;
+  }
+
   // ---------------------------------------------------------------- dynamic results
   function chainageSeries(rows, key, scale) {
     scale = scale || 1;
@@ -154,5 +179,5 @@
   }
 
   return { chainageSeries: chainageSeries, crossSectionDatasets: crossSectionDatasets, profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries,
-    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, enDatasets: enDatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
+    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, enDatasets: enDatasets, swayDatasets: swayDatasets, testPlanDatasets: testPlanDatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
 }));

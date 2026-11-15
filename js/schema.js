@@ -254,6 +254,21 @@
   ];
 
   // ---------------------------------------------------------------- Dynamic Simulation tab (options)
+  // ---------------------------------------------------------------- Tests tab (METHOD §13)
+  var swayTest = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('load', 'Load state', 'sel', '', { o: [['tare', 'Tare'], ['crush', 'Crush'], ['deflated', 'Deflated']], d: 'tare' }),
+    f('D_mm', 'Shim height / cant D', 'num', 'mm', { min: 1, max: 300 }),
+    f('low', 'Low side', 'sel', '', { o: [['L', 'Left'], ['R', 'Right']], d: 'L' }),
+    f('h1_mm', 'Height 1', 'num', 'mm', { min: 0, max: 5000 }),
+    f('y1_mm', 'Displacement at height 1 (towards low rail)', 'num', 'mm', { min: -300, max: 300 }),
+    f('h2_mm', 'Height 2', 'num', 'mm', { min: 0, max: 5000 }),
+    f('y2_mm', 'Displacement at height 2', 'num', 'mm', { min: -300, max: 300 }),
+    f('h3_mm', 'Height 3', 'num', 'mm', { min: 0, max: 5000, opt: true }),
+    f('y3_mm', 'Displacement at height 3', 'num', 'mm', { min: -300, max: 300, opt: true }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
+
   // Word report (Overall Summary tab); saved in the project file
   var reportOptions = [
     f('title', 'Report title', 'text', '', { d: 'Vehicle gauging report' }),
@@ -293,7 +308,7 @@
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
     trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
-    staticOptions: staticOptions, dynamicOptions: dynamicOptions, reportOptions: reportOptions,
+    staticOptions: staticOptions, dynamicOptions: dynamicOptions, reportOptions: reportOptions, swayTest: swayTest,
     defaults: defaults, byKey: byKey
   };
 }));
