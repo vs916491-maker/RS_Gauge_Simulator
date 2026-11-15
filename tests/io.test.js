@@ -35,11 +35,11 @@ test('Importing does not change the project passed in', function () {
 });
 
 test('KE CSV with plain headers and metre values is imported and converted to mm', function () {
-  var csv = 'Profile,Point,Y,Z\nKE A,A,0,3.916\nKE A,B,0.4707,3.916\nKE A,C,1.38,3.446\nKE B,A,0,3.9\nKE B,B,1.2,3.4\nKE B,C,1.3,0.1\n';
+  var csv = 'Profile,Point,Y,Z\nKE A,A,0,3.93\nKE A,B,0.5625,3.93\nKE A,C,1.36,3.5\nKE B,A,0,3.9\nKE B,B,1.2,3.4\nKE B,C,1.3,0.1\n';
   var r = IO.importWorkbook(IO.readWorkbookBytes(csv, true), M.emptyProject(), { tab: 'ke' });
   assert.deepStrictEqual(r.project.ke.profiles.map(function (p) { return p.name; }), ['KE A', 'KE B']);
-  assert.strictEqual(r.project.ke.profiles[0].points[1].y, 470.7);
-  assert.strictEqual(r.project.ke.profiles[0].points[2].z, 3446);
+  assert.strictEqual(r.project.ke.profiles[0].points[1].y, 562.5);
+  assert.strictEqual(r.project.ke.profiles[0].points[2].z, 3500);
   assert.ok(r.messages.some(function (m) { return /converted to mm/.test(m.text); }));
 });
 
@@ -53,10 +53,10 @@ test('Merge mode adds new profiles and replaces same-named ones', function () {
 
 test('Track sheet with a missing required column is refused with a readable message', function () {
   var wb = XL.utils.book_new();
-  XL.utils.book_append_sheet(wb, XL.utils.aoa_to_sheet([['Element (element)', 'Chainage to [m] (to_m)'], ['C1', 100]]), 'Track');
+  XL.utils.book_append_sheet(wb, XL.utils.aoa_to_sheet([['Element (element)', 'Chainage end [m] (to_m)'], ['Circular', 100]]), 'Track');
   var r = IO.importWorkbook(wb, P, { tab: 'track' });
   assert.deepStrictEqual(r.imported, []);
-  assert.ok(r.messages.some(function (m) { return m.level === 'err' && /Chainage from/.test(m.text); }));
+  assert.ok(r.messages.some(function (m) { return m.level === 'err' && /Chainage start/.test(m.text); }));
   assert.strictEqual(r.project, P, 'project unchanged when nothing imported');
 });
 
@@ -77,11 +77,27 @@ test('Grid sheet accepts extra car type columns added by the user', function () 
   assert.ok(r.project.bodies.some(function (b) { return b.car === 'TCX'; }), 'car body record added');
 });
 
+test('Workbook-style track rows (labels as in the gauging workbook) are imported', function () {
+  var wb = XL.utils.book_new();
+  XL.utils.book_append_sheet(wb, XL.utils.aoa_to_sheet([IO.sheetRows('Track', P)[0], [0, 30, 'Transition', 'L', 0, 900, 0, 30, 80, 0, 'KE Ballastless', 'Open', 'Y', 0, 0, '', '', 'Curve 2']]), 'Track');
+  var r = IO.importWorkbook(wb, P, { tab: 'track' }), s = r.project.track.segments[0];
+  assert.deepStrictEqual([s.element, s.side, s.R_end_m, s.cant_end_mm, s.location, s.wind, s.remarks], ['transition', 'L', 900, 30, 'open', 'Y', 'Curve 2']);
+});
+
+test('Static results workbook has the summary, build-up, points, Method A, vertical and derived sheets', function () {
+  var E = require('../js/engine.js'), res = E.staticRun(P, P.settings['static']);
+  var wb = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(res, P, { stale: false }))));
+  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Vertical_Checks', 'Derived_Values']);
+  var pts = XL.utils.sheet_to_json(wb.Sheets.Static_Points, { header: 1 });
+  assert.strictEqual(pts.length - 1, res.cars.reduce(function (n, c) { return n + c.cases.reduce(function (m, k) { return m + k.points.length; }, 0); }, 0));
+});
+
 test('Project file: save/parse round trip, wrong format and newer version are refused', function () {
   var back = IO.parseProject(IO.projectJson(P));
   assert.strictEqual(JSON.stringify(back), JSON.stringify(P));
   assert.throws(function () { IO.parseProject('{"format":"rssec-project"}'); }, /not a gauge simulator project/);
   assert.throws(function () { IO.parseProject('{"format":"rsgauge-project","version":99}'); }, /newer version/);
+  assert.strictEqual(IO.parseProject('{"format":"rsgauge-project","version":1}').version, 2, 'version 1 is migrated');
   assert.throws(function () { IO.parseProject('nope'); }, /not valid JSON/);
   assert.strictEqual(IO.fileSlug('My bid / v2'), 'My-bid-v2');
 });

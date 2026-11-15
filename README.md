@@ -6,7 +6,9 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
   RS profile + all vehicle/track movements (our KE) against the customer KE.
 * **Dynamic (route):** chainage by chainage along the line (curve, cant, vertical curve, speed, section type), check
   our KE against the structure gauge / SOD and items such as the third rail and platform edge.
-* Methods: **Metro SOD-style** movement build-up (deterministic + RSS) and **EN 15273-2** kinematic reductions.
+* Method of the reference gauging workbook: **Method B** (generated KE, point-by-point clearance) and **Method A**
+  (maximum static half-width), six cases per car type (interior / exterior / car end × tare / crush), vertical checks,
+  theoretical flexibility coefficient and roll centre, shared-bogie and axle-load check.
 
 ## How to use
 
@@ -16,15 +18,19 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
    the tables (paste Y/Z columns from Excel into any cell).
 4. **Save project** writes one `*.rsgauge.json` file; **Load project…** opens it again. **Export all inputs** gives one
    workbook with every input sheet, which **Import all inputs…** reads back.
-5. The **Overall Summary** tab shows what still needs fixing; the **Method & Assumptions** tab is the full method.
+5. **Static Simulation**: choose the options (defaults = reference method) and press **Run static simulation**;
+   **Static Results** shows the governing car and case, charts of each section, the movement build-up, every point,
+   Method A and the vertical checks, and exports them to Excel.
+6. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
+7. The **Overall Summary** tab shows what still needs fixing; the **Method & Assumptions** tab is the full method.
 
 ## Status
 
 | Phase | Content | Status |
 |---|---|---|
-| 1 | Method draft, all input tabs, templates, import/export, previews, input checks | Done |
-| 2 | Calculation engine; Static Simulation and Static Results | Next |
-| 3 | Dynamic Simulation and Dynamic Results (chainage selector) | |
+| 1 | Input tabs, templates, import/export, previews, input checks | Done |
+| 2 | Inputs aligned to the workbook, static engine, Static Simulation and Static Results | Done |
+| 3 | Dynamic Simulation and Dynamic Results (chainage selector) | Next |
 | 4 | Overall Summary of results, Excel export, report | |
 
 ## For developers

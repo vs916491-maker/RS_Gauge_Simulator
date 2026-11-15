@@ -9,8 +9,9 @@ Same rules and layout as the SEC simulator (`rs-sec-simulator`), so both tools w
 2. **No build step.** No bundler, transpiler or npm install. What is in git is what runs.
 3. **No ES modules.** Classic `<script src>` files sharing one global namespace, `RSGAUGE`; each file is an IIFE / UMD.
 4. **No CDN links or external URLs.** Third-party libraries are copied into `vendor/` with their licences.
-5. **The calculation engine lives in `js/engine.js` (Phase 2)**, pure: no DOM, no `Date`, no `Math.random`, no I/O,
-   loadable by Node. UI and plot files contain **no equations**.
+5. **The calculation engine lives in `js/engine.js`**, pure: no DOM, no `Date`, no `Math.random`, no I/O,
+   loadable by Node. UI and plot files contain **no equations**; calculated values shown on input tabs come from
+   engine calls (`carGeometry`, `deriveCar`, `playCalc`).
 6. No `fetch()`/XHR of local files, no Web Workers, no network of any kind (`tests/offline.test.js` checks this).
 7. Units: mm for profiles, plays, wear, tolerances and cant; m for vehicle lengths, chainage and radii; km/h for speed.
    Input is never mutated; `model.normalizeProject()` returns a clean copy.
@@ -23,45 +24,53 @@ index.html              single page; loads the scripts in the order below
 css/style.css           all styling (light/dark via CSS variables)
 js/schema.js            every input field: key, label, type, unit, range, default, help (forms, templates, importers, checks)
 js/model.js             project structure, normalisation (safe copy, defaults), input checks per tab, profile/track helpers (DOM-free)
-js/engine.js            CALCULATION ENGINE - Phase 2 (pure, DOM-free)
+js/engine.js            CALCULATION ENGINE (pure, DOM-free): derived car data, static run (Method B points, Method A, vertical checks)
 js/markdown.js          small Markdown renderer for the Method tab (DOM nodes, never innerHTML)
 js/method.js            GENERATED from METHOD.md by tools/make-presets.js
-js/presets.js           GENERATED from samples/sample-project.json by tools/make-presets.js (fictional data)
-js/io.js                Excel/CSV templates and importers per tab, export all, project file (*.rsgauge.json)
+js/presets.js           GENERATED from samples/*.json by tools/make-presets.js (fictional sample + vehicle-type presets)
+js/io.js                Excel/CSV templates and importers per tab, export all, static results workbook, project file (*.rsgauge.json)
 js/plot.js              Chart.js dataset builders (reshape data only)
 js/ui.js                tabs, forms, grids, tables, previews, messages; the only file building the page (exposes RSGAUGE.app)
 vendor/                 xlsx.full.min.js (SheetJS 0.18.5), chart.umd.js (Chart.js 4.4.1), licences, README
-samples/                sample-project.json (FICTIONAL 6-car metro, envelopes and 4.4 km line)
-tests/                  run-tests.js + *.test.js (Node built-ins only)
-tools/                  make-presets.js, ui-smoke.py (optional browser check, Python Playwright)
+samples/                sample-project.json (FICTIONAL 6-car metro, envelopes, 4.4 km line), vehicle-types.json (LRV / Metro / HS typical values)
+tests/                  run-tests.js + *.test.js (Node built-ins only); fixtures/workbook-reference.json (fictional inputs + workbook results)
+tools/                  make-presets.js, ui-smoke.py (optional browser check), workbook-reference.py (rebuilds the fixture from the owner's workbook)
 ```
 
 Script order: `vendor/xlsx.full.min.js` → `vendor/chart.umd.js` → `js/schema.js` → `js/model.js` →
-`js/markdown.js` → `js/method.js` → `js/presets.js` → `js/io.js` → `js/plot.js` → (`js/engine.js`, Phase 2) → `js/ui.js`.
+`js/markdown.js` → `js/method.js` → `js/presets.js` → `js/io.js` → `js/plot.js` → `js/engine.js` → `js/ui.js`.
 
-## 3. Data model (project file `*.rsgauge.json`, `format: "rsgauge-project"`, version 1)
+## 3. Data model (project file `*.rsgauge.json`, `format: "rsgauge-project"`, version 2)
+
+Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, units and defaults are in `js/schema.js`.
 
 ```
-{ format, version, name, notes, fictional,
-  train:  { name, customer, line, formation, n_cars, gauge_mm, L_mm, vmax_kmh,
-            bogie_arrangement: non_shared|shared, primary_type, secondary_type, power_supply,
-            tare_label, laden_label, pax_mass_kg, laden_density,
-            carTypes: [{ name, count, length_m, a_m, na1_m, na2_m, width_mm, floor_mm, roof_mm,
-                         mass_tare_t, mass_laden_t, cg_tare_mm, cg_laden_mm, bogie1, bogie2 }] },
-  bogies: [{ name, p_m, wheel_new_mm, wheel_worn_mm, d_min_mm, q_mm, w_mm, wi_mm, wa_mm,
-             prim_static_mm, prim_dyn_mm, prim_rebound_mm, sec_static_mm, sec_dyn_mm, sec_rebound_mm,
-             deflated_mm, overinfl_mm, frame_height_mm, s_bogie }],
-  bodies: [{ car, s_tare, s_laden, hc_mm, eta0_deg, theta_w_deg, sag_mm, camber_mm, tol_y_mm, tol_z_mm, dyn_y_mm, dyn_z_mm }],
-  ke:     { en: { s0, hc0_mm, D0_mm, I0_mm, Ck_m2, Rmin_m }, profiles: [{ name, note, points: [{pt, y, z}] }] },
-  sod:    { frame: track|vertical, margin_mm, profiles: [...], items: [{ name, type, y, z, min_clear_mm }] },
-  rs:     { profiles: [{ name, car (or ALL), mount: body|bogie|axle, points: [...] }] },
-  track:  { params: { gauge_tol_mm, align_tol_mm, level_tol_mm, crosslevel_tol_mm, rail_wear_lat_mm, rail_wear_vert_mm, rail_wear_vehicle, dx_m },
-            segments: [{ from_m, to_m, element, R_m, side, cant_mm, Rv_m, speed_kmh, section, form, sod, ke, widening_mm }] },
-  settings: { static: {...}, dynamic: {...} }   // Phase 2-3
+{ format, version: 2, name, notes, fictional,
+  train:  { name, customer, line, formation, n_cars, vehicle_type: lrv|metro|hs, bogie_arrangement, vmax_kmh, gauge_mm, L_mm (G),
+            primary_type, secondary_type, power_supply, tare_label, laden_label, rho_air, Beq_mm,
+            carTypes: [{ name, count, length_m, n_free_m, n_art_m, end1/end2: free|shared, ni_m (blank = a/2), na_m, width_mm, floor_mm,
+                         sill_hw_mm, mass_tare_t, mass_crush_t, cg_tare_mm, cg_crush_mm, drop_crush_mm, bogie1, bogie2,
+                         prof_int, prof_ext, prof_end }] },
+  bogies: [{ name, p_m, play_ld_mm, q_mm, w_mm, w_defl_mm, wheel_new_mm, wheel_worn_mm, pack_step_mm, dn_prim_mm, dn_sec_inf_mm,
+             dn_sec_def_mm, up_prim_mm, up_sec_mm, up_oi_mm, mass_t, n_axle, kz_prim, n_ps, b1_mm, z_prim_mm, kz2_t, kz2_c, kz_em,
+             n_as, b2_mm, k_arb, z_sec_mm, z_sec_d_mm, ky_prim, ky_sec, ky2_d, bb_mm, ef_new_mm, ef_worn_mm }],
+  bodies: [{ car, wind_len_m, wind_top_mm, wind_bot_mm, Cf, uf_h_mm, uf_hw_mm, uf_bog_h_mm, s_tare, s_crush, s_defl,
+             hc_tare_mm, hc_crush_mm, hc_defl_mm }],
+  ke:     { limits: { uf_min_body_mm, uf_min_bog_mm, axle_lim_t, prm_gap_mm, nosing_mm, sod_C_m, sod_L_m, sod_b_m, h_ref1_mm, h_ref2_mm },
+            en: {...later phase}, profiles: [{ name, note, n_up, points: [{pt, y, z}] }] },
+  sod:    { frame, margin_mm, profiles: [...], items: [{ name, type, y, z, min_clear_mm }] },
+  rs:     { profiles: [{ name, note, points }] },
+  track:  { params: { cant_max_mm, cantdef_max_mm, cantexc_max_mm, wind_open_kmh, wind_plat_kmh, g_tol_mm, fw_mm, align_tol_mm,
+                      cl_err_mm, widen_mm, widen_R_m, R_min_m, R_static_m, Rv_static_m, dx_m },
+            segments: [{ from_m, to_m, element: tangent|transition|circular, side, R_start_m, R_end_m, cant_start_mm, cant_end_mm,
+                         speed_kmh, Rv_m, ke, location: open|tunnel|platform|depot, wind: Y|N, struct_mm, platform_mm, platform_side, sod, remarks }] },
+  settings: { static: { ke, flex, latflex, lat_state, vert_state, comb, K_rss, gtol_ext, align, tilt, up_roll, wind, over_infl,
+                        ma_from_mm, ma_to_mm, ma_step_mm, cars: 'all' | 'A,B' } }
 }
 ```
 
-Results are not stored in the project file: the engine is deterministic, so they are recomputed.
+Results are not stored in the project file: the engine is deterministic, so they are recomputed. The UI keeps the
+inputs of the last run and flags the results as out of date when anything changes.
 
 ## 4. Excel layouts (templates = current-data downloads = importers)
 
@@ -70,30 +79,37 @@ Results are not stored in the project file: the engine is deterministic, so they
 | Train | Parameter / Value / Unit / Key | Train Configuration |
 | CarTypes | one column per car type; rows = parameters, Key column | Train Configuration |
 | Bogies, CarBodies | one column per bogie type / car type | Car body & Bogie |
-| KE, SOD | one row per point; profile name repeated | Customer KE & SOD |
-| EN_Params, SOD_Settings | Parameter / Value / Unit / Key | Customer KE & SOD |
+| KE, SOD | one row per point; profile name (and n_up) repeated | Customer KE & SOD |
+| CustomerLimits, SOD_Settings, EN_Params | Parameter / Value / Unit / Key | Customer KE & SOD |
 | SOD_Items | one row per item | Customer KE & SOD |
-| RSProfile | one row per point; profile name, car type, mounting repeated | RS Profile |
+| RSProfile | one row per point; profile name repeated | RS Profile |
 | TrackParams | Parameter / Value / Unit / Key | Track Data |
 | Track | one row per segment | Track Data |
 
-Headers end with `(key)`; the importer matches on the key (and on simple names such as `Profile`, `Point`, `Y`, `Z`
+Headers end with `(key)`; select values may be given as their key or label in any case (e.g. `Circular`, `Open`, `Y`);
+the static results export (Static Results tab) writes Static_Summary, Static_BuildUp, Static_Points, Method_A,
+Vertical_Checks and Derived_Values. The importer matches on the key (and on simple names such as `Profile`, `Point`, `Y`, `Z`
 for CSV files). A single-sheet file or CSV is read as the tab's main sheet. Profile coordinates that look like
 metres (all ≤ 20) are converted to mm with a message. Each tab imports only its own sheets; *Import all inputs*
 reads every known sheet.
 
 ## 5. Testing
 
-* `node tests/run-tests.js` — Node built-ins only. Model checks, import/export round trips, offline rules,
-  generated files in step with their sources, plot data. CI runs it on every pull request.
-* `python tools/ui-smoke.py` — optional: opens `index.html` from `file://` in Chrome, visits every tab, downloads and
-  re-imports each tab's workbook, pastes cells, saves and reloads the project, flags any network request or console error.
+* `node tests/run-tests.js` — Node built-ins only. `workbook.test.js`: the engine against the reference gauging workbook
+  recalculated with fictional inputs for seven option sets (every case minimum, governing point, Method A row, vertical
+  check, theoretical s and hc, wind constants, axle load). Plus engine closed forms, model checks and migration,
+  import/export round trips, offline rules, generated files, chart data. CI runs it on every pull request.
+* `python tools/workbook-reference.py <workbook.xlsx>` — rebuilds `tests/fixtures/workbook-reference.json` (needs
+  openpyxl and LibreOffice; the workbook itself is not in the repository).
+* `python tools/ui-smoke.py` — optional: opens `index.html` from `file://` in Chrome, visits every tab, re-imports each
+  tab's workbook, runs the static simulation, checks the governing case and the export, the out-of-date flag, a
+  vehicle-type preset and save/load, and flags any network request or console error.
 
 ## 6. Delivery phases
 
 | Phase | Content | Status |
 |---|---|---|
-| 1 | METHOD.md draft, all input tabs, templates, import/export, project file, previews, checks, tests | **This pull request** |
-| 2 | `js/engine.js`: displacement build-up, both methods; Static Simulation settings + Run; Static Results with graphs and build-up table | Next |
-| 3 | Dynamic Simulation along the track data; Dynamic Results with clearance vs chainage and a chainage selector | |
-| 4 | Overall Summary (static + dynamic), Excel results export, report | |
+| 1 | Input tabs, templates, import/export, project file, previews, checks | Done (PR #1) |
+| 2 | Inputs aligned to the workbook, METHOD.md from the workbook, static engine (Method B, Method A, vertical checks), theoretical s/hc, shared-bogie check, presets, Static Simulation and Static Results | **This pull request** |
+| 3 | Dynamic Simulation (chainage sweep, speed-step study) and Dynamic Results with chainage selector | Next |
+| 4 | Overall Summary of static + dynamic, report; EN 15273-2 option | |

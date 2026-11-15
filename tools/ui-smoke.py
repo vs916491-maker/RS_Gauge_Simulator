@@ -1,7 +1,7 @@
 # Optional browser smoke test (needs Python Playwright and Chrome/Chromium; NOT a dependency of the tool):
 #   python tools/ui-smoke.py [outputDir]
-# Opens index.html from file://, flags any non-file request or console error, visits every tab,
-# downloads each tab template and re-imports it, edits a value, pastes cells, and writes screenshots. Dev aid only.
+# Opens index.html from file://, flags any non-file request or console error, visits every tab, re-imports each tab's
+# workbook, applies a preset, runs the static simulation, checks the results and exports, and writes screenshots. Dev aid only.
 import os, sys, shutil
 from playwright.sync_api import sync_playwright
 
@@ -30,51 +30,64 @@ with sync_playwright() as pw:
     page.reload()
     page.wait_for_timeout(400)
     ok('Fictional example' in page.locator('#data-banner').text_content(), 'fictional banner shown')
-    ok(page.locator('#g-cartypes input, #g-cartypes select').count() >= 45, 'car type grid rendered')
+    ok(page.locator('#g-cartypes input, #g-cartypes select').count() >= 60, 'car type grid rendered')
     ok(page.locator('#train-drawing svg rect.car-body').count() == 6, 'train drawing has 6 cars')
-    page.screenshot(path=os.path.join(out, '01-train.png'), full_page=True)
+    ok('14.8' in page.locator('#calc-geometry').text_content(), 'calculated pivot distance shown')
 
     tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'summary', 'method']
     for i, t in enumerate(tabs):
         page.click('#tabbtn-' + t)
-        page.wait_for_timeout(350)
+        page.wait_for_timeout(300)
         ok(page.locator('#tab-' + t).is_visible(), 'tab %s visible' % t)
         page.screenshot(path=os.path.join(out, '%02d-%s.png' % (i + 1, t)), full_page=True)
-    ok(page.evaluate("!!Chart.getChart('chart-track')"), 'track chart drawn')
-    page.click('#tabbtn-ke'); page.wait_for_timeout(300)
-    ok(page.evaluate("Chart.getChart('chart-ke').data.datasets.length") >= 5, 'KE preview has KE + SOD + items datasets')
+    page.click('#tabbtn-bogie'); page.wait_for_timeout(200)
+    ok('REVIEW' not in page.locator('#calc-body').text_content(), 'theoretical s plausible on the sample')
     page.click('#tabbtn-method'); page.wait_for_timeout(200)
     ok(page.locator('#method-toc button').count() > 15, 'method table of contents built')
 
-    # template download + re-import for every input tab, after breaking something in that tab
     for t in ['train', 'bogie', 'ke', 'rs', 'track']:
         page.click('#tabbtn-' + t); page.wait_for_timeout(250)
         with page.expect_download() as d:
             page.click('[data-io="%s"] button:nth-of-type(2)' % t)
         f = os.path.join(out, '%s-current.xlsx' % t)
         d.value.save_as(f)
-        ok(os.path.getsize(f) > 3000, '%s current-data workbook downloaded (%d bytes)' % (t, os.path.getsize(f)))
         page.set_input_files('#file-' + t, f)
         page.wait_for_timeout(500)
         txt = page.locator('#tab-%s .importmsg' % t).text_content()
-        ok('Imported' in txt and 'None of the expected' not in txt, '%s re-import: %s' % (t, txt[:110]))
+        ok('Imported' in txt and 'None of the expected' not in txt, '%s re-import: %s' % (t, txt[:100]))
 
-    # edit a value -> validation message, badge
+    # static run
+    page.click('#tabbtn-ssim'); page.wait_for_timeout(250)
+    ok(not page.locator('#btn-run-static').is_disabled(), 'run button enabled')
+    page.click('#btn-run-static'); page.wait_for_timeout(800)
+    ok(page.locator('#tab-sres').is_visible(), 'results tab opened after the run')
+    gov = page.evaluate('RSGAUGE.app.state.run.governing')
+    ok(gov and gov['car'] == 'TC' and abs(gov['c'] - 39.65) < 0.05, 'governing case TC exterior tare 39.65 mm (%s)' % gov)
+    ok(page.evaluate("!!Chart.getChart('chart-sec-int') && !!Chart.getChart('chart-sec-end') && !!Chart.getChart('chart-methodA')"), 'section and Method A charts drawn')
+    ok(page.locator('#sres-table tbody tr').count() == 3, 'one result row per car type')
+    page.screenshot(path=os.path.join(out, '20-static-results.png'), full_page=True)
+    page.select_option('#sres-car', 'DMC'); page.wait_for_timeout(300)
+    page.select_option('#sres-case', 'int_c'); page.wait_for_timeout(300)
+    ok(page.locator('#sres-points tbody tr').count() == 15, 'points table of interior crush (15 roof points)')
+    with page.expect_download() as d:
+        page.click('#btn-export-static')
+    f = os.path.join(out, 'static-results.xlsx'); d.value.save_as(f)
+    ok(os.path.getsize(f) > 10000, 'static results workbook exported (%d bytes)' % os.path.getsize(f))
+
+    # stale flag after an input change, and an option change
+    page.click('#tabbtn-track'); page.wait_for_timeout(200)
+    page.locator('#f-track-op input').nth(1).fill('110'); page.wait_for_timeout(400)
+    ok('out of date' in page.locator('#data-banner').text_content(), 'results flagged out of date after an input change')
+    page.click('#tabbtn-ssim'); page.wait_for_timeout(200)
+    page.click('#btn-run-static'); page.wait_for_timeout(600)
+    ok('out of date' not in page.locator('#data-banner').text_content(), 'stale flag cleared after re-run')
+
+    # preset
     page.click('#tabbtn-train'); page.wait_for_timeout(200)
-    page.locator('#f-train-desc input').nth(3).fill('DMC-TC-ZZ-MC-TC-DMC')
-    page.wait_for_timeout(400)
-    ok('"ZZ"' in page.locator('[data-msgs=train]').text_content(), 'formation error shown')
-    ok(page.locator('#tabbtn-train .badge').text_content() != '', 'error badge on tab')
-    ok(page.locator('#train-drawing rect.missing').count() == 1, 'unknown car drawn as missing')
-    page.locator('#f-train-desc input').nth(3).fill('DMC-TC-MC-MC-TC-DMC')
-
-    # paste two columns into the KE points table
-    page.click('#tabbtn-ke'); page.wait_for_timeout(250)
-    n0 = page.locator('#ps-ke table.rows tbody tr').count()
-    cell = page.locator('#ps-ke table.rows tbody tr').nth(n0 - 1).locator('input').nth(1)
-    page.evaluate("""(el) => { const dt = new DataTransfer(); dt.setData('text/plain', '10\\t75\\n0\\t60\\n'); el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }""", cell.element_handle())
-    page.wait_for_timeout(400)
-    ok(page.locator('#ps-ke table.rows tbody tr').count() == n0 + 1, 'paste of 2 rows added 1 row (%d -> %d)' % (n0, page.locator('#ps-ke table.rows tbody tr').count()))
+    page.select_option('#f-train-config select >> nth=0', 'lrv'); page.wait_for_timeout(200)
+    page.click('#btn-preset'); page.wait_for_timeout(500)
+    ok(page.evaluate("RSGAUGE.app.state.p.train.carTypes[0].length_m") == 12, 'LRV preset applied (Lb = 12 m)')
+    ok(page.evaluate("RSGAUGE.app.state.p.train.carTypes.map(c=>c.name).join()") == 'DMC,TC,MC', 'names kept by the preset')
 
     # project save -> load
     with page.expect_download() as d:
@@ -82,9 +95,9 @@ with sync_playwright() as pw:
     pj = os.path.join(out, 'project.rsgauge.json'); d.value.save_as(pj)
     page.click('#btn-new'); page.wait_for_timeout(300)
     page.set_input_files('#file-project', pj); page.wait_for_timeout(500)
-    ok(page.locator('#ps-ke table.rows tbody tr').count() == n0 + 1 or page.evaluate("RSGAUGE.app.state.p.ke.profiles[0].points.length") == n0 + 1, 'project file restores the pasted point')
+    ok(page.evaluate("RSGAUGE.app.state.p.train.carTypes[0].length_m") == 12, 'project file restores the preset values')
     page.click('#tabbtn-summary'); page.wait_for_timeout(300)
-    page.screenshot(path=os.path.join(out, '20-summary-after.png'), full_page=True)
+    page.screenshot(path=os.path.join(out, '21-summary.png'), full_page=True)
     browser.close()
 
 ok(not external, 'no network requests (%s)' % external[:3])
