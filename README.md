@@ -54,7 +54,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 10 | EN 15273-2: heights above the running surface (A.3.4), lower-parts table | Done |
 | 11 | EN 15273-2: bogie parts (A.3.11), bogie-parts table | Done |
 | 12 | EN 15273-2: static gauge method (A.2) | Done |
-| 13+ | EN 15273-2: doors and steps, pantograph, other profiles, dynamic method | Next |
+| 13 | EN 15273-2: open doors and steps (A.3.14 / A.3.15) | Done |
+| 14+ | EN 15273-2: pantograph, other profiles, dynamic method | Next |
 
 ## For developers
 

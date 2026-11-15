@@ -374,6 +374,7 @@ polygon edges (not the horizontal / vertical split of §6.4).
    (`tests/en15273-vertical.test.js`): Table A.1 zones and A.16–A.19 typed in literally, hand checks of the sample.
    Bogie parts (`tests/en15273-bogie.test.js`): A.56–A.59 typed in literally, hand check of the sample.
    Static gauge (`tests/en15273-static.test.js`): A.2–A.5 typed in literally, s limit, hand check of the sample.
+   Doors and steps (`tests/en15273-doors.test.js`): A.105 / A.106 typed in, step gaps by hand.
 6. Inputs are never mutated; results are deterministic.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
@@ -570,7 +571,42 @@ a KE (upper envelope to `n_up`). Rules (Customer KE & SOD tab, G1 values): allow
 * The car type passes when s ≤ s_max, every margin ≥ 0, the tops fit and the lower parts are above their limits; the
   result is part of the verdict when the option is selected. Tests: `tests/en15273-static.test.js` (A.2–A.5 typed in).
 
-### 10.10 Results
+### 10.10 Open doors and deployed steps (A.3.14, A.3.15)
+
+Part of the kinematic check (§10.1–10.8). One row per element on the RS Profile tab (*Open doors and deployed steps*):
+car type, kind (access door open / footboard or step deployed), position (between / beyond the pivots), distance `n`
+from the nearer pivot (blank: between `a/2`, beyond the car-end overhang), half-width `y` of the open element and its
+lowest / highest point with the car tare and new wheels. Valid for speeds up to 5 km/h.
+
+* Lowest position of the stationary vehicle: both heights are lowered by the total downward movement `Σd` of §5.3
+  (suspension state of the static options).
+* Heights checked: the two ends, the boundary `h_d = 1,05 m` for doors, and every KE vertex in between.
+* Maximum construction gauge at the element: `W_KE(h) − E(h)` with `E = Ei` (between) or `Ea` (beyond) of §10.4–10.6 at
+  the element's own `n`, worst of the load states and bogie orientations.
+* Allowance added to it (rules on the Customer KE & SOD tab, G1 defaults):
+
+| Element | Height | Between the pivots | Beyond the pivots |
+|---|---|---|---|
+| Door, a) | `h ≥ 1,05 m` | `0,2 m` | `0,2 m` |
+| Door, b) | `h < 1,05 m` | `min(w_i ; 0,035 m)` | `w_i·n/a + (w_a − X)>0·(n + a)/a` (A.105), `X = 0,02 m` |
+| Step | any | `min(w_i ; 0,035 m)` | `w_i·n/a + w_a·(n + a)/a` (A.106) |
+
+  `w` = straight-track secondary clearance of each bogie (`w_i` far bogie, `w_a` bogie at the element's end); both
+  orientations are evaluated and the smaller allowance is used (between the pivots: the smaller `w`).
+* Check: `y ≤ W_KE(h) − E(h) + allowance` at every height; margin = right − left.
+* Step position (A.3.15.2), steps only, when a verification radius `R` and a platform position `b_q0i` (inside of the
+  curve) and / or `b_q0a` (outside) are given; gap limit `b_gap0` = customer PRM gap. Geometric overthrow at the step
+  `dg = (a·n − n² + p²/4)/(2R)` between (larger `p`), `(a·n + n² − p²/4)/(2R)` beyond (smaller `p`). The mid-car moves
+  inwards and the car ends outwards, so the gap is `b_q0 − b ∓ dg` (− when the step moves towards the platform). The gap
+  varies linearly with `1/R`, so its largest value between straight track and `R` is the larger of `b_q0 − b` and the
+  value at `R`; the check is `gap_max ≤ b_gap0`. For the side where the step moves away from the platform this is the
+  standard's `dg ≤ dg_max` (`dg_imax = b + b_gap0 − b_q0a`, `dg_amax = b + b_gap0 − b_q0i`); for the other side the
+  standard's `dg_max` expressions (`b_q0i − b − b_gap0`, `b_q0a − b − b_gap0`) are shown for information – there the
+  gap is largest on straight track.
+* A failed element fails the EN verdict. Not applied: the opening movement of doors fulfilling a) and b) together
+  (to be checked on drawings), A.3.15.3 platform-mounted devices.
+
+### 10.11 Results
 
 * Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
   Method A for comparison.
@@ -580,8 +616,8 @@ a KE (upper envelope to `n_up`). Rules (Customer KE & SOD tab, G1 values): allow
 * Heights (§10.7): one row per lower part and per section, in the EN verdict.
 * Bogie parts (§10.8): one row per part and bogie type.
 * Static gauge (§10.9): per car type, when selected.
-* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), pantograph gauge (A.3.12), doors and steps open
-  (A.3.14), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
+* Doors and steps (§10.10): one row per element and governing height; step position per platform side.
+* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), pantograph gauge (A.3.12), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
   and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.
 

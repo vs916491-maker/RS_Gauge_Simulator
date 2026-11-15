@@ -166,6 +166,19 @@
     f('note', 'Note', 'text', '', { d: '' })
   ];
 
+  // Open doors and deployed steps checked by EN 15273-2 A.3.14 / A.3.15 (one row per element; METHOD §10.10)
+  var doorStep = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('name', 'Element', 'text', '', { d: '' }),
+    f('kind', 'Kind', 'sel', '', { o: [['door', 'Access door, open'], ['step', 'Footboard / step, deployed']], d: 'door' }),
+    f('pos', 'Position', 'sel', '', { o: [['between', 'Between the pivots'], ['beyond', 'Beyond the pivots']], d: 'between' }),
+    f('n_m', 'Distance n from the nearer pivot', 'num', 'm', { min: 0, max: 20, opt: true, h: 'Blank: between = a/2, beyond = car-end overhang' }),
+    f('y_mm', 'Half-width of the open element', 'num', 'mm', { min: 0, max: 2500 }),
+    f('h_lo_mm', 'Lowest point above rail (tare, new wheels)', 'num', 'mm', { min: 0, max: 5000 }),
+    f('h_hi_mm', 'Highest point above rail', 'num', 'mm', { min: 0, max: 5000 }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
+
   // ---------------------------------------------------------------- Customer KE & SOD tab
   var customerLimits = [
     f('uf_min_body_mm', 'Min. clearance body-mounted equipment to rail cb', 'num', 'mm', { min: 0, max: 500, d: 100 }),
@@ -199,7 +212,14 @@
     f('st_allow_mm', 'Static gauge: allowance in the formulae (0,075 m, A.2.4)', 'num', 'mm', { min: 0, max: 300, d: 75 }),
     f('st_Dmin_m2', 'Static gauge: minimum Δ (7,5 m²)', 'num', 'm²', { min: 0, max: 50, d: 7.5 }),
     f('st_smax', 'Static gauge: maximum flexibility coefficient (0,2 for G1)', 'num', '', { min: 0, max: 1, d: 0.2, h: '§5.1.3: 0,3 for GA, GB, GC' }),
-    f('st_h_low_mm', 'Static gauge: lower parts up to height (0,43 m)', 'num', 'mm', { min: 0, max: 2000, d: 430 })
+    f('st_h_low_mm', 'Static gauge: lower parts up to height (0,43 m)', 'num', 'mm', { min: 0, max: 2000, d: 430 }),
+    f('dr_h_mm', 'Doors open: height of the a) / b) boundary (1,05 m)', 'num', 'mm', { min: 0, max: 3000, d: 1050 }),
+    f('dr_above_mm', 'Doors open: excess allowed above it (0,2 m)', 'num', 'mm', { min: 0, max: 1000, d: 200 }),
+    f('dr_wmax_mm', 'Doors / steps between the pivots: w_i at most (0,035 m)', 'num', 'mm', { min: 0, max: 200, d: 35 }),
+    f('dr_X_mm', 'Doors beyond the pivots: residual clearance X (0,02 m)', 'num', 'mm', { min: 0, max: 200, d: 20, h: 'A.105; 0,02 m unless calculated' }),
+    f('gap_bq0i_mm', 'Step position A.3.15.2: platform b_q0i (inside of curve)', 'num', 'mm', { min: 0, max: 3000, opt: true, h: 'Platform edge from the track centre (EN 15273-3); blank = no check on the inside' }),
+    f('gap_bq0a_mm', 'Step position A.3.15.2: platform b_q0a (outside of curve)', 'num', 'mm', { min: 0, max: 3000, opt: true, h: 'Blank = no check on the outside' }),
+    f('gap_R_m', 'Step position A.3.15.2: minimum verification radius', 'num', 'm', { min: 10, max: 100000, opt: true, h: 'Blank = no step-position check; the gap limit is the customer PRM gap' })
   ];
   var sodSettings = [
     f('frame', 'SOD reference frame', 'sel', '', { o: [['track', 'Track plane (same as KE)'], ['vertical', 'Vertical (rotate KE by cant)']], d: 'track' }),
@@ -346,7 +366,7 @@
   return {
     trainDescription: trainDescription, trainConfig: trainConfig, trainLoad: trainLoad, trainWind: trainWind,
     trainFields: trainDescription.concat(trainConfig, trainLoad, trainWind),
-    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart,
+    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,

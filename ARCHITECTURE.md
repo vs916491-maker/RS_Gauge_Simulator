@@ -138,5 +138,6 @@ reads every known sheet.
 | 9 | EN 15273-2: motor-coach formulae A.3.9.2, w varying with the radius, variable stops | Done |
 | 10 | EN 15273-2: heights above the running surface A.3.4 (lower parts by Table A.1 zones, A.16–A.19), lower-parts table | Done |
 | 11 | EN 15273-2: bogie parts A.3.11 (independent-axle formulae A.56–A.59), bogie-parts table | Done |
-| 12 | EN 15273-2: static gauge method A.2 (A.2–A.5, s limit, lower parts A.2.3.2) | **This pull request** |
-| 13+ | EN 15273-2: doors and steps, pantograph, other profiles, dynamic method | Next, one PR each |
+| 12 | EN 15273-2: static gauge method A.2 (A.2–A.5, s limit, lower parts A.2.3.2) | Done |
+| 13 | EN 15273-2: open doors and deployed steps A.3.14, step position A.3.15.2 | **This pull request** |
+| 14+ | EN 15273-2: pantograph, other profiles, dynamic method | Next, one PR each |
