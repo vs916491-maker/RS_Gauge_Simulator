@@ -50,6 +50,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 6 | SOD outline and point-item checks (dynamic) | Done |
 | 7 | Tests: sway-test evaluation and kinematic gauge test plan | Done |
 | 8 | Calculation Method tab (step-by-step, standards, live examples) | Done |
+| 9 | EN 15273-2: motor coaches, w varying with the radius, variable stops | Done |
+| 10+ | EN 15273-2: lower parts / vertical, bogie parts, static gauge, doors and steps, pantograph, other profiles, dynamic method | Next |
 
 ## For developers
 

@@ -316,6 +316,11 @@
       if (!(p.sod.margin_mm >= 0)) { m.add('ke', 'warn', 'SOD: no minimum clearance KE to SOD given; 50 mm is used.'); }
     }
 
+    p.bogies.forEach(function (b) {
+      if (b.wv_R_m !== null && b.wv_R_m < 250) { m.add('bogie', 'warn', 'Bogie ' + b.name + ': variable stops starting below 250 m need the 150 m formulae of EN 15273-2 (A.34, A.36, A.53, A.55), which the tool does not apply; the bracket is evaluated at the radius given.'); }
+      if (b.wv_R_m !== null && b.wv_mm === null) { m.add('bogie', 'warn', 'Bogie ' + b.name + ': variable-stop radius given without w at that radius; w is used.'); }
+    });
+
     // ---- Tests (sway test rows)
     var carNames = p.train.carTypes.map(function (c) { return c.name; });
     ((p.tests || {}).sway || []).forEach(function (r, k) {

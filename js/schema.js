@@ -97,6 +97,10 @@
     f('q_mm', 'Primary lateral play q (axlebox ↔ frame)', 'num', 'mm', { min: 0, max: 50, d: 5 }),
     f('w_mm', 'Secondary lateral play to bump stop w – inflated', 'num', 'mm', { min: 0, max: 150, d: 30, h: 'Including bump-stop compression' }),
     f('w_defl_mm', 'Secondary lateral play – deflated', 'num', 'mm', { min: 0, max: 150, d: 30 }),
+    f('w250_mm', 'Secondary play w at R = 250 m (EN 15273-2)', 'num', 'mm', { min: 0, max: 200, opt: true, h: 'Blank = w (constant with the radius)' }),
+    f('w150_mm', 'Secondary play w at R = 150 m (EN 15273-2)', 'num', 'mm', { min: 0, max: 200, opt: true, h: 'Blank = w at 250 m' }),
+    f('wv_R_m', 'Variable stops: radius where they start (EN A.3.9.x.2)', 'num', 'm', { min: 150, max: 10000, opt: true, h: 'Blank = no non-linear w' }),
+    f('wv_mm', 'Variable stops: w at that radius', 'num', 'mm', { min: 0, max: 200, opt: true }),
     f('wheel_new_mm', 'Wheel diameter – new Dn', 'num', 'mm', { min: 300, max: 1300, d: 860 }),
     f('wheel_worn_mm', 'Wheel diameter – fully worn Dw', 'num', 'mm', { min: 300, max: 1300, d: 780 }),
     f('pack_step_mm', 'Max radial wear between height corrections Δr', 'num', 'mm', { min: 0, max: 100, d: 20, h: 'Radial wear used = min((Dn − Dw)/2, Δr)' }),
@@ -250,7 +254,8 @@
     f('ma_from_mm', 'Method A: first height', 'num', 'mm', { min: 0, max: 6000, d: 900 }),
     f('ma_to_mm', 'Method A: last height', 'num', 'mm', { min: 0, max: 8000, opt: true, h: 'Blank = top of the KE' }),
     f('ma_step_mm', 'Method A: height step', 'num', 'mm', { min: 10, max: 1000, d: 100 }),
-    f('en_check', 'Also check EN 15273-2:2009 kinematic (customer KE as reference profile)', 'sel', '', { o: YN, d: 'no', h: 'Reductions Ei / Ea with the rules on the Customer KE & SOD tab; in the verdict when Yes' })
+    f('en_check', 'Also check EN 15273-2:2009 kinematic (customer KE as reference profile)', 'sel', '', { o: YN, d: 'no', h: 'Reductions Ei / Ea with the rules on the Customer KE & SOD tab; in the verdict when Yes' }),
+    f('en_mc', 'EN: car with one motor bogie uses', 'sel', '', { o: [['traction', 'Traction-unit formulae (Table A.4 note a)'], ['motor', 'Motor-coach formulae A.3.9.2']], d: 'traction' })
   ];
 
   // ---------------------------------------------------------------- Dynamic Simulation tab (options)
