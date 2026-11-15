@@ -242,3 +242,28 @@ table.summary { width: auto; min-width: 34rem; }
 .drawing .rail { stroke: var(--muted); stroke-width: 1.5; }
 tr.worse td { color: var(--err-text); background: var(--err-bg); }
 h1 .owner { color: var(--accent); }
+/* ---------- Phase 2 additions ---------- */
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: start; margin-bottom: 14px; }
+.grid3 .card { margin-bottom: 0; }
+.fields.one { grid-template-columns: 1fr; }
+table.grid tr.grp td { background: var(--bg); color: var(--accent); font-weight: 700; font-size: .82rem; padding-top: .6rem; text-transform: none; }
+table.grid tbody tr:first-child td { background: transparent; font-weight: 400; }
+table.grid tr.namerow td { background: var(--accent-soft); font-weight: 600; }
+table.ro { width: auto; min-width: 30rem; }
+table.ro td { font-variant-numeric: tabular-nums; }
+table.ro th { white-space: normal; vertical-align: bottom; max-width: 9rem; }
+table.ro tr.b td { font-weight: 700; }
+td.okcell { color: var(--ok-text); background: var(--ok-bg); }
+td.badcell { color: var(--err-text); background: var(--err-bg); font-weight: 700; }
+td.warncell { color: var(--warn-text); background: var(--warn-bg); }
+tr.selrow td { box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--accent) 10%, transparent); }
+tr.selrow td.badcell, tr.selrow td.okcell { box-shadow: none; }
+table.results td { white-space: nowrap; }
+.scrolly { max-height: 30rem; overflow-y: auto; }
+.key-card { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+details.card summary { cursor: pointer; }
+details.card[open] summary { margin-bottom: .6rem; }
+#sres-stale:empty { display: none; }
+#sres-stale { margin-bottom: .75rem; border-radius: 8px; }
+table.grid td select { width: 11rem; }

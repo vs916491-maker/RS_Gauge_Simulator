@@ -10,7 +10,7 @@
 <header class="top">
   <div class="brand">
     <h1><span class="owner">VKS</span>-Rolling Stock Gauge Simulator</h1>
-    <p class="sub">Static profile from the customer KE, KE check and route clearance &middot; works offline</p>
+    <p class="sub">Generated KE vs customer KE, maximum static profile and route clearance &middot; works offline</p>
   </div>
   <div class="project">
     <label class="projname">Project
@@ -57,17 +57,22 @@
     <div class="grid2">
       <div class="card"><h3>Train description</h3><div id="f-train-desc" class="fields"></div></div>
       <div class="card"><h3>Configurable parameters</h3><div id="f-train-config" class="fields"></div>
+        <p class="tools"><button type="button" id="btn-preset" class="ghost" title="Load the typical values of the selected vehicle type into every input tab">Apply typical values for this vehicle type</button>
+          <span class="muted">Keeps names, formation, profiles, KE and track segments.</span></p>
         <h3 class="gap">Load details</h3><div id="f-train-load" class="fields"></div></div>
     </div>
     <div class="card">
       <h3>Train configuration drawing</h3>
-      <p class="hint">Drawn from the formation and the car types below (bogie positions from the overhangs). Shared bogies sit on the car joints.</p>
+      <p class="hint">Drawn from the formation and the car types below (bogie pivots from the overhangs; a shared end sits on the car joint).</p>
       <div id="train-drawing" class="drawing tablewrap"></div>
     </div>
     <div class="card">
       <div class="row"><h3>Car types</h3><span class="muted">One column per car type</span></div>
-      <p class="hint">Body length = bogie centre distance <em>a</em> + both overhangs. Bogie types are defined on the <strong>Car body &amp; Bogie</strong> tab.</p>
+      <p class="hint">Pivot distance a = Lb − n1 − n2, where an end overhang is n at a free end and nj at a shared end. The interior section is checked at ni from the pivot,
+        the exterior section at na beyond the pivot and the car end at the largest overhang. Bogie types are defined on the <strong>Car body &amp; Bogie</strong> tab, profiles on the <strong>RS Profile</strong> tab.</p>
       <div id="g-cartypes" class="tablewrap"></div>
+      <h3 class="gap">Calculated geometry</h3>
+      <div id="calc-geometry" class="tablewrap"></div>
     </div>
   </section>
 
@@ -76,16 +81,23 @@
     <div class="toolbar" data-io="bogie"></div>
     <div class="messages" data-msgs="bogie" aria-live="polite"></div>
     <div class="card">
-      <div class="row"><h3>Bogie inputs</h3><span class="muted">One column per bogie type</span></div>
-      <p class="hint">Lateral plays are <strong>each side</strong>. <em>w</em> is the secondary lateral displacement up to the hard stop (free play + bump stop deflection).
-        Vertical values are positive in the direction stated (deflection downwards, rebound and over-inflation upwards).</p>
-      <div id="g-bogies" class="tablewrap"></div>
+      <div class="row"><h3>Car body inputs</h3><span class="muted">One column per car type (follows the Train Configuration tab)</span></div>
+      <p class="hint">Wind acts as an equivalent cant D = (F/W)·Beq. The <strong>specified</strong> flexibility coefficient and roll-centre height come from the sway test or the bogie supplier;
+        the <strong>theoretical</strong> values below are calculated from the suspension stiffness. The Static Simulation options choose which is used.</p>
+      <div id="g-bodies" class="tablewrap"></div>
+      <h3 class="gap">Wind constants</h3><div id="f-wind" class="fields"></div>
     </div>
     <div class="card">
-      <div class="row"><h3>Car body inputs</h3><span class="muted">One column per car type (follows the Train Configuration tab)</span></div>
-      <p class="hint">Flexibility coefficient <em>s</em> and roll centre height <em>h<sub>c</sub></em> from the suspension calculation or the static sway test.
-        Random allowances (tolerances, dynamic oscillation) are combined by RSS or linearly, chosen in the simulation tabs.</p>
-      <div id="g-bodies" class="tablewrap"></div>
+      <h3>Calculated car-body values</h3>
+      <p class="hint">For the suspension states chosen on the Static Simulation tab. Shared-bogie comparison and axle load at the minimum radius of the Track Data tab.</p>
+      <div id="calc-body" class="tablewrap"></div>
+    </div>
+    <div class="card">
+      <div class="row"><h3>Bogie inputs</h3><span class="muted">One column per bogie type</span></div>
+      <p class="hint">Lateral plays are <strong>each side</strong>. A car with two different bogie types uses the larger value of each play and travel (conservative).</p>
+      <div id="g-bogies" class="tablewrap"></div>
+      <h3 class="gap">Wheel–rail play calculator <span class="muted">(information; the play used is the input above)</span></h3>
+      <div id="calc-play" class="tablewrap"></div>
     </div>
   </section>
 
@@ -96,23 +108,21 @@
     <div class="grid2">
       <div>
         <div class="card"><h3>Customer kinematic envelope (KE)</h3>
-          <p class="hint">Right half (Y &ge; 0) in mm, from the top centre round the outside down to rail level. Several KEs can be kept (ballasted, ballastless, tunnel&hellip;).
-            Paste Y/Z columns straight from Excel into the table.</p>
+          <p class="hint">Right half (Y &ge; 0) in mm, from the top centre clockwise down the side, as in the customer drawing. <strong>n_up</strong> is the last point of the car-body (upper) envelope:
+            the notch below it (solebar / collector shoe) is excluded from the car-body check. Paste Y/Z columns from Excel into the table.</p>
           <div id="ps-ke"></div></div>
-        <div class="card"><h3>Structure gauge / SOD</h3>
-          <p class="hint">Same layout. Used by the dynamic simulation; each track segment picks its SOD.</p>
+        <div class="card"><h3>Structure gauge / SOD <span class="muted">(dynamic check, Phase 3)</span></h3>
           <div id="ps-sod"></div></div>
       </div>
       <div>
         <div class="card"><div class="row"><h3>Preview</h3><div id="pv-ke-sel" class="inline wrap"></div></div>
           <div class="chartbox square"><canvas id="chart-ke" aria-label="Customer KE, SOD and RS profiles"></canvas></div></div>
+        <div class="card"><h3>Customer limits and SOD curve-allowance rule</h3><div id="f-limits" class="fields"></div></div>
         <div class="card"><h3>SOD point items</h3>
-          <p class="hint">Third rail, platform edge, walkway, signal equipment &hellip; with the required clearance to our KE.</p>
           <div id="t-sod-items" class="tablewrap"></div>
           <h3 class="gap">SOD settings</h3><div id="f-sod" class="fields"></div></div>
-        <div class="card"><h3>EN 15273-2 reference parameters</h3>
-          <p class="hint">Only for the EN 15273-2 method: allowances already included in the reference profile by its associated rules. Check against the customer's rules.</p>
-          <div id="f-en" class="fields"></div></div>
+        <details class="card"><summary><strong>EN 15273-2 reference parameters</strong> <span class="muted">(kept for a later phase; not used by the current method)</span></summary>
+          <div id="f-en" class="fields"></div></details>
       </div>
     </div>
   </section>
@@ -122,13 +132,13 @@
     <div class="toolbar" data-io="rs"></div>
     <div class="messages" data-msgs="rs" aria-live="polite"></div>
     <div class="grid2">
-      <div class="card"><h3>Rolling stock static profiles</h3>
-        <p class="hint">Car body outline, underframe equipment, bogie frame, axle-mounted items. The <strong>mounting level</strong> decides which movements apply:
-          body = all, bogie = primary only, axle = unsprung (see Method &sect;4.9).</p>
+      <div class="card"><h3>Rolling stock static section profiles</h3>
+        <p class="hint">Half outlines of the car sections (e.g. roof section, HVAC section) from the top centre down to the solebar, in mm.
+          Each car type picks the profile of its interior, exterior and car-end section on the Train Configuration tab.</p>
         <div id="ps-rs"></div></div>
       <div class="card"><div class="row"><h3>Preview against the customer KE</h3><div id="pv-rs-sel" class="inline wrap"></div></div>
         <div class="chartbox square"><canvas id="chart-rs" aria-label="RS profiles and customer KE"></canvas></div>
-        <p class="hint">The static profile normally sits well inside the KE: the gap is what the movements use up. The check itself is the Static Simulation.</p></div>
+        <p class="hint">The gap between the profile and the KE is what the movements use up; the check itself is the Static Simulation.</p></div>
     </div>
   </section>
 
@@ -136,10 +146,15 @@
   <section id="tab-track" class="panel" role="tabpanel" aria-labelledby="tabbtn-track" hidden>
     <div class="toolbar" data-io="track"></div>
     <div class="messages" data-msgs="track" aria-live="polite"></div>
-    <div class="card"><h3>Track parameters (whole line)</h3><div id="f-track" class="fields"></div></div>
+    <div class="grid3">
+      <div class="card"><h3>Operating limits (speed, cant, wind)</h3><div id="f-track-op" class="fields one"></div></div>
+      <div class="card"><h3>Track tolerances</h3><div id="f-track-tol" class="fields one"></div></div>
+      <div class="card"><h3>Static-check geometry</h3><div id="f-track-st" class="fields one"></div>
+        <h3 class="gap">Dynamic sweep</h3><div id="f-track-sw" class="fields one"></div></div>
+    </div>
     <div class="card"><div class="row"><h3>Track alignment</h3><span id="track-stats" class="muted"></span></div>
-      <p class="hint">One row per element in increasing chainage. R = 0 for tangent, Rv &gt; 0 crest / &lt; 0 sag / 0 none. Transition curves: enter as short constant steps.
-        Paste rows from Excel into the table.</p>
+      <p class="hint">One row per element (Tangent / Transition / Circular) in increasing chainage, no gaps. R 0 = infinite; in a transition the curvature and cant change linearly from start to end.
+        Rv &gt; 0 crest, &lt; 0 sag. Structure distance and platform edge are measured from the track centre. Paste rows from Excel into the table.</p>
       <div id="t-track" class="tablewrap"></div></div>
     <div class="card"><h3>Alignment against chainage</h3>
       <div class="chartbox"><canvas id="chart-track" aria-label="Curvature, cant and speed against chainage"></canvas></div></div>
@@ -147,36 +162,67 @@
 
   <!-- ======================= STATIC SIMULATION ======================= -->
   <section id="tab-ssim" class="panel" role="tabpanel" aria-labelledby="tabbtn-ssim" hidden>
-    <div class="card phase"><h3>Static simulation &mdash; Phase 2</h3>
-      <p>Conditions to be set here (Method &sect;8): method (Metro SOD-style / EN 15273-2), customer KE, track condition (tangent or a design curve with cant and cant deficiency / excess),
-        load conditions (tare / laden), suspension conditions (inflated / deflated), sections (car end, bogie centre, mid-car, user <em>x</em>), combination rule (RSS / linear) and safety margin,
-        then <strong>Run static simulation</strong>.</p>
-      <div id="ready-ssim"></div></div>
+    <div class="messages" data-msgs="ssim" aria-live="polite"></div>
+    <div class="grid2">
+      <div class="card"><h3>Calculation options</h3>
+        <p class="hint">Six cases per car type: interior (train stopped, cant excess), exterior and car end (train at speed, cant deficiency), each tare and crush, on the track of the
+          Track Data tab (tangent unless a static radius is set). Default options reproduce the reference workbook method.</p>
+        <div id="f-static" class="fields"></div></div>
+      <div>
+        <div class="card"><h3>Car types to check</h3><div id="ssim-cars" class="inline wrap"></div></div>
+        <div class="card key-card"><h3>Run</h3>
+          <div id="ready-ssim"></div>
+          <p class="tools"><button type="button" id="btn-run-static" class="primary">Run static simulation</button><span id="ssim-status" class="muted"></span></p></div>
+      </div>
+    </div>
   </section>
+
+  <!-- ======================= STATIC RESULTS ======================= -->
   <section id="tab-sres" class="panel" role="tabpanel" aria-labelledby="tabbtn-sres" hidden>
-    <div class="card phase"><h3>Static results &mdash; Phase 2</h3>
-      <p>Our KE against the customer KE, the maximum static profile against the RS profile, clearance at every point, governing case and the term-by-term displacement build-up, with graphs.</p></div>
+    <div id="sres-empty" class="card"><p>No static results yet. Set the options on the <strong>Static Simulation</strong> tab and press <strong>Run static simulation</strong>.</p></div>
+    <div id="sres-body" hidden>
+      <div id="sres-stale" class="banner"></div>
+      <div class="toolbar"><button type="button" id="btn-export-static" title="Summary, build-up, points, Method A, vertical checks and derived values">Export results (Excel)</button>
+        <span class="spacer"></span><label>Car type <select id="sres-car"></select></label></div>
+      <div id="sres-cards" class="cards"></div>
+      <div class="card"><h3>Minimum clearance to the customer KE by car type and case <span class="muted">(mm; + inside, − outside)</span></h3><div id="sres-table" class="tablewrap"></div></div>
+      <div class="grid3">
+        <div class="card"><h3>Interior section</h3><div class="chartbox square"><canvas id="chart-sec-int" aria-label="Interior section"></canvas></div></div>
+        <div class="card"><h3>Exterior section</h3><div class="chartbox square"><canvas id="chart-sec-ext" aria-label="Exterior section"></canvas></div></div>
+        <div class="card"><h3>Car-end section</h3><div class="chartbox square"><canvas id="chart-sec-end" aria-label="Car-end section"></canvas></div></div>
+      </div>
+      <p class="hint">Right side as calculated (lean to the right); left side mirrored because the car can lean either way.</p>
+      <div class="card"><h3>Movement build-up per case</h3><div id="sres-buildup" class="tablewrap"></div></div>
+      <div class="card"><div class="row"><h3>Points of the selected case</h3><label>Case <select id="sres-case"></select></label></div><div id="sres-points" class="tablewrap"></div></div>
+      <div class="grid2">
+        <div class="card"><h3>Method A – maximum static half-width</h3>
+          <p class="hint">KE half-width − largest lateral movement of tare and crush at each height (vertical shift ignored).</p>
+          <div class="chartbox tall"><canvas id="chart-methodA" aria-label="Method A half-widths"></canvas></div></div>
+        <div class="card"><h3>Method A table <span class="muted">(mm)</span></h3><div id="sres-methodA" class="tablewrap scrolly"></div></div>
+      </div>
+      <div class="card"><h3>Vertical checks</h3><div id="sres-vertical" class="tablewrap"></div></div>
+    </div>
   </section>
 
   <!-- ======================= DYNAMIC SIMULATION ======================= -->
   <section id="tab-dsim" class="panel" role="tabpanel" aria-labelledby="tabbtn-dsim" hidden>
     <div class="card phase"><h3>Dynamic simulation &mdash; Phase 3</h3>
-      <p>Conditions to be set here (Method &sect;9): chainage range, speed rule (line speed / V<sub>max</sub> / user), load and suspension conditions, sections, combination rule, SOD frame,
-        then <strong>Run dynamic simulation</strong> along the Track Data.</p>
-      <div id="ready-dsim"></div></div>
+      <p>Chainage sweep along the Track Data (local or governing curvature under the car, cant, speed, wind by location): required half-widths outside (car end at speed) and inside
+        (mid-car, train stopped) at the two reference heights against the KE and the SOD curve allowance, structure clearance with lean due to cant, underframe height and platform gap;
+        plus the speed-step study.</p></div>
   </section>
   <section id="tab-dres" class="panel" role="tabpanel" aria-labelledby="tabbtn-dres" hidden>
     <div class="card phase"><h3>Dynamic results &mdash; Phase 3</h3>
-      <p>Minimum clearance against chainage (lateral, vertical, to each SOD item), a chainage selector showing the cross-section at that point (SOD, our KE, static profile) and the list of locations below the required clearance.</p></div>
+      <p>Line summary, charts against chainage, a chainage selector with the cross-section at that point, per-element summary and the speed-step table.</p></div>
   </section>
 
   <!-- ======================= OVERALL SUMMARY ======================= -->
   <section id="tab-summary" class="panel" role="tabpanel" aria-labelledby="tabbtn-summary" hidden>
+    <div class="card"><h3>Static results</h3><div id="summary-static"></div></div>
     <div class="card"><h3>Input readiness</h3>
-      <p class="hint">Errors must be fixed before a simulation can run (Phase 2). Warnings are worth reading.</p>
+      <p class="hint">Errors must be fixed before a simulation can run. Warnings are worth reading.</p>
       <div id="summary-inputs" class="tablewrap"></div></div>
-    <div class="card phase"><h3>Static and dynamic results summary &mdash; Phase 4</h3>
-      <p>Pass / fail per check, minimum clearances with location and governing case, and an Excel / report export.</p></div>
+    <div class="card phase"><h3>Dynamic results summary &mdash; Phase 3 / 4</h3></div>
     <div class="card"><h3>All messages</h3><div class="messages" data-msgs="all"></div></div>
   </section>
 
@@ -197,6 +243,7 @@
 <script src="js/presets.js"></script>
 <script src="js/io.js"></script>
 <script src="js/plot.js"></script>
+<script src="js/engine.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

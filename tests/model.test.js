@@ -22,17 +22,21 @@ test('normalizeProject never mutates its input and drops prototype keys', functi
 });
 
 test('Defaults fill missing fields, numbers from text are converted, unknown select values fall back', function () {
-  var p = M.normalizeProject({ train: { n_cars: '4', bogie_arrangement: 'weird' }, bogies: [{ name: 'X', p_m: '2,5', wi_mm: '' , w_mm: 40 }] });
+  var p = M.normalizeProject({ train: { n_cars: '4', bogie_arrangement: 'weird', carTypes: [{ name: 'A', ni_m: '' }] }, bogies: [{ name: 'X', p_m: '2,5' }],
+    track: { segments: [{ from_m: 0, to_m: 10, element: 'Circular', location: 'PLATFORM', wind: 'n' }] } });
   assert.strictEqual(p.train.n_cars, 4);
   assert.strictEqual(p.train.gauge_mm, 1435);
   assert.strictEqual(p.train.bogie_arrangement, 'non_shared');
   assert.strictEqual(p.bogies[0].p_m, 2.5);
-  assert.strictEqual(p.bogies[0].wi_mm, 40, 'blank wi = w');
+  assert.strictEqual(p.train.carTypes[0].ni_m, null, 'optional blank stays blank (= a/2)');
+  var s = p.track.segments[0];
+  assert.deepStrictEqual([s.element, s.location, s.wind], ['circular', 'platform', 'N'], 'select labels matched case-insensitively');
 });
 
 test('A car body record is created for every car type', function () {
   var raw = copy(sample); raw.bodies = [];
   var p = M.normalizeProject(raw);
+  assert.strictEqual(p.bodies[0].s_tare, 0.3, 'defaults');
   assert.deepStrictEqual(p.bodies.map(function (b) { return b.car; }), ['DMC', 'TC', 'MC']);
 });
 
@@ -45,9 +49,34 @@ test('Formation, counts and bogie references are checked', function () {
   assert.ok(has(v, 'train', 'warn', /Car type MC: count is 2 but it appears 1/));
 });
 
-test('Body length versus a + overhangs is checked', function () {
-  var raw = copy(sample); raw.train.carTypes[1].length_m = 21.0;
-  assert.ok(has(M.validate(M.normalizeProject(raw)), 'train', 'warn', /differs from the body length/));
+test('Pivot distance, section positions and profile references are checked', function () {
+  var raw = copy(sample);
+  raw.train.carTypes[0].n_free_m = 11; raw.train.carTypes[1].na_m = 4; raw.train.carTypes[2].prof_ext = 'Nope';
+  var v = M.validate(M.normalizeProject(raw));
+  assert.ok(has(v, 'train', 'err', /pivot distance a = Lb − n1 − n2 = -0.40 m is not positive/));
+  assert.ok(has(v, 'train', 'warn', /exterior section na \(4 m\) is beyond the car-end overhang/));
+  assert.ok(has(v, 'train', 'err', /RS profile "Nope" is not defined/));
+});
+
+test('Version-1 project files are migrated (renamed fields, track elements)', function () {
+  var v1 = { format: 'rsgauge-project', version: 1, train: { carTypes: [{ name: 'A', length_m: 20, na1_m: 3, na2_m: 2.8, mass_laden_t: 50, cg_laden_mm: 1700 }] },
+    bodies: [{ car: 'A', s_laden: 0.33, hc_mm: 600 }], bogies: [{ name: 'B', sec_rebound_mm: 25 }],
+    track: { params: { gauge_tol_mm: 4, crosslevel_tol_mm: 7 }, segments: [{ from_m: 0, to_m: 100, element: 'C1', R_m: 400, side: 'R', cant_mm: 90, section: 'elevated' }] } };
+  var p = M.normalizeProject(v1), c = p.train.carTypes[0], s = p.track.segments[0];
+  assert.strictEqual(p.version, 2);
+  assert.deepStrictEqual([c.n_free_m, c.mass_crush_t, c.cg_crush_mm], [3, 50, 1700]);
+  assert.deepStrictEqual([p.bodies[0].s_crush, p.bodies[0].hc_tare_mm, p.bodies[0].hc_crush_mm, p.bogies[0].up_sec_mm], [0.33, 600, 600, 25]);
+  assert.deepStrictEqual([p.track.params.g_tol_mm, p.track.params.cl_err_mm], [4, 7]);
+  assert.deepStrictEqual([s.element, s.R_start_m, s.R_end_m, s.cant_start_mm, s.location, s.remarks], ['circular', 400, 400, 90, 'open', 'C1']);
+});
+
+test('Vehicle-type presets replace values but keep names, formation, profiles and track', function () {
+  require('../js/presets.js');
+  var p = M.normalizeProject(sample), q = M.applyVehicleType(p, global.RSGAUGE.presets.vehicleTypes, 'hs');
+  assert.strictEqual(q.train.carTypes[0].length_m, 25); assert.strictEqual(q.bogies[0].p_m, 2.5); assert.strictEqual(q.track.params.cantdef_max_mm, 150);
+  assert.deepStrictEqual(q.train.carTypes.map(function (c) { return c.name + c.prof_ext + c.bogie2; }), p.train.carTypes.map(function (c) { return c.name + c.prof_ext + c.bogie2; }));
+  assert.deepStrictEqual(q.track.segments, p.track.segments); assert.strictEqual(q.train.formation, p.train.formation);
+  assert.throws(function () { M.applyVehicleType(p, global.RSGAUGE.presets.vehicleTypes, 'xx'); }, /Unknown vehicle type/);
 });
 
 test('Profiles: negative Y, too few points and metre-looking values are reported', function () {
@@ -55,25 +84,28 @@ test('Profiles: negative Y, too few points and metre-looking values are reported
   raw.ke.profiles[0].points[3].y = -5;
   raw.rs.profiles[0].points = [{ pt: 'a', y: 0, z: 3.7 }, { pt: 'b', y: 1.4, z: 3.0 }, { pt: 'c', y: 0, z: 1.0 }];
   raw.rs.profiles[1].points = raw.rs.profiles[1].points.slice(0, 2);
+  raw.ke.profiles[1].n_up = 40;
   var v = M.validate(M.normalizeProject(raw));
   assert.ok(has(v, 'ke', 'err', /Y must be ≥ 0/));
   assert.ok(has(v, 'rs', 'warn', /looks like it is in metres/));
   assert.ok(has(v, 'rs', 'err', /at least 3 points/));
+  assert.ok(has(v, 'ke', 'err', /n_up \(40\) is larger than the number of points/));
 });
 
-test('Track: overlap, gap, missing side, reversed chainage, unknown SOD and small radius are reported', function () {
+test('Track: overlap, gap, missing hand, reversed chainage, unknown KE / SOD and small radius are reported', function () {
   var raw = copy(sample), s = raw.track.segments;
-  s[1].from_m = 450;                 // overlap with segment 1 (0-500)
-  s[3].from_m = 1650;                // gap 1600-1650
-  s[4].side = '';                    // curve without side
-  s[5].to_m = 2000;                  // to < from
-  s[6].sod = 'Nope';
-  s[9].R_m = 120;
+  s[1].from_m = 100;                 // overlap with segment 1 (0-135)
+  s[3].from_m = 470;                 // gap 460-470
+  s[4].side = '';                    // curve without hand
+  s[5].to_m = 700;                   // end < start
+  s[6].ke = 'Nope'; s[7].sod = 'Nope';
+  s[10].R_start_m = s[10].R_end_m = 120;
   var v = M.validate(M.normalizeProject(raw));
   assert.ok(has(v, 'track', 'err', /overlaps the previous segment/));
-  assert.ok(has(v, 'track', 'warn', /Gap in the track data between 1600 m and 1650 m/));
-  assert.ok(has(v, 'track', 'err', /curve without a side/));
-  assert.ok(has(v, 'track', 'err', /chainage to must be greater/));
+  assert.ok(has(v, 'track', 'warn', /Gap in the track data between 460 m and 470 m/));
+  assert.ok(has(v, 'track', 'err', /curve without a hand/));
+  assert.ok(has(v, 'track', 'err', /chainage end must be greater/));
+  assert.ok(has(v, 'track', 'err', /KE "Nope" not found/));
   assert.ok(has(v, 'track', 'err', /SOD profile "Nope" not found/));
   assert.ok(has(v, 'track', 'warn', /R = 120 m is below 150 m/));
 });
@@ -90,7 +122,7 @@ test('toMillimetres converts metre coordinates only', function () {
 });
 
 test('Every schema field has a unique key within its list and a label', function () {
-  ['trainFields', 'carType', 'bogie', 'body', 'enParams', 'sodSettings', 'point', 'sodItem', 'rsProfile', 'trackParams', 'segment'].forEach(function (n) {
+  ['trainFields', 'carType', 'bogie', 'body', 'customerLimits', 'enParams', 'sodSettings', 'point', 'sodItem', 'keProfile', 'rsProfile', 'trackParams', 'segment', 'staticOptions'].forEach(function (n) {
     var seen = {};
     S[n].forEach(function (fd) { assert.ok(fd.k && fd.l, n + ': field without key/label'); assert.ok(!seen[fd.k], n + ': duplicate key ' + fd.k); seen[fd.k] = 1; });
   });
