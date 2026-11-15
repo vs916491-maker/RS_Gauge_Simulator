@@ -279,3 +279,4 @@ table.ro td.l { white-space: normal; }
 ul.errlist { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--err-text); font-size: .85rem; }
 #dres-summary td.l, #dres-xs td.l { min-width: 17rem; }
 #dres-summary table, #dres-xs table { width: 100%; }
+.offscreen { position: absolute; left: -12000px; top: 0; width: 1200px; height: 1px; overflow: hidden; }

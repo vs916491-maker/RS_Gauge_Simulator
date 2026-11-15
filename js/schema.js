@@ -251,6 +251,16 @@
   ];
 
   // ---------------------------------------------------------------- Dynamic Simulation tab (options)
+  // Word report (Overall Summary tab); saved in the project file
+  var reportOptions = [
+    f('title', 'Report title', 'text', '', { d: 'Vehicle gauging report' }),
+    f('doc_no', 'Document number', 'text', '', { d: '' }),
+    f('revision', 'Revision', 'text', '', { d: 'A' }),
+    f('prepared', 'Prepared by', 'text', '', { d: '' }),
+    f('checked', 'Checked by', 'text', '', { d: '' }),
+    f('approved', 'Approved by', 'text', '', { d: '' }),
+    f('appendix_points', 'Appendix: every point of the governing static cases', 'sel', '', { o: YN, d: 'yes' })
+  ];
   var dynamicOptions = [
     f('ov_meth', 'Overthrow method', 'sel', '', { o: [['max', 'Max curvature within the car length (conservative)'], ['local', 'Local radius']], d: 'max', h: 'Conservative covers transitions and reverse curves' }),
     f('load', 'Load case for the dynamic calculation', 'sel', '', { o: [['tare', 'Tare (AW0)'], ['crush', 'Crush (AW4)']], d: 'tare', h: 'Tare normally governs (larger wind roll)' }),
@@ -280,7 +290,7 @@
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
     trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
-    staticOptions: staticOptions, dynamicOptions: dynamicOptions,
+    staticOptions: staticOptions, dynamicOptions: dynamicOptions, reportOptions: reportOptions,
     defaults: defaults, byKey: byKey
   };
 }));
