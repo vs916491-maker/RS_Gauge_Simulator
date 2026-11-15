@@ -88,7 +88,7 @@ test('Workbook-style track rows (labels as in the gauging workbook) are imported
 test('Static results workbook has the summary, build-up, points, Method A, EN (when selected), vertical and derived sheets', function () {
   var E = require('../js/engine.js'), res = E.staticRun(P, P.settings['static']);
   var wb = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(res, P, { stale: false }))));
-  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'EN15273_MaxGauge', 'EN15273_Check', 'Vertical_Checks', 'Derived_Values']);
+  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'EN15273_MaxGauge', 'EN15273_Check', 'EN15273_Vertical', 'Vertical_Checks', 'Derived_Values']);
   var pts = XL.utils.sheet_to_json(wb.Sheets.Static_Points, { header: 1 });
   assert.strictEqual(pts.length - 1, res.cars.reduce(function (n, c) { return n + c.cases.reduce(function (m, k) { return m + k.points.length; }, 0); }, 0));
   var ec = XL.utils.sheet_to_json(wb.Sheets.EN15273_Check, { header: 1 });

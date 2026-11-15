@@ -302,7 +302,7 @@
       },
       onAdd: function () { M.syncBodies(state.p); M.fillRefs(state.p); },
       onChange: function (it, k, old) {
-        if (k === 'name') { renameRefs(state.p.bodies, ['car'], old, it.name); }
+        if (k === 'name') { renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
       }
     });
     drawTrain(); calcGeometry();
@@ -355,7 +355,12 @@
     M.syncBodies(state.p);
     grid($('g-bodies'), state.p.bodies, S.body, {
       refs: { car: carNames }, canDelete: false,
-      groups: { car: 'Car type', wind_len_m: 'Wind (equivalent cant method)', uf_h_mm: 'Lower parts', s_tare: 'Flexibility coefficient and roll centre – SPECIFIED (sway test or bogie supplier)' }
+      groups: { car: 'Car type', wind_len_m: 'Wind (equivalent cant method)', uf_h_mm: 'Lower parts', s_tare: 'Flexibility coefficient and roll centre – SPECIFIED (sway test or bogie supplier)', eta0_deg: 'EN 15273-2 (static option)' }
+    });
+    table($('t-lower'), state.p.lowerParts, S.lowerPart, {
+      addLabel: 'Add lower part',
+      refs: { car: function () { return state.p.train.carTypes.map(function (c) { return c.name; }); } },
+      newRow: function () { var t = state.p.lowerParts, last = t[t.length - 1], r = S.defaults(S.lowerPart); r.car = last ? last.car : ((state.p.train.carTypes[0] || {}).name || ''); return r; }
     });
     form($('f-wind'), S.trainWind, state.p.train);
     grid($('g-bogies'), state.p.bogies, S.bogie, {
@@ -583,6 +588,23 @@
     var sec = $('sres-en-sec').value || 'int', ck = en.checks[sec];
     roTable($('sres-en-check'), ['h', 'Profile half-width', 'KE half-width', 'E', 'z_kin', 'Branch', 'Load', 'EN max', 'Margin', 'Status'],
       ck.points.map(function (q) { return { cls: q === ck.min ? 'selrow' : '', cells: [fmt(q.h, 0), fmt(q.x, 1), fmt(q.W, 1), fmt(q.E, 2), fmt(q.z, 2), q.branch, q.load, fmt(q.max, 1), cCell(q.margin), q.ok ? 'OK' : 'EXCEEDS'] }; }));
+    renderSresEnVertical(en.vertical);
+  }
+  function renderSresEnVertical(v) {
+    if (!v) { return; }
+    var ZONE = { A: 'A', B: 'B', C: 'C', D: 'D', bogie: 'Bogie (primary)' }, POS = { between: 'Between', beyond: 'Beyond' }, SEC = { int: 'Interior', ext: 'Exterior', end: 'Car end' };
+    roTable($('sres-en-vinfo'), ['Vertical data', 'Value'], [
+      ['Suspension displacement Aff – body / bogie parts (mm)', fmt(v.Aff, 1) + ' / ' + fmt(v.Aff_bogie, 1)],
+      ['ΔAff / s / ΔUsr', fmt(v.dAff, 1) + ' mm / ' + fmt(v.s, 3) + ' / ' + fmt(v.dUsr, 1) + ' mm'],
+      ['Wheel wear Usr (mm) / air-spring half spacing b2 (mm)', fmt(v.Usr, 1) + ' / ' + fmt(v.b2, 0)],
+      ['Lower parts from', v.src === 'table' ? 'Lower parts table (Car body & Bogie tab)' : 'Car body inputs (no rows for this car type)'],
+      ['Suspension levels (10 mm extension each)', fmt(v.levels, 0)]
+    ]);
+    roTable($('sres-en-lower'), ['Lower part', 'Mounted', 'Position', 'Zone', 'n (m)', 'b', 'Height', 'Suspension', 'Wheel wear', 'Min. height', 'Limit', 'Gradient', 'Margin', 'Status'],
+      v.lower.map(function (q) { return [q.name, q.mount === 'bogie' ? 'Bogie' : 'Body', POS[q.pos], ZONE[q.zone], fmt(q.n, 2), fmt(q.b, 0), fmt(q.h, 0), fmt(q.susp, 1), fmt(q.wear, 1),
+        fmt(q.hmin, 1), fmt(q.lim, 0) + (q.limSrc === 'customer' ? ' (customer)' : ''), fmt(q.grad, 1), cCell(q.margin), q.ok ? 'OK' : 'BELOW MIN']; }));
+    roTable($('sres-en-upper'), ['Section', 'Profile', 'n (m)', 'Profile top', 'Extension', 'Gradient', 'Height', 'KE top', 'Margin', 'Status'],
+      v.upper.map(function (q) { return [SEC[q.section] + (q.below325 ? ' (top below 3 250 mm)' : ''), q.profile, fmt(q.n, 2), fmt(q.top, 0), fmt(q.ext, 0), fmt(q.grad, 1), fmt(q.value, 1), fmt(q.lim, 0), cCell(q.margin), q.ok ? 'OK' : 'INFRINGES']; }));
   }
 
   // ---------------------------------------------------------------- Dynamic Simulation

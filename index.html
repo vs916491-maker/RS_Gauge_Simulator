@@ -90,6 +90,13 @@
       <h3 class="gap">Wind constants</h3><div id="f-wind" class="fields"></div>
     </div>
     <div class="card">
+      <div class="row"><h3>Lower parts – EN 15273-2 A.3.4</h3><span class="muted">Used when the EN check is selected on the Static Simulation tab</span></div>
+      <p class="hint">One row per lower part: obstacle deflector, underframe boxes, life guards, bogie equipment. Height above rail with the car <strong>tare and new wheels</strong>;
+        n from the nearer pivot (body) or axle (bogie). The lower limit is the customer minimum clearance unless entered (e.g. the GIC1 / GIC2 height at the part's half-width b).
+        A car type without rows uses the lower parts of the car body inputs above.</p>
+      <div id="t-lower" class="tablewrap"></div>
+    </div>
+    <div class="card">
       <h3>Calculated car-body values</h3>
       <p class="hint">For the suspension states chosen on the Static Simulation tab. Shared-bogie comparison and axle load at the minimum radius of the Track Data tab.</p>
       <div id="calc-body" class="tablewrap"></div>
@@ -218,6 +225,12 @@
           <option value="int">Interior (between the bogie centres)</option><option value="ext">Exterior (beyond)</option><option value="end">Car end (beyond)</option></select></label></div>
           <p class="hint">At every profile vertex height and every KE vertex height within the profile: margin = KE half-width − E − profile half-width.</p>
           <div id="sres-en-check" class="tablewrap scrolly"></div></div>
+        <div class="card"><h3>EN vertical – heights above the running surface (A.3.4)</h3>
+          <p class="hint">Lower parts: height − Table A.1 displacements of the zone (suspension Aff, ΔAff·n/a, 0,1·s·(b − b<sub>2</sub>), wheel wear Usr, ΔUsr·n/a)
+            ≥ lower limit + gradient increase A.16 / A.17 (R<sub>v</sub> = 500 m). Upper parts: profile top + 10 mm per suspension level + A.18 / A.19 ≤ KE top.</p>
+          <div id="sres-en-vinfo" class="tablewrap"></div>
+          <h4 class="gap">Lower parts – minimum heights (A.3.4.1) <span class="muted">(mm)</span></h4><div id="sres-en-lower" class="tablewrap"></div>
+          <h4 class="gap">Maximum heights (A.3.4.2) <span class="muted">(mm)</span></h4><div id="sres-en-upper" class="tablewrap"></div></div>
       </div>
     </div>
   </section>

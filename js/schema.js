@@ -87,7 +87,12 @@
     f('hc_tare_mm', 'Roll-centre height hc – tare', 'num', 'mm', { min: 0, max: 3000, d: 550 }),
     f('hc_crush_mm', 'Roll-centre height hc – crush', 'num', 'mm', { min: 0, max: 3000, d: 530 }),
     f('hc_defl_mm', 'Roll-centre height hc – deflated', 'num', 'mm', { min: 0, max: 3000, d: 300 }),
-    f('eta0_deg', 'Body dissymmetry η0 (EN 15273-2)', 'num', '°', { min: 0, max: 5, d: 0, h: 'Only the part above the rules value (1°) adds to z_kin' })
+    f('eta0_deg', 'Body dissymmetry η0 (EN 15273-2)', 'num', '°', { min: 0, max: 5, d: 0, h: 'Only the part above the rules value (1°) adds to z_kin' }),
+    f('en_Aff_mm', 'EN A.3.4: suspension displacement Aff', 'num', 'mm', { min: 0, max: 300, opt: true, h: 'Blank = dp + dsd (primary + secondary downward, air springs deflated)' }),
+    f('en_dAff_mm', 'EN A.3.4: difference in suspension displacement ΔAff', 'num', 'mm', { min: 0, max: 100, d: 0, h: 'Between the two bogies / the two rows of springs' }),
+    f('en_s_v', 'EN A.3.4: flexibility s in the zone B / C terms', 'num', '', { min: 0, max: 1, d: 0, h: '0 when Aff is a bottoming (total) displacement' }),
+    f('en_dUsr_mm', 'EN A.3.4: wheel radius difference between bogies ΔUsr', 'num', 'mm', { min: 0, max: 50, d: 0, h: 'Maximum allowed by the maintenance rules' }),
+    f('en_levels', 'EN A.3.4.2: suspension levels (10 mm extension each)', 'int', '', { min: 0, max: 3, d: 2 })
   ];
   var bogie = [
     f('name', 'Bogie type name', 'text', '', { d: 'B' }),
@@ -132,6 +137,19 @@
     f('bb_mm', 'Back-to-back distance of wheels BB', 'num', 'mm', { min: 500, max: 1800, d: 1360 }),
     f('ef_new_mm', 'Flange thickness – new (10 mm below tread)', 'num', 'mm', { min: 10, max: 50, d: 32.5 }),
     f('ef_worn_mm', 'Flange thickness – worn limit', 'num', 'mm', { min: 10, max: 50, d: 26 })
+  ];
+
+  // Lower parts checked by EN 15273-2 A.3.4.1 (one row per part; METHOD §10.7)
+  var lowerPart = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('name', 'Part', 'text', '', { d: '' }),
+    f('mount', 'Mounted on', 'sel', '', { o: [['body', 'Car body'], ['bogie', 'Bogie frame']], d: 'body' }),
+    f('pos', 'Position', 'sel', '', { o: [['between', 'Between the pivots / axles'], ['beyond', 'Beyond the pivots / end axle']], d: 'between' }),
+    f('n_m', 'Distance n from the nearer pivot / axle', 'num', 'm', { min: 0, max: 20, opt: true, h: 'Blank: between = mid (a/2 or p/2); beyond = car-end overhang (body) or 0 (bogie)' }),
+    f('y_mm', 'Half-width b of the part', 'num', 'mm', { min: 0, max: 2500, d: 0 }),
+    f('h_mm', 'Height above rail (tare, new wheels)', 'num', 'mm', { min: 0, max: 1500 }),
+    f('hlim_mm', 'Lower limit at that position', 'num', 'mm', { min: 0, max: 1500, opt: true, h: 'Blank = customer minimum clearance (body / bogie); else e.g. GIC1 / GIC2 height at b' }),
+    f('note', 'Note', 'text', '', { d: '' })
   ];
 
   // ---------------------------------------------------------------- Customer KE & SOD tab
@@ -308,7 +326,7 @@
   return {
     trainDescription: trainDescription, trainConfig: trainConfig, trainLoad: trainLoad, trainWind: trainWind,
     trainFields: trainDescription.concat(trainConfig, trainLoad, trainWind),
-    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc,
+    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,

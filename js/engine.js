@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.1.0';
+  var VERSION = '4.2.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -301,6 +301,8 @@
         methodA: methodA(p, d, cases, ke, profs, opt), vertical: verticalChecks(p, d, cases, ke, profs), profiles: { int: profs.int.name, ext: profs.ext.name, end: profs.end.name } };
       if (yes(opt.en_check)) {
         res.en = enRun(p, d, ke, profs, opt, res.methodA);
+        res.en.vertical = enVertical(p, d, c, ke, profs);
+        if (!res.en.vertical.ok) { res.en.ok = false; }
         if (d.geo.shared1 || d.geo.shared2) { warnings.push(c.name + ': EN 15273-2 formulae applied to an articulated unit by the Figure 1 equivalence (a = distance between the shared pivots).'); }
         if (n0(d.bogie.b1.n_axle, 2) !== 2 || n0(d.bogie.b2.n_axle, 2) !== 2) { warnings.push(c.name + ': EN 15273-2 formulae are written for two-axle bogies (§5.1.2); adapt them to the actual geometry.'); }
       }
@@ -476,6 +478,69 @@
       });
       out.checks[sec] = { profile: pr.name, points: pts, min: min, ok: min ? min.margin >= 0 : true };
       if (min && min.margin < 0) { out.ok = false; }
+    });
+    return out;
+  }
+
+  /*
+   * EN 15273-2:2009 A.3.4 vertical (METHOD §10.7). Lower parts: minimum height of each part of the car type (rows of
+   * p.lowerParts; none → the two lower parts of the car body inputs) with the Table A.1 displacements of its zone and the
+   * A.16 / A.17 gradient increase. Upper parts: profile top + 10 mm per suspension level + A.18 / A.19 against the KE top.
+   * All lengths in m inside, results in mm.
+   */
+  function enGradient(a, p, n, beyond) {                       // A.16 / A.17 (= A.18 / A.19), normal values in m, result ≥ 0
+    var v = beyond ? (a * n + n * n - p * p / 4) / 1000 - 0.08 : (a * n - n * n + p * p / 4) / 1000 - 0.08;
+    return v > 0 ? v : 0;
+  }
+  function enZone(pos, b, b2) { return pos === 'beyond' ? (b > b2 ? 'C' : 'D') : (b > b2 ? 'B' : 'A'); }
+  // Table A.1 (locomotives, coaches, motor coaches): suspension + wheel wear displacement of a body-mounted part (mm)
+  function enTableA1(zone, o) {
+    var r = o.a > 0 ? o.n / o.a : 0, roll = 0.1 * o.s * (o.b - o.b2), susp, wear;
+    if (zone === 'A') { susp = o.Aff; wear = o.Usr; }
+    else if (zone === 'B') { susp = o.Aff + roll; wear = o.Usr; }
+    else if (zone === 'C') { susp = o.Aff + o.dAff * r + roll; wear = o.Usr + o.dUsr * r; }
+    else { susp = o.Aff + o.dAff * r; wear = o.Usr + o.dUsr * r; }
+    return { susp: susp, wear: wear, total: susp + wear };
+  }
+  function enLowerItems(p, c) {
+    var rows = (p.lowerParts || []).filter(function (r) { return r.car === c.name; });
+    if (rows.length) { return { src: 'table', rows: rows }; }
+    var b = findBy(p.bodies || [], 'car', c.name) || {};
+    return { src: 'body', rows: [
+      { name: 'Lowest body-mounted equipment (car body inputs)', mount: 'body', pos: 'between', n_m: null, y_mm: n0(b.uf_hw_mm), h_mm: n0(b.uf_h_mm), hlim_mm: null },
+      { name: 'Lowest bogie-mounted equipment (car body inputs)', mount: 'bogie', pos: 'between', n_m: null, y_mm: 0, h_mm: n0(b.uf_bog_h_mm), hlim_mm: null }
+    ] };
+  }
+  function enVertical(p, d, c, ke, profs) {
+    var g = d.geo, bg = d.bogie, body = d.body || {}, L = p.ke.limits || {}, a = g.a;
+    var pMax = Math.max(n0(bg.b1.p_m), n0(bg.b2.p_m)), pMin = Math.min(n0(bg.b1.p_m), n0(bg.b2.p_m));
+    var b2 = Math.min(n0(bg.b1.b2_mm), n0(bg.b2.b2_mm));
+    var AffBody = blankOr(body.en_Aff_mm, bg.dn_prim + bg.dn_sec_def), AffBog = bg.dn_prim, Usr = bg.dn_wheel;
+    var it = enLowerItems(p, c), out = { src: it.src, Aff: AffBody, Aff_bogie: AffBog, dAff: n0(body.en_dAff_mm), s: n0(body.en_s_v),
+      Usr: Usr, dUsr: n0(body.en_dUsr_mm), b2: b2, levels: n0(body.en_levels, 2), lower: [], upper: [], ok: true };
+    it.rows.forEach(function (r) {
+      var isBog = r.mount === 'bogie', beyond = r.pos === 'beyond', ga, gp, n, row, disp;
+      if (isBog) { ga = pMax; gp = 0; n = blankOr(r.n_m, beyond ? 0 : pMax / 2); }
+      else { ga = a; gp = beyond ? pMin : pMax; n = blankOr(r.n_m, beyond ? g.n_end : a / 2); }
+      var b = n0(r.y_mm), zone = isBog ? 'bogie' : enZone(r.pos, b, b2);
+      if (isBog) { disp = { susp: AffBog, wear: Usr, total: AffBog + Usr }; }
+      else { disp = enTableA1(zone, { Aff: AffBody, dAff: out.dAff, s: out.s, b: b, b2: b2, Usr: Usr, dUsr: out.dUsr, n: n, a: a }); }
+      var grad = enGradient(ga, gp, n, beyond) * 1000;
+      var lim = blankOr(r.hlim_mm, n0(isBog ? L.uf_min_bog_mm : L.uf_min_body_mm));
+      var hmin = n0(r.h_mm) - disp.total;
+      row = { name: r.name, mount: r.mount, pos: r.pos, zone: zone, n: n, b: b, h: n0(r.h_mm), susp: disp.susp, wear: disp.wear, disp: disp.total,
+        hmin: hmin, grad: grad, lim: lim, limSrc: (r.hlim_mm === null || r.hlim_mm === undefined || r.hlim_mm === '') ? 'customer' : 'input',
+        req: lim + grad, margin: hmin - lim - grad };
+      row.ok = row.margin >= 0; if (!row.ok) { out.ok = false; }
+      out.lower.push(row);
+    });
+    var N = { int: g.ni, ext: g.na, end: g.n_end }, ext = 10 * out.levels;
+    ['int', 'ext', 'end'].forEach(function (sec) {
+      var beyond = sec !== 'int', n = N[sec], grad = enGradient(a, beyond ? pMin : pMax, n, beyond) * 1000, top = profs[sec].top * 1000;
+      var v = top + ext + grad, row = { section: sec, profile: profs[sec].name, n: n, top: top, ext: ext, grad: grad, value: v, lim: ke.top * 1000,
+        margin: ke.top * 1000 - v, below325: top < 3250 };
+      row.ok = row.margin >= 0; if (!row.ok) { out.ok = false; }
+      out.upper.push(row);
     });
     return out;
   }
@@ -947,6 +1012,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));

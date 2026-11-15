@@ -198,7 +198,13 @@
       "s_defl": 0.12,
       "hc_tare_mm": 550,
       "hc_crush_mm": 530,
-      "hc_defl_mm": 300
+      "hc_defl_mm": 300,
+      "eta0_deg": 0,
+      "en_Aff_mm": null,
+      "en_dAff_mm": 6,
+      "en_s_v": 0,
+      "en_dUsr_mm": 2,
+      "en_levels": 2
     },
     {
       "car": "TC",
@@ -231,6 +237,41 @@
       "hc_tare_mm": 550,
       "hc_crush_mm": 530,
       "hc_defl_mm": 300
+    }
+  ],
+  "lowerParts": [
+    {
+      "car": "DMC",
+      "name": "Obstacle deflector",
+      "mount": "body",
+      "pos": "beyond",
+      "n_m": null,
+      "y_mm": 700,
+      "h_mm": 240,
+      "hlim_mm": null,
+      "note": "Fictional"
+    },
+    {
+      "car": "DMC",
+      "name": "Underframe equipment box",
+      "mount": "body",
+      "pos": "between",
+      "n_m": 5,
+      "y_mm": 1300,
+      "h_mm": 330,
+      "hlim_mm": null,
+      "note": "Fictional"
+    },
+    {
+      "car": "DMC",
+      "name": "Bogie life guard",
+      "mount": "bogie",
+      "pos": "beyond",
+      "n_m": 0.3,
+      "y_mm": 750,
+      "h_mm": 140,
+      "hlim_mm": 80,
+      "note": "Fictional; limit from the customer lower profile at b"
     }
   ],
   "ke": {

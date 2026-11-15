@@ -370,7 +370,8 @@ polygon edges (not the horizontal / vertical split of §6.4).
 4. Closed-form checks: tangent with no movement gives clearance = gap to the KE; yaw factor; wind constant;
    theoretical s from the closed form; axle load by statics.
 5. **EN 15273-2** (`tests/en15273.test.js`): reductions and z_kin against the standard's formulae A.24, A.27–A.31
-   and A.46–A.50 typed in literally, 40 000 random vehicles, both branches; a hand check.
+   and A.46–A.50 typed in literally, 40 000 random vehicles, both branches; a hand check. Heights of A.3.4
+   (`tests/en15273-vertical.test.js`): Table A.1 zones and A.16–A.19 typed in literally, hand checks of the sample.
 6. Inputs are never mutated; results are deterministic.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
@@ -468,15 +469,58 @@ for `Rv` below 250 m. Not defined for motor coaches.
 `tests/en15273.test.js` and `tests/en15273-mc.test.js` compare the engine with the standard's formulae typed in literally
 (w constant and varying, motor coaches, variable stops).
 
-### 10.7 Results
+### 10.7 Heights above the running surface (A.3.4)
+
+Checked for every car type when the EN option is selected; part of the EN verdict.
+
+**Lower parts (A.3.4.1).** One row per part on the Car body & Bogie tab (*Lower parts – EN 15273-2 A.3.4*): car type,
+mounting (car body / bogie frame), position (between / beyond the pivots, or the axles for a bogie part), distance `n`
+from the nearer pivot or axle (blank: between = mid, `a/2` or `p/2`; beyond = car-end overhang `n_end` for a body part,
+0 for a bogie part), half-width `b`, height `h` above the rail with the car tare and new wheels, and the lower limit
+`h_lim` at that position (blank = customer minimum clearance, body or bogie; the GIC1 / GIC2 heights of Figures A.5 /
+A.6 at the part's half-width can be entered here). A car type without rows uses the two lower parts of the car body
+inputs (§7.2: body part at `yu` between the pivots at `a/2`, bogie part between the axles).
+
+* Body zones (Figure A.7): between the pivots A (`b ≤ b2`) or B (`b > b2`); beyond them D (`b ≤ b2`) or C (`b > b2`);
+  `b2` = half spacing of the air springs, smaller of the two bogies.
+* Table A.1, locomotives / coaches / motor coaches (no side-bearer clearance, body sag 0), `r = n/a`:
+
+| Zone | Suspension | Wheel wear |
+|---|---|---|
+| A | `Aff` | `Usr` |
+| B | `Aff + 0,1·s·(b − b2)` | `Usr` |
+| C | `Aff + ΔAff·r + 0,1·s·(b − b2)` | `Usr + ΔUsr·r` |
+| D | `Aff + ΔAff·r` | `Usr + ΔUsr·r` |
+
+  `Aff` (car body input; blank = `dp + dsd`, primary + secondary downward travel with the air springs deflated, the
+  total deflection of A.3.4.1.3), `ΔAff`, `s` (zone B / C term; 0 when `Aff` is a bottoming displacement, NOTE of Table
+  A.1) and `ΔUsr` are car body inputs (default 0). `Usr` = wheel radial wear `Δw` of §5.3 (limited by the height
+  correction step `Δr`, as the rest of the tool).
+* Bogie-mounted parts: primary suspension `dp` + `Usr` (the zone terms apply to the body).
+* Gradient transitions (A.3.4.1.6, all vehicles, `Rv ≥ 500 m`), normal values in m, the height required is increased by
+  `[(a·n − n² + p²/4)/1000 − 0,08]>0` between the pivots (A.16) and `[(a·n + n² − p²/4)/1000 − 0,08]>0` beyond them
+  (A.17); `p` = larger wheelbase between, smaller beyond (conservative). For a bogie part `a` is replaced by `p` and the
+  `p²/4` term is 0 (A.3.4.1.5).
+* Check: `h − suspension − wheel wear ≥ h_lim + gradient`; margin = left − right.
+
+**Upper parts (A.3.4.2).** Per section (interior `n = ni` between, exterior `na` and car end `n_end` beyond): profile top
+(empty, no wear: the RS profile as given) `+ 10 mm × suspension levels` (car body input, default 2) `+` A.18 / A.19 (same
+expressions as A.16 / A.17) `≤` KE top. The vertical quasi-static component is not added (A.3.4.2.2). The standard
+applies this to parts from 3,25 m; a lower profile top is flagged.
+
+Not applied: the hump-shunting terms `dg` of A.3.4.1.5.1 (gravity-shunted vehicles), the wagon terms of Table A.1
+(side-bearer clearance `J·b/bG`, body sag `Flc`), contact ramps (A.3.5), ferries (A.3.7). The GIC1 / GIC2 outlines are
+not encoded: enter the limit at the part's position.
+
+### 10.8 Results
 
 * Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
   Method A for comparison.
 * Check of the RS profiles: at every profile vertex height and every KE vertex height within the profile height range,
   margin = `W_KE(h) − E(h) − x_prof(h)` (KE half-width at `max(h, bottom of the upper envelope)`, as §6). The car type
   passes when every margin ≥ 0; when the option is selected, the EN result is part of the car's verdict.
-* Not covered yet: the lower-part reference profiles GIC1/GIC2 and vertical reductions of A.3.4 (the vertical checks of
-  §7 apply), bogie parts (A.3.11), the static gauge method (A.2), pantograph gauge (A.3.12), doors and steps open
+* Heights (§10.7): one row per lower part and per section, in the EN verdict.
+* Not covered yet: the GIC1/GIC2 outlines as data (limits are entered), bogie parts (A.3.11), the static gauge method (A.2), pantograph gauge (A.3.12), doors and steps open
   (A.3.14), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
   and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.
