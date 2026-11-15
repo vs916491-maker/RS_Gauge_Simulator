@@ -45,6 +45,7 @@
   <button type="button" role="tab" id="tabbtn-sres" aria-controls="tab-sres" aria-selected="false" tabindex="-1">Static Results</button>
   <button type="button" role="tab" id="tabbtn-dsim" aria-controls="tab-dsim" aria-selected="false" tabindex="-1">Dynamic Simulation</button>
   <button type="button" role="tab" id="tabbtn-dres" aria-controls="tab-dres" aria-selected="false" tabindex="-1">Dynamic Results</button>
+  <button type="button" role="tab" id="tabbtn-endyn" aria-controls="tab-endyn" aria-selected="false" tabindex="-1">EN Dynamic Method</button>
   <button type="button" role="tab" id="tabbtn-tests" aria-controls="tab-tests" aria-selected="false" tabindex="-1">Tests</button>
   <button type="button" role="tab" id="tabbtn-summary" aria-controls="tab-summary" aria-selected="false" tabindex="-1">Overall Summary</button>
   <button type="button" role="tab" id="tabbtn-calc" aria-controls="tab-calc" aria-selected="false" tabindex="-1">Calculation Method</button>
@@ -365,6 +366,43 @@
   </section>
 
   <!-- ======================= TESTS ======================= -->
+  <!-- ======================= EN DYNAMIC METHOD ======================= -->
+  <section id="tab-endyn" class="panel" role="tabpanel" aria-labelledby="tabbtn-endyn" hidden>
+    <div class="toolbar" data-io="endyn"></div>
+    <div class="messages" data-msgs="endyn" aria-live="polite"></div>
+    <div class="card">
+      <h3>EN 15273-2 dynamic method <span class="muted">(§5.2, Annex O – movements from a validated multibody simulation)</span></h3>
+      <p class="hint">The vehicle movements come from a multibody simulation run outside this tool (Annex O.3): per speed and cant-excess case, the mean and standard deviation of the
+        transverse, vertical and roll movements at the leading, centre and trailing datum points, and the quasi-static curving displacements per radius. The tool turns them into
+        displacements (mean + 3/√2·σ, O.11–O.18), derives the cant-deficiency cases (O.4–O.9), moves the body sections as a rigid body and checks the swept envelope against the reference
+        profile on tangent track and against the SOD along the line (with the dynamic simulation). It also checks the model validation of Annex O.2.</p>
+      <div class="grid2">
+        <div><h4>Settings</h4><div id="f-sim" class="fields"></div></div>
+        <div><h4>Import an Annex O.6 spreadsheet</h4>
+          <p class="hint">First sheet in the O.6 layout (counts in A2–D2, speeds in m/s from A4, cants from B4, radii from C4, then the transient and curving matrices). Vehicle 1, 2, … are the
+            car types in the order of the Train Configuration; the condition name and units are the settings on the left. Existing rows of that car type and condition are replaced.</p>
+          <p class="tools"><label class="btn" for="file-o6">Import O.6 file…</label><input type="file" id="file-o6" accept=".xlsx,.xls,.csv" hidden>
+            <button type="button" id="btn-export-sim" class="ghost">Export EN dynamic results (Excel)</button></p>
+          <div id="o6-msg" class="messages"></div></div>
+      </div>
+    </div>
+    <div class="card"><h3>Datum points and quasi-static drop per car type</h3><div id="t-sim-cars" class="tablewrap"></div></div>
+    <div class="card"><h3>Transient results <span class="muted">(O.3.8)</span></h3><div id="t-sim-tr" class="tablewrap scrolly"></div></div>
+    <div class="card"><h3>Curving results <span class="muted">(O.3.9)</span></h3><div id="t-sim-cv" class="tablewrap scrolly"></div></div>
+    <div class="card"><h3>Swept envelope on tangent track <span class="muted">(against the reference profile, mm)</span></h3>
+      <div id="sim-empty" class="hint">Enter or import transient results to see the swept-envelope check.</div>
+      <div id="sim-tangent" class="tablewrap"></div>
+      <h4 class="gap">Displacements per case <span class="muted">(car type <select id="sim-car"></select>, mm and mrad)</span></h4>
+      <div id="sim-disp" class="tablewrap scrolly"></div>
+      <p class="hint">Along the line: run the dynamic simulation; the clearance of the swept envelope to the SOD appears on the Dynamic Results tab.</p></div>
+    <div class="card"><h3>Model validation <span class="muted">(Annex O.2, Tables O.1–O.3)</span></h3>
+      <div id="sim-val" class="tablewrap"></div>
+      <h4 class="gap">Weighbridge test (O.2.4)</h4><div id="t-val-w" class="tablewrap scrolly"></div>
+      <h4 class="gap">Bogie rotation test (O.2.5)</h4><div id="t-val-r" class="tablewrap"></div>
+      <h4 class="gap">Sway test (O.2.6)</h4><div id="t-val-s" class="tablewrap scrolly"></div>
+      <h4 class="gap">Dynamic ride test (O.2.7) and notified body</h4><div id="t-val-ride" class="tablewrap"></div></div>
+  </section>
+
   <section id="tab-tests" class="panel" role="tabpanel" aria-labelledby="tabbtn-tests" hidden>
     <div class="toolbar" data-io="tests"></div>
     <div class="messages" data-msgs="tests" aria-live="polite"></div>
