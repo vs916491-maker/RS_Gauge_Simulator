@@ -380,6 +380,8 @@ polygon edges (not the horizontal / vertical split of §6.4).
 6. Inputs are never mutated; results are deterministic.
 7. **Third-rail CCD** (`tests/ccd.test.js`): movements, reach, overlap, envelope and clearance by hand for bottom, top and
    side contact; static situations and the line sweep on the sample.
+8. **EN dynamic method** (`tests/en-dynamic.test.js`): O.4–O.18 by hand, rigid-body interpolation, curving, case choice, O.6
+   import, validation limits of Tables O.1–O.3 and the status of Figure O.1.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
 
@@ -679,7 +681,7 @@ DE2 roll term literally.
 * Static gauge (§10.9): per car type, when selected.
 * Doors and steps (§10.10): one row per element and governing height; step position per platform side.
 * Pantographs (§10.11): worst Po and Pu per pantograph, lowered position.
-* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), the reference-profile outlines of the other gauges (entered as KE profiles), the gauges of Annexes D, F–K, M, N and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
+* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), the reference-profile outlines of the other gauges (entered as KE profiles), the gauges of Annexes D, F–K, M, N (the dynamic method of §5.2 / Annex O is §15); tilting vehicles (A.3.16)
   and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.
 
@@ -825,3 +827,74 @@ chainage is reported.
 
 Not covered: shoe dynamics (bounce, contact force), gap bridging and ramps, the shoe fuse and arcing distances other
 than the clearance points given, articulated or steered bogies.
+
+## 15. EN 15273-2 dynamic method (EN Dynamic Method tab)
+
+EN 15273-2:2009 §5.2 with the recommended practice of Annex O (informative). The vehicle movements come from a
+validated multibody simulation run outside this tool; the tool post-processes them, checks the swept envelope and checks
+the model validation. It does not simulate.
+
+### 15.1 Inputs
+
+* **Datum points per car type**: the outer datums at `±x_d` from the body centre (blank = `a/2`, over the bogie
+  centres), the centre datum at 0, the datum height `h_d` (roll is applied about it), and the quasi-static drop terms
+  `f_z`, `f_cr`, `f_w`, `f_tol` (O.3.8.4): `f_max = f_z + f_cr + f_w + f_tol` (O.10).
+* **Transient results** (O.3.8): per car type, condition (tare, crush, deflated, …), speed `v` and cant-excess case `I`,
+  and datum (lead, centre, trail): mean (absolute) and standard deviation of the transverse displacement `TH_y`, the
+  vertical displacement `TH_z` (mm) and the roll angle `TH_θ` (mrad). A missing centre datum is the average of the outer
+  ones (O.1–O.3).
+* **Curving results** (O.3.9): per car type, condition and radius `R`: quasi-static displacement towards the outside and
+  the inside at the leading and trailing datums, without the geometric overthrow.
+* **Annex O.6 spreadsheet import**: counts in A2 (speeds), B2 (cants), C2 (radii), D2 (vehicles); speeds in m/s from
+  A4 (converted to km/h), cants from B4, radii from C4; transient blocks of 3 rows (lead, centre, trail) per speed × cant
+  case from row `N = max(counts) + 5`, 6 columns per vehicle from column C (transverse mean, σ, vertical mean, σ, roll
+  mean, σ); curving rows from row `N + N_v·N_c·3 + 2`, radius in column A and 4 columns per vehicle from B (outside
+  lead, outside trail, inside lead, inside trail). Vehicle `k` is the `k`-th car type of the Train Configuration. Units
+  and the condition name are settings.
+
+### 15.2 Displacements (O.4–O.18)
+
+With `k_σ = 3/√2` (setting):
+
+* cant-deficiency case `D = c` from the analysed excess case `I = c` (O.4–O.9): `TH_y`, `TH_θ` and all `σ` unchanged,
+  `TH_z(D) = 2·TH_z(0) − TH_z(I)` with `TH_z(0)` the zero-cant case at the same speed (if missing, `TH_z(I)` is used and
+  flagged);
+* transverse `Dpl = TH_y + k_σ·σ_y` (O.11, O.12); downwards `Δh_d = TH_z + k_σ·σ_z + f_max` (O.13, O.14); upwards
+  `Δh_u = TH_z + k_σ·σ_z` (O.15, O.16); roll `θ = TH_θ + k_σ·σ_θ` (O.17, O.18).
+
+### 15.3 Swept envelope (rigid body)
+
+A body section at longitudinal position `x` (interior `a/2 − ni`, exterior `a/2 + na`, car end `a/2 + n_end`; each at
+`+x`, leading, and `−x`, trailing) is moved as a rigid body: `Dpl`, `Δh_d`, `Δh_u` and `θ` are interpolated linearly
+along the body from the three datums (lead at `+x_d`, centre 0, trail at `−x_d`) and extrapolated beyond them. A profile
+point `(y, h)` on the side the vehicle leans to moves to
+
+* `y' = y + Dpl(x) + Y_curve(R, x) + O(x) + (h − h_d)·θ(x)`,
+* `h' = h − y·θ(x) − Δh_d(x)` and `h' = h − y·θ(x) + Δh_u(x)` (both are checked),
+
+with the geometric offset of the body centreline `O(x) = (x² − a²/4 − p²/4)/(2R)` (outwards positive; inwards at mid-car,
+outwards beyond the pivots) and `Y_curve` from the curving results, linear in `1/R` between the analysed radii (0 on
+straight track, the smallest radius's value below it, flagged), the centre being the average of lead and trail.
+
+* **Tangent check**: every condition and case, every section at `±x`, `R = ∞`, leaning outwards; margin = signed distance
+  to the whole reference profile (right half mirrored; setting, blank = the KE of the static check).
+* **Along the line** (with the dynamic simulation, option): at each chainage with an SOD, the outside (right in the curve
+  frame) uses the deficiency case with the smallest analysed speed `≥ V` and cant `≥` the deficiency at line speed, the
+  inside the excess case with the smallest speed and cant `≥` the applied cant (stopped train); beyond the analysed cases
+  the largest is used and the point is flagged. `R` and the overthrow use the governing curvature of §8. The swept points
+  are checked against the SOD outline widened by the curve allowance and rotated as in §8.7, with the same required
+  clearance; the result is part of the dynamic verdict.
+
+### 15.4 Model validation (O.2)
+
+Per car type and condition: weighbridge (O.2.4) — percentage errors of the wheel, wheelset and side loads, maximum and
+average against Table O.1 (15/7, 6/3, 3/3 %); bogie rotation (O.2.5) — maximum X factor, 15/7 % (Table O.2); sway test
+(O.2.6) — absolute error of the four-part averages per output, maximum against 4 / 4 mrad, 10 / 10 mm, and the average
+hysteresis-loop error (entered) against 2 / 2 mrad, 15 / 10 mm (Table O.3; primary roll, secondary roll, solebar sway,
+solebar drop); dynamic ride test (O.2.7) — matched or not, judged by a competent person. Status (Figure O.1):
+weighbridge and sway matched → *statically validated* (quasi-static use only); in addition bogie rotation and ride test
+matched → *fully validated*; statically validated with notified-body acceptance → *partially validated*; otherwise
+*not validated*. Percentage errors use the measured value as the base.
+
+Not covered: the multibody simulation itself, the comparator-vehicle method (Table O.5), pantograph swept envelopes,
+and PSD comparison of the ride test (entered as a judgement). `tests/en-dynamic.test.js`.

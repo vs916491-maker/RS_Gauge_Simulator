@@ -34,7 +34,7 @@ with sync_playwright() as pw:
     ok(page.locator('#train-drawing svg rect.car-body').count() == 6, 'train drawing has 6 cars')
     ok('14.8' in page.locator('#calc-geometry').text_content(), 'calculated pivot distance shown')
 
-    tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'calc', 'method']
+    tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'endyn', 'tests', 'summary', 'calc', 'method']
     for i, t in enumerate(tabs):
         page.click('#tabbtn-' + t)
         page.wait_for_timeout(300)
@@ -48,6 +48,11 @@ with sync_playwright() as pw:
     page.click('#tabbtn-rs'); page.wait_for_timeout(300)
     ok(page.locator('#t-doors tbody tr').count() == 3, 'EN doors / steps table shows the 3 sample rows')
     page.click('#tabbtn-bogie'); page.wait_for_timeout(200)
+    page.click('#tabbtn-endyn'); page.wait_for_timeout(400)
+    ok(page.locator('#t-sim-tr tbody tr').count() == 36 and page.locator('#t-sim-cv tbody tr').count() == 5, 'EN dynamic method: 36 transient and 5 curving rows of the sample')
+    ok(page.locator('#sim-tangent tbody tr').count() == 1 and 'OK' in page.locator('#sim-tangent').text_content(), 'EN dynamic method: tangent swept-envelope check of DMC')
+    ok('Fully validated' in page.locator('#sim-val').text_content(), 'EN dynamic method: model status Fully validated (Figure O.1)')
+    page.screenshot(path=os.path.join(out, '14-endyn.png'), full_page=True)
     page.click('#tabbtn-ke'); page.wait_for_timeout(300)
     page.locator('details:has(#f-en) > summary').click(); page.wait_for_timeout(200)
     page.locator('#f-en select').first.select_option('GA'); page.wait_for_timeout(400)
@@ -132,6 +137,7 @@ with sync_playwright() as pw:
     ok(all(page.evaluate("!!Chart.getChart('%s')" % c) for c in ['chart-d-curv', 'chart-d-speed', 'chart-d-hw', 'chart-d-excess', 'chart-d-struct', 'chart-d-uf', 'chart-d-xs', 'chart-d-ss']), 'all 8 dynamic charts drawn')
     ok(page.locator('#dres-elements tbody tr').count() == 20, 'one row per track element')
     ok(page.locator('#dres-ss tbody tr').count() == 13, '13 speed steps')
+    ok('EN dynamic: swept envelope to SOD' in page.locator('#dres-cards').text_content(), 'EN dynamic method: swept envelope to the SOD along the line in the dynamic results')
     ok(page.locator('#dres-ccd').is_visible() and page.evaluate("!!Chart.getChart('chart-d-ccd')") and page.locator('#dres-ccd-table tbody tr').count() == 20, 'third-rail CCD along the line: summary, chart and 20 smallest margins')
     page.locator('#dres-ccd').screenshot(path=os.path.join(out, '23b-dres-ccd.png'))
     page.screenshot(path=os.path.join(out, '23-dres.png'), full_page=True)

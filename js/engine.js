@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.8.0';
+  var VERSION = '4.9.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -962,6 +962,224 @@
     return { rows: out, ok: ok, n: out.length, ke: low('ke'), reach: low('reach'), overlap: low('overlap'), clear: low('clear'), check_n: out.filter(function (r) { return !r.ok; }).length };
   }
 
+  // ================================================================ EN DYNAMIC METHOD (METHOD §15, EN 15273-2 §5.2 / Annex O)
+  // Displacements at one datum (O.11–O.18), mm and rad: mean + k·σ; downwards adds f_max (O.10).
+  function simDisp(t, kS, fmax) {
+    return { dpl: t.y_mean + kS * t.y_sd, hd: t.z_mean + kS * t.z_sd + fmax, hu: t.z_mean + kS * t.z_sd, th: (t.th_mean + kS * t.th_sd) / 1000 };
+  }
+  // Cases of one car and condition: analysed cant-excess cases and the deficiency cases derived from them (O.4–O.9);
+  // centre datum from the outer datums (O.1–O.3) when it is not given.
+  function simCases(rows) {
+    var by = {}, out = [];
+    rows.forEach(function (r) { var k = r.v_kmh + '|' + r.cant_mm; (by[k] = by[k] || { v: n0(r.v_kmh), c: n0(r.cant_mm), d: {} }).d[r.datum] = r; });
+    var keys = ['y_mean', 'y_sd', 'z_mean', 'z_sd', 'th_mean', 'th_sd'];
+    function num(r) { var o = {}; keys.forEach(function (k) { o[k] = n0(r[k]); }); return o; }
+    Object.keys(by).forEach(function (k) {
+      var g = by[k], d = {};
+      ['lead', 'centre', 'trail'].forEach(function (dn) { if (g.d[dn]) { d[dn] = num(g.d[dn]); } });
+      if (!d.centre && d.lead && d.trail) { d.centre = {}; keys.forEach(function (x) { d.centre[x] = (d.lead[x] + d.trail[x]) / 2; }); d.centreDerived = true; }
+      if (!d.lead && d.centre) { d.lead = d.centre; } if (!d.trail && d.centre) { d.trail = d.centre; }
+      if (!d.centre) { return; }
+      out.push({ v: g.v, c: g.c, kind: 'exc', d: d });
+    });
+    var exc = out.slice();
+    exc.forEach(function (e) {                                   // O.4–O.9
+      var z0 = exc.filter(function (x) { return x.v === e.v && x.c === 0; })[0], d = {};
+      ['lead', 'centre', 'trail'].forEach(function (dn) {
+        var t = e.d[dn], o = {}; keys.forEach(function (x) { o[x] = t[x]; });
+        o.z_mean = z0 ? 2 * z0.d[dn].z_mean - t.z_mean : t.z_mean;
+        if (o.z_mean < 0) { o.z_mean = Math.abs(o.z_mean); }
+        d[dn] = o;
+      });
+      out.push({ v: e.v, c: e.c, kind: 'def', d: d, noZ0: !z0 });
+    });
+    return out;
+  }
+  // Whole reference outline (right half mirrored), mm, for points on both sides of the centre line.
+  function keFullPoly(ke) {
+    var r = ke.pts.map(function (q) { return { x: q.x * 1000, y: q.h * 1000 }; }), l = r.slice().reverse().map(function (q) { return { x: -q.x, y: q.y }; });
+    return r.concat(l);
+  }
+  // Car context: datum positions, f_max, sections, curving table per condition.
+  function simContext(p, d, sOpt) {
+    var sim = p.sim || {}, c = d.carRec, g = d.geo, row = (sim.cars || []).filter(function (r) { return r.car === c.name; })[0] || {};
+    var st = sim.settings || {}, kS = blankOr(st.k_sigma, 3 / Math.SQRT2);
+    var xd = blankOr(row.xd_m, g.a / 2), hd = blankOr(row.hd_mm, 1000) / 1000, fmax = n0(row.fz_mm) + n0(row.fcr_mm) + n0(row.fw_mm) + n0(row.ftol_mm);
+    var conds = {};
+    (sim.transient || []).filter(function (r) { return r.car === c.name; }).forEach(function (r) { (conds[r.cond || 'tare'] = conds[r.cond || 'tare'] || { tr: [], cv: [] }).tr.push(r); });
+    (sim.curving || []).filter(function (r) { return r.car === c.name; }).forEach(function (r) { if (conds[r.cond || 'tare']) { conds[r.cond || 'tare'].cv.push(r); } });
+    var list = Object.keys(conds).map(function (k) {
+      var cv = conds[k].cv.slice().sort(function (u, v) { return n0(u.R_m) - n0(v.R_m); });
+      return { cond: k, cases: simCases(conds[k].tr), curving: cv };
+    }).filter(function (x) { return x.cases.length; });
+    var profs = { int: profileFor(p, c.prof_int), ext: profileFor(p, c.prof_ext), end: profileFor(p, c.prof_end) };
+    var secs = [{ key: 'int', x: Math.max(0, g.a / 2 - g.ni), prof: profs.int }, { key: 'ext', x: g.a / 2 + g.na, prof: profs.ext }, { key: 'end', x: g.a / 2 + g.n_end, prof: profs.end }];
+    return { car: c.name, a: g.a, p: d.bogie.p, xd: xd, hd: hd, fmax: fmax, kS: kS, conds: list, secs: secs };
+  }
+  // Value at body position x (m) from the three datums (lead at +xd, centre 0, trail at −xd), linear, extrapolated.
+  function simAlong(vl, vc, vt, x, xd) { var t = xd > 0 ? Math.abs(x) / xd : 0; return vc + ((x >= 0 ? vl : vt) - vc) * t; }
+  // Quasi-static curving displacement (O.3.9, mm) towards the outside / inside at x, linear in 1/R between the radii
+  // analysed, 0 on straight track; below the smallest radius the value there is used and flagged.
+  function simCurve(cv, R, x, xd) {
+    if (!cv.length || !(R > 0)) { return { o: 0, i: 0, below: false }; }
+    var k = 1 / R, pts = cv.map(function (r) { return { k: 1 / n0(r.R_m), r: r }; }).sort(function (u, v) { return u.k - v.k; });
+    function val(r, key) { return simAlong(n0(r[key + '_lead']), (n0(r[key + '_lead']) + n0(r[key + '_trail'])) / 2, n0(r[key + '_trail']), x, xd); }
+    function at(key) {
+      if (k >= pts[pts.length - 1].k) { return val(pts[pts.length - 1].r, key); }
+      var lo = { k: 0, v: 0 }, i;
+      for (i = 0; i < pts.length; i++) {
+        var hi = { k: pts[i].k, v: val(pts[i].r, key) };
+        if (k <= hi.k) { return lo.v + (hi.v - lo.v) * (k - lo.k) / (hi.k - lo.k); }
+        lo = hi;
+      }
+      return lo.v;
+    }
+    return { o: at('yo'), i: at('yi'), below: k > pts[pts.length - 1].k + 1e-12 };
+  }
+  // Swept points of one section (curve frame, m): right = outside with case co, left = inside with case ci.
+  // kg: governing curvature (1/m) for the geometric overthrow; both vertical extremes (drop, rise) are returned.
+  function simSection(ctx, sec, x, co, ci, kg, cv) {
+    var pts = [], R = kg > 0 ? 1 / kg : 0, off = kg * (x * x - ctx.a * ctx.a / 4 - ctx.p * ctx.p / 4) / 2;   // outward offset of the body centreline
+    var cu = simCurve(cv, R, x, ctx.xd);
+    function disp(cs) {
+      var dl = cs.d.lead, dc = cs.d.centre, dt = cs.d.trail, L = simDisp(dl, ctx.kS, ctx.fmax), C = simDisp(dc, ctx.kS, ctx.fmax), T = simDisp(dt, ctx.kS, ctx.fmax);
+      return { dpl: simAlong(L.dpl, C.dpl, T.dpl, x, ctx.xd) / 1000, hd: simAlong(L.hd, C.hd, T.hd, x, ctx.xd) / 1000, hu: simAlong(L.hu, C.hu, T.hu, x, ctx.xd) / 1000, th: simAlong(L.th, C.th, T.th, x, ctx.xd) };
+    }
+    var Do = co ? disp(co) : null, Di = ci ? disp(ci) : null;
+    sec.prof.pts.forEach(function (q) {
+      if (Do) {
+        var yo = q.x + Do.dpl + cu.o / 1000 + off + (q.h - ctx.hd) * Do.th, zo = q.h - q.x * Do.th;
+        pts.push({ pt: q.pt, side: 'outside', x: yo, y: zo - Do.hd, sec: sec.key }, { pt: q.pt, side: 'outside', x: yo, y: zo + Do.hu, sec: sec.key });
+      }
+      if (Di) {
+        var yi = q.x + Di.dpl + cu.i / 1000 - off + (q.h - ctx.hd) * Di.th, zi = q.h - q.x * Di.th;
+        pts.push({ pt: q.pt, side: 'inside', x: -yi, y: zi - Di.hd, sec: sec.key }, { pt: q.pt, side: 'inside', x: -yi, y: zi + Di.hu, sec: sec.key });
+      }
+    });
+    return { pts: pts, below: cu.below };
+  }
+  // Tangent check (METHOD §15.3): every case, every section at ±x, outward lean, against the reference profile.
+  function simTangent(p, sOpt) {
+    var tr = (p.sim || {}).settings || {}, refP = (tr.ref && findBy(p.ke.profiles, 'name', tr.ref)) || findBy(p.ke.profiles, 'name', sOpt.ke) || p.ke.profiles[0];
+    if (!refP) { return null; }
+    var ref = outline(refP.points, refP.n_up), poly = keFullPoly(ref), out = { ref: refP.name, cars: [], ok: true };
+    p.train.carTypes.forEach(function (c) {
+      var d = deriveCar(p, c, sOpt), ctx = simContext(p, d, sOpt); if (!ctx.conds.length) { return; }
+      var res = { car: c.name, xd: ctx.xd, hd: ctx.hd * 1000, fmax: ctx.fmax, kS: ctx.kS, conds: [], worst: null, n: 0 };
+      ctx.conds.forEach(function (cd) {
+        cd.cases.forEach(function (cs) {
+          ctx.secs.forEach(function (sec) {
+            [sec.x, -sec.x].forEach(function (x) {
+              simSection(ctx, sec, x, cs, null, 0, []).pts.forEach(function (q) {
+                var mg = polySigned(q.x * 1000, q.y * 1000, poly);
+                res.n++;
+                if (!res.worst || mg < res.worst.margin) { res.worst = { margin: mg, cond: cd.cond, v: cs.v, c: cs.c, kind: cs.kind, sec: sec.key, x: x, pt: q.pt, y: q.x * 1000, z: q.y * 1000 }; }
+              });
+            });
+          });
+        });
+        res.conds.push({ cond: cd.cond, n: cd.cases.length, derivedNoZ0: cd.cases.some(function (x) { return x.noZ0; }), curving: cd.curving.length,
+          disp: cd.cases.map(function (cs) { var C = simDisp(cs.d.centre, ctx.kS, ctx.fmax), L = simDisp(cs.d.lead, ctx.kS, ctx.fmax); return { v: cs.v, c: cs.c, kind: cs.kind, dplC: C.dpl, dplL: L.dpl, hdC: C.hd, huC: C.hu, thC: C.th * 1000, thL: L.th * 1000 }; }) });
+      });
+      res.ok = !res.worst || res.worst.margin >= 0; if (!res.ok) { out.ok = false; }
+      out.cars.push(res);
+    });
+    return out.cars.length ? out : null;
+  }
+  // Case for a line point: the smallest analysed speed ≥ V and cant ≥ the actual one (else the largest; flagged).
+  function simPick(cases, kind, V, c) {
+    var list = cases.filter(function (x) { return x.kind === kind; }), vs = [], cs = [];
+    list.forEach(function (x) { if (vs.indexOf(x.v) < 0) { vs.push(x.v); } if (cs.indexOf(x.c) < 0) { cs.push(x.c); } });
+    vs.sort(function (a, b) { return a - b; }); cs.sort(function (a, b) { return a - b; });
+    if (!vs.length) { return null; }
+    var v = vs.filter(function (x) { return x >= V - 1e-9; })[0], cc = cs.filter(function (x) { return x >= c - 1e-9; })[0], beyond = false;
+    if (v === undefined) { v = vs[vs.length - 1]; beyond = true; } if (cc === undefined) { cc = cs[cs.length - 1]; beyond = true; }
+    var hit = list.filter(function (x) { return x.v === v && x.c === cc; })[0];
+    if (!hit) { hit = list.filter(function (x) { return x.v >= v && x.c >= cc; }).sort(function (a, b) { return (a.v - b.v) || (a.c - b.c); })[0] || list[list.length - 1]; beyond = true; }
+    return { cs: hit, beyond: beyond };
+  }
+  // Along the line (METHOD §15.4): adds simc / sims / simn / simf to each sweep row of car d.
+  function simLine(p, d, rows, sOpt, sc, k) {
+    var st = (p.sim || {}).settings || {};
+    if (st.line === 'no') { return null; }
+    var ctx = simContext(p, d, sOpt); if (!ctx.conds.length) { return null; }
+    var n = 0;
+    rows.forEach(function (r) {
+      r.simc = null; r.sims = ''; r.simn = ''; r.simf = false;
+      var half = r.sodn ? sc.sods[r.sodn] : null; if (!half || !r.valid) { return; }
+      var phi = Math.asin(Math.max(-1, Math.min(1, r.cant / k.G))), cs = Math.cos(phi), sn = Math.sin(phi), poly = sodPolygon(half, r.To / 1000, r.Ti / 1000), best = null;
+      ctx.conds.forEach(function (cd) {
+        var po = simPick(cd.cases, 'def', r.V, r.def), pi = simPick(cd.cases, 'exc', 0, r.exc);
+        ctx.secs.forEach(function (sec) {
+          [sec.x, -sec.x].forEach(function (x) {
+            var sw = simSection(ctx, sec, x, po ? po.cs : null, pi ? pi.cs : null, r.kg, cd.curving);
+            sw.pts.forEach(function (q) {
+              var o = sc.vertical ? { x: q.x * cs - q.y * sn, y: q.x * sn + q.y * cs } : { x: q.x, y: q.y };
+              var mg = polySigned(o.x, o.y, poly) * 1000;
+              if (!best || mg < best.m) { best = { m: mg, q: q, cond: cd.cond, po: po, pi: pi, below: sw.below }; }
+            });
+          });
+        });
+      });
+      if (!best) { return; }
+      n++;
+      var cs0 = best.q.side === 'outside' ? best.po : best.pi;
+      r.simc = best.m; r.simf = !!(cs0 && cs0.beyond) || best.below;
+      r.simn = best.cond + ', ' + best.q.pt + ' ' + best.q.sec + ' (' + best.q.side + ')' + (cs0 ? ', case ' + cs0.cs.v + ' km/h ' + (cs0.cs.kind === 'def' ? 'D ' : 'I ') + cs0.cs.c + ' mm' : '');
+      r.sims = best.m >= sc.margin ? 'OK' : 'CHECK';
+      if (r.sims === 'CHECK') { r.ok = 'CHECK'; }
+    });
+    return { n: n };
+  }
+  // Model validation (METHOD §15.5, Annex O.2, Tables O.1–O.3), per car type and condition.
+  var VAL_LIM = { wheel: [15, 7], wheelset: [6, 3], side: [3, 3], X: [15, 7], roll1: [4, 2], roll2: [4, 2], sway: [10, 15], drop: [10, 10] };
+  function simValidation(p) {
+    var sim = p.sim || {}, keys = {}, out = [];
+    function key(r) { return r.car + '|' + (r.cond || 'tare'); }
+    ['weigh', 'rot', 'sway', 'ride'].forEach(function (t) { (sim[t] || []).forEach(function (r) { keys[key(r)] = { car: r.car, cond: r.cond || 'tare' }; }); });
+    function pct(m, s) { return m === 0 ? null : Math.abs(s - m) / Math.abs(m) * 100; }
+    function stat(errs, lim) { var e = errs.filter(function (x) { return x !== null; }); if (!e.length) { return null; } var mx = Math.max.apply(null, e), av = e.reduce(function (a, b) { return a + b; }, 0) / e.length; return { max: mx, avg: av, lmax: lim[0], lavg: lim[1], n: e.length, ok: mx <= lim[0] + 1e-9 && av <= lim[1] + 1e-9 }; }
+    Object.keys(keys).forEach(function (kk) {
+      var id = keys[kk], res = { car: id.car, cond: id.cond };
+      var w = (sim.weigh || []).filter(function (r) { return key(r) === kk; });
+      if (w.length) {
+        var ax = {}, sd = {};
+        w.forEach(function (r) { var a = ax[r.axle] = ax[r.axle] || { m: 0, s: 0 }, b = sd[r.side] = sd[r.side] || { m: 0, s: 0 }; a.m += n0(r.meas_kN); a.s += n0(r.sim_kN); b.m += n0(r.meas_kN); b.s += n0(r.sim_kN); });
+        res.weigh = { wheel: stat(w.map(function (r) { return pct(n0(r.meas_kN), n0(r.sim_kN)); }), VAL_LIM.wheel),
+          wheelset: stat(Object.keys(ax).map(function (a) { return pct(ax[a].m, ax[a].s); }), VAL_LIM.wheelset),
+          side: stat(Object.keys(sd).map(function (a) { return pct(sd[a].m, sd[a].s); }), VAL_LIM.side) };
+        res.weigh.ok = res.weigh.wheel.ok && res.weigh.wheelset.ok && res.weigh.side.ok;
+      }
+      var ro = (sim.rot || []).filter(function (r) { return key(r) === kk; });
+      if (ro.length) { res.rot = stat(ro.map(function (r) { return pct(n0(r.meas_X), n0(r.sim_X)); }), VAL_LIM.X); }
+      var sw = (sim.sway || []).filter(function (r) { return key(r) === kk; });
+      if (sw.length) {
+        res.sway = {}; var allOk = true;
+        ['roll1', 'roll2', 'sway', 'drop'].forEach(function (q) {
+          var rs = sw.filter(function (r) { return r.qty === q; }); if (!rs.length) { return; }
+          var mx = Math.max.apply(null, rs.map(function (r) { return Math.abs(n0(r.sim) - n0(r.meas)); })), lp = rs.filter(function (r) { return r.loop_err !== null && r.loop_err !== undefined && r.loop_err !== ''; });
+          var av = lp.length ? lp.reduce(function (a, r) { return a + n0(r.loop_err); }, 0) / lp.length : null, lim = VAL_LIM[q];
+          var o = { max: mx, loop: av, lmax: lim[0], lavg: lim[1], n: rs.length, ok: mx <= lim[0] + 1e-9 && av !== null && av <= lim[1] + 1e-9 };
+          if (!o.ok) { allOk = false; }
+          res.sway[q] = o;
+        });
+        res.sway.ok = allOk && Object.keys(res.sway).length > 0;
+      }
+      var rd = (sim.ride || []).filter(function (r) { return key(r) === kk; })[0];
+      res.ride = rd ? yes(rd.ride_ok) : false; res.nobo = rd ? yes(rd.nobo) : false;
+      var stc = !!(res.weigh && res.weigh.ok && res.sway && res.sway.ok), full = stc && !!(res.rot && res.rot.ok) && res.ride;
+      res.status = full ? 'Fully validated' : (stc ? (res.nobo ? 'Partially validated (notified body)' : 'Statically validated – quasi-static use only') : 'Not validated – further work');
+      res.level = full ? 3 : (stc ? (res.nobo ? 2 : 1) : 0);
+      out.push(res);
+    });
+    return out;
+  }
+  function simRun(p, sOpt) {
+    var sim = p.sim || {};
+    if (!((sim.transient || []).length || (sim.weigh || []).length || (sim.sway || []).length || (sim.rot || []).length)) { return null; }
+    return { engineVersion: VERSION, tangent: simTangent(p, sOpt || {}), validation: simValidation(p) };
+  }
+
   // ================================================================ TEST CALCULATIONS (METHOD §13)
   // Least-squares fit of y = a·(D·h) + b·D over readings [{D, h, y}] (mm): s = a·L, hc = −b/a.
   function swayFit(pts, L) {
@@ -1287,7 +1505,7 @@
     var def = ext('def', gt), xo = ext('xo', gt), xi = ext('xi', gt), sc = ext('sc', lt), uf = ext('uf', lt), gm = ext('gm', lt), gn = ext('gn', gt);
     var sodN = valid.filter(function (r) { return r.sod === 'CHECK'; }), chkN = valid.filter(function (r) { return r.ok === 'CHECK'; });
     var firstSod = rows.filter(function (r) { return r.sod === 'CHECK'; })[0];
-    var sodc = ext('sodc', lt), itm = ext('itm', lt);
+    var sodc = ext('sodc', lt), itm = ext('itm', lt), simc = ext('simc', lt);
     return {
       length: sw.end - sw.ch0, points: valid.length, step: sw.step,
       def: def, def_lim: n0(tp.cantdef_max_mm), def_ok: def ? def.v <= n0(tp.cantdef_max_mm) : true,
@@ -1297,6 +1515,8 @@
       sodc: sodc, sodc_req: n0((p.sod || {}).margin_mm, 50), sodo_n: valid.filter(function (r) { return r.sods === 'CHECK'; }).length,
       sodo_pts: valid.filter(function (r) { return r.sodc !== null && r.sodc !== undefined; }).length,
       itm: itm, it_n: valid.filter(function (r) { return r.its === 'CHECK'; }).length, it_pts: valid.filter(function (r) { return r.itm !== null && r.itm !== undefined; }).length,
+      simc: simc, sim_n: valid.filter(function (r) { return r.sims === 'CHECK'; }).length, sim_pts: valid.filter(function (r) { return r.simc !== null && r.simc !== undefined; }).length,
+      sim_flags: valid.filter(function (r) { return r.simf; }).length,
       check_n: chkN.length, ok: chkN.length === 0
     };
   }
@@ -1340,7 +1560,8 @@
         sodCheck(r, k, d.geo, sc);
         return r;
       });
-      return { car: c.name, count: c.count, derived: d, consts: { s: k.s, hc: k.hc, Cw: k.Cw, dT_in: k.dT_in, dT_out: k.dT_out, thr: k.thr, tht: k.tht,
+      var simL = simLine(p, d, rows, sOpt, sc, k);
+      return { car: c.name, count: c.count, derived: d, sim: simL, consts: { s: k.s, hc: k.hc, Cw: k.Cw, dT_in: k.dT_in, dT_out: k.dT_out, thr: k.thr, tht: k.tht,
           rnd_in1: k.rnd_in1, rnd_in2: k.rnd_in2, rout1: k.rout1, rout2: k.rout2, rfl: k.rfl, pw1: k.pw1, pw2: k.pw2, profile: k.profile.name, win: win,
           sod_C: k.sod_C, sod_L: k.sod_L, sod_b: k.sod_b },
         rows: rows, summary: lineSummary(p, rows, sw), elements: elementSummary(tm, rows), speedStep: speedStep(p, d, k, kes, sOpt, dOpt), _k: k };
@@ -1352,7 +1573,9 @@
         out.forEach(function (o) { var v = o.rows[i][key]; if (v === null || v === undefined) { return; } if (r[key] === undefined || r[key] === null || better(v, r[key])) { r[key] = v; r[key + '_car'] = o.car; } });
       }
       ['xo', 'xi', 'o2', 'i2', 'gn'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a > b; }); });
-      ['sc', 'uf', 'gm', 'sodc', 'itm'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a < b; }); });
+      ['sc', 'uf', 'gm', 'sodc', 'itm', 'simc'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a < b; }); });
+      out.forEach(function (o) { var x = o.rows[i]; if (x.car === r.simc_car) { r.simn = x.simn; r.simf = x.simf; } });
+      r.sims = out.some(function (o) { return o.rows[i].sims === 'CHECK'; }) ? 'CHECK' : (r.simc === null ? '' : 'OK');
       out.forEach(function (o) { var x = o.rows[i]; if (x.car === r.sodc_car) { r.sodp = x.sodp; } if (x.car === r.itm_car) { r.itn = x.itn; r.itc = x.itc; } });
       r.sods = out.some(function (o) { return o.rows[i].sods === 'CHECK'; }) ? 'CHECK' : (r.sodc === null ? '' : 'OK');
       r.its = out.some(function (o) { return o.rows[i].its === 'CHECK'; }) ? 'CHECK' : (r.itm === null ? '' : 'OK');
@@ -1363,7 +1586,7 @@
     var ccd = (p.ccds || []).length && out[0] ? ccdLine(p, sOpt, out[0].rows, sc, kes) : null;
     var summary = lineSummary(p, env, sw);
     if (ccd) { summary.ccd = { ke: ccd.ke, reach: ccd.reach, overlap: ccd.overlap, clear: ccd.clear, n: ccd.n, check_n: ccd.check_n }; if (!ccd.ok) { summary.ok = false; } }
-    ['def', 'xo', 'xi', 'sc', 'uf', 'gm', 'gn', 'sodc', 'itm'].forEach(function (key) {
+    ['def', 'xo', 'xi', 'sc', 'uf', 'gm', 'gn', 'sodc', 'itm', 'simc'].forEach(function (key) {
       if (summary[key]) { var row = env.filter(function (r) { return r.ch === summary[key].ch; })[0]; summary[key].car = row ? row[key + '_car'] : null; }
     });
     return { engineVersion: VERSION, sweep: { ch0: sw.ch0, end: sw.end, step: sw.step, n: sw.pts.length }, ke: kes.__default.name,
@@ -1431,6 +1654,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, simDisp: simDisp, simCases: simCases, simSection: simSection, simContext: simContext, simAlong: simAlong, simCurve: simCurve, simPick: simPick, simTangent: simTangent, simValidation: simValidation, simRun: simRun, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));
