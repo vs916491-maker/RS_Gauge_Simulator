@@ -343,6 +343,15 @@
         add('EN15273_BogieParts', bs, 10);
       }
     }
+    if (res.enStatic) {
+      var sc = [['Car type', 'Section', 'Profile', 'Reference', 's / s_max', 'n (m)', 'Δ (m²)', 'x (mm)', 'E (mm)', 'h (mm)', 'Profile half-width (mm)', 'Reference half-width (mm)', 'Static max (mm)', 'Margin (mm)', 'Status']];
+      res.cars.forEach(function (c) { var q = c.enStatic; if (!q) { return; } ['int', 'ext', 'end'].forEach(function (k) { var ck = q.checks[k], sx = q.sections[k];
+        ck.points.forEach(function (x) { sc.push([c.car, k, ck.profile, q.ref, r2(q.s, 3) + ' / ' + r2(q.smax, 2), r2(sx.n, 3), r2(sx.delta, 3), r2(sx.x, 2), r2(sx.E, 2), r2(x.h, 0), r2(x.x), r2(x.W), r2(x.max), r2(x.margin, 2), x.ok && q.sOk ? 'OK' : (q.sOk ? 'EXCEEDS' : 'S > S_MAX')]); });
+        sc.push([c.car, k, ck.profile, q.ref, '', '', '', '', '', 'top', r2(ck.top, 0), r2(ck.refTop, 0), '', r2(ck.refTop - ck.top, 1), ck.topOk ? 'OK' : 'EXCEEDS']); });
+        q.lower.forEach(function (x) { sc.push([c.car, 'lower part (A.2.3.2)', x.name, x.mount, '', '', '', '', r2(x.disp, 1), r2(x.h, 0), '', r2(x.lim, 0), r2(x.hmin, 1), r2(x.margin, 1), x.ok ? 'OK' : 'BELOW MIN']); });
+      });
+      add('EN15273_Static', sc, 10);
+    }
     var vc = [['Car type', 'Check', 'Value (mm)', 'Limit (mm)', 'Margin (mm)', 'Status']];
     res.cars.forEach(function (c) { c.vertical.forEach(function (v) { vc.push([c.car, v.label, r2(v.value, 2), v.info ? '' : r2(v.limit, 1), v.info ? '' : r2(v.margin, 2), v.info ? '' : (v.ok ? 'OK' : 'BELOW MIN / INFRINGES')]); }); });
     add('Vertical_Checks', vc, 10);
