@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rolling Stock Gauge Simulator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1><span class="owner">VKS</span>-Rolling Stock Gauge Simulator</h1>
+    <p class="sub">Static profile from the customer KE, KE check and route clearance &middot; works offline</p>
+  </div>
+  <div class="project">
+    <label class="projname">Project
+      <input type="text" id="project-name" maxlength="120" placeholder="Project / bid name" autocomplete="off">
+      <span id="dirty" class="dirty" hidden title="Unsaved changes">&#9679; unsaved</span>
+    </label>
+    <div class="top-actions">
+      <button type="button" id="btn-save" title="Save all inputs and settings to one JSON file on your computer">Save project</button>
+      <label class="btn ghost" for="file-project" title="Open a project file saved earlier">Load project&hellip;</label>
+      <input type="file" id="file-project" accept=".json,application/json" hidden>
+      <button type="button" id="btn-export-all" class="ghost" title="All inputs of every tab in one Excel workbook (re-importable)">Export all inputs (Excel)</button>
+      <label class="btn ghost" for="file-import-all" title="Import every known sheet of an inputs workbook">Import all inputs&hellip;</label>
+      <input type="file" id="file-import-all" accept=".xlsx,.xls" hidden>
+      <button type="button" id="btn-example" class="ghost" title="Replace the data with the built-in fictional 6-car metro, envelopes and line">Load fictional example</button>
+      <button type="button" id="btn-new" class="ghost" title="Start an empty project">New</button>
+    </div>
+  </div>
+</header>
+<details class="notes"><summary>Project notes</summary>
+  <textarea id="project-notes" rows="3" placeholder="Free notes saved inside the project file (data sources, customer document references, assumptions)"></textarea>
+</details>
+
+<div id="data-banner" class="banner" role="status"></div>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button type="button" role="tab" id="tabbtn-train" aria-controls="tab-train" aria-selected="true">Train Configuration</button>
+  <button type="button" role="tab" id="tabbtn-bogie" aria-controls="tab-bogie" aria-selected="false" tabindex="-1">Car body &amp; Bogie</button>
+  <button type="button" role="tab" id="tabbtn-ke" aria-controls="tab-ke" aria-selected="false" tabindex="-1">Customer KE &amp; SOD</button>
+  <button type="button" role="tab" id="tabbtn-rs" aria-controls="tab-rs" aria-selected="false" tabindex="-1">RS Profile</button>
+  <button type="button" role="tab" id="tabbtn-track" aria-controls="tab-track" aria-selected="false" tabindex="-1">Track Data</button>
+  <button type="button" role="tab" id="tabbtn-ssim" aria-controls="tab-ssim" aria-selected="false" tabindex="-1">Static Simulation</button>
+  <button type="button" role="tab" id="tabbtn-sres" aria-controls="tab-sres" aria-selected="false" tabindex="-1">Static Results</button>
+  <button type="button" role="tab" id="tabbtn-dsim" aria-controls="tab-dsim" aria-selected="false" tabindex="-1">Dynamic Simulation</button>
+  <button type="button" role="tab" id="tabbtn-dres" aria-controls="tab-dres" aria-selected="false" tabindex="-1">Dynamic Results</button>
+  <button type="button" role="tab" id="tabbtn-summary" aria-controls="tab-summary" aria-selected="false" tabindex="-1">Overall Summary</button>
+  <button type="button" role="tab" id="tabbtn-method" aria-controls="tab-method" aria-selected="false" tabindex="-1">Method &amp; Assumptions</button>
+</nav>
+
+<main>
+  <!-- ======================= TRAIN CONFIGURATION ======================= -->
+  <section id="tab-train" class="panel" role="tabpanel" aria-labelledby="tabbtn-train">
+    <div class="toolbar" data-io="train"></div>
+    <div class="messages" data-msgs="train" aria-live="polite"></div>
+    <div class="grid2">
+      <div class="card"><h3>Train description</h3><div id="f-train-desc" class="fields"></div></div>
+      <div class="card"><h3>Configurable parameters</h3><div id="f-train-config" class="fields"></div>
+        <h3 class="gap">Load details</h3><div id="f-train-load" class="fields"></div></div>
+    </div>
+    <div class="card">
+      <h3>Train configuration drawing</h3>
+      <p class="hint">Drawn from the formation and the car types below (bogie positions from the overhangs). Shared bogies sit on the car joints.</p>
+      <div id="train-drawing" class="drawing tablewrap"></div>
+    </div>
+    <div class="card">
+      <div class="row"><h3>Car types</h3><span class="muted">One column per car type</span></div>
+      <p class="hint">Body length = bogie centre distance <em>a</em> + both overhangs. Bogie types are defined on the <strong>Car body &amp; Bogie</strong> tab.</p>
+      <div id="g-cartypes" class="tablewrap"></div>
+    </div>
+  </section>
+
+  <!-- ======================= CAR BODY & BOGIE ======================= -->
+  <section id="tab-bogie" class="panel" role="tabpanel" aria-labelledby="tabbtn-bogie" hidden>
+    <div class="toolbar" data-io="bogie"></div>
+    <div class="messages" data-msgs="bogie" aria-live="polite"></div>
+    <div class="card">
+      <div class="row"><h3>Bogie inputs</h3><span class="muted">One column per bogie type</span></div>
+      <p class="hint">Lateral plays are <strong>each side</strong>. <em>w</em> is the secondary lateral displacement up to the hard stop (free play + bump stop deflection).
+        Vertical values are positive in the direction stated (deflection downwards, rebound and over-inflation upwards).</p>
+      <div id="g-bogies" class="tablewrap"></div>
+    </div>
+    <div class="card">
+      <div class="row"><h3>Car body inputs</h3><span class="muted">One column per car type (follows the Train Configuration tab)</span></div>
+      <p class="hint">Flexibility coefficient <em>s</em> and roll centre height <em>h<sub>c</sub></em> from the suspension calculation or the static sway test.
+        Random allowances (tolerances, dynamic oscillation) are combined by RSS or linearly, chosen in the simulation tabs.</p>
+      <div id="g-bodies" class="tablewrap"></div>
+    </div>
+  </section>
+
+  <!-- ======================= CUSTOMER KE & SOD ======================= -->
+  <section id="tab-ke" class="panel" role="tabpanel" aria-labelledby="tabbtn-ke" hidden>
+    <div class="toolbar" data-io="ke"></div>
+    <div class="messages" data-msgs="ke" aria-live="polite"></div>
+    <div class="grid2">
+      <div>
+        <div class="card"><h3>Customer kinematic envelope (KE)</h3>
+          <p class="hint">Right half (Y &ge; 0) in mm, from the top centre round the outside down to rail level. Several KEs can be kept (ballasted, ballastless, tunnel&hellip;).
+            Paste Y/Z columns straight from Excel into the table.</p>
+          <div id="ps-ke"></div></div>
+        <div class="card"><h3>Structure gauge / SOD</h3>
+          <p class="hint">Same layout. Used by the dynamic simulation; each track segment picks its SOD.</p>
+          <div id="ps-sod"></div></div>
+      </div>
+      <div>
+        <div class="card"><div class="row"><h3>Preview</h3><div id="pv-ke-sel" class="inline wrap"></div></div>
+          <div class="chartbox square"><canvas id="chart-ke" aria-label="Customer KE, SOD and RS profiles"></canvas></div></div>
+        <div class="card"><h3>SOD point items</h3>
+          <p class="hint">Third rail, platform edge, walkway, signal equipment &hellip; with the required clearance to our KE.</p>
+          <div id="t-sod-items" class="tablewrap"></div>
+          <h3 class="gap">SOD settings</h3><div id="f-sod" class="fields"></div></div>
+        <div class="card"><h3>EN 15273-2 reference parameters</h3>
+          <p class="hint">Only for the EN 15273-2 method: allowances already included in the reference profile by its associated rules. Check against the customer's rules.</p>
+          <div id="f-en" class="fields"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= RS PROFILE ======================= -->
+  <section id="tab-rs" class="panel" role="tabpanel" aria-labelledby="tabbtn-rs" hidden>
+    <div class="toolbar" data-io="rs"></div>
+    <div class="messages" data-msgs="rs" aria-live="polite"></div>
+    <div class="grid2">
+      <div class="card"><h3>Rolling stock static profiles</h3>
+        <p class="hint">Car body outline, underframe equipment, bogie frame, axle-mounted items. The <strong>mounting level</strong> decides which movements apply:
+          body = all, bogie = primary only, axle = unsprung (see Method &sect;4.9).</p>
+        <div id="ps-rs"></div></div>
+      <div class="card"><div class="row"><h3>Preview against the customer KE</h3><div id="pv-rs-sel" class="inline wrap"></div></div>
+        <div class="chartbox square"><canvas id="chart-rs" aria-label="RS profiles and customer KE"></canvas></div>
+        <p class="hint">The static profile normally sits well inside the KE: the gap is what the movements use up. The check itself is the Static Simulation.</p></div>
+    </div>
+  </section>
+
+  <!-- ======================= TRACK DATA ======================= -->
+  <section id="tab-track" class="panel" role="tabpanel" aria-labelledby="tabbtn-track" hidden>
+    <div class="toolbar" data-io="track"></div>
+    <div class="messages" data-msgs="track" aria-live="polite"></div>
+    <div class="card"><h3>Track parameters (whole line)</h3><div id="f-track" class="fields"></div></div>
+    <div class="card"><div class="row"><h3>Track alignment</h3><span id="track-stats" class="muted"></span></div>
+      <p class="hint">One row per element in increasing chainage. R = 0 for tangent, Rv &gt; 0 crest / &lt; 0 sag / 0 none. Transition curves: enter as short constant steps.
+        Paste rows from Excel into the table.</p>
+      <div id="t-track" class="tablewrap"></div></div>
+    <div class="card"><h3>Alignment against chainage</h3>
+      <div class="chartbox"><canvas id="chart-track" aria-label="Curvature, cant and speed against chainage"></canvas></div></div>
+  </section>
+
+  <!-- ======================= STATIC SIMULATION ======================= -->
+  <section id="tab-ssim" class="panel" role="tabpanel" aria-labelledby="tabbtn-ssim" hidden>
+    <div class="card phase"><h3>Static simulation &mdash; Phase 2</h3>
+      <p>Conditions to be set here (Method &sect;8): method (Metro SOD-style / EN 15273-2), customer KE, track condition (tangent or a design curve with cant and cant deficiency / excess),
+        load conditions (tare / laden), suspension conditions (inflated / deflated), sections (car end, bogie centre, mid-car, user <em>x</em>), combination rule (RSS / linear) and safety margin,
+        then <strong>Run static simulation</strong>.</p>
+      <div id="ready-ssim"></div></div>
+  </section>
+  <section id="tab-sres" class="panel" role="tabpanel" aria-labelledby="tabbtn-sres" hidden>
+    <div class="card phase"><h3>Static results &mdash; Phase 2</h3>
+      <p>Our KE against the customer KE, the maximum static profile against the RS profile, clearance at every point, governing case and the term-by-term displacement build-up, with graphs.</p></div>
+  </section>
+
+  <!-- ======================= DYNAMIC SIMULATION ======================= -->
+  <section id="tab-dsim" class="panel" role="tabpanel" aria-labelledby="tabbtn-dsim" hidden>
+    <div class="card phase"><h3>Dynamic simulation &mdash; Phase 3</h3>
+      <p>Conditions to be set here (Method &sect;9): chainage range, speed rule (line speed / V<sub>max</sub> / user), load and suspension conditions, sections, combination rule, SOD frame,
+        then <strong>Run dynamic simulation</strong> along the Track Data.</p>
+      <div id="ready-dsim"></div></div>
+  </section>
+  <section id="tab-dres" class="panel" role="tabpanel" aria-labelledby="tabbtn-dres" hidden>
+    <div class="card phase"><h3>Dynamic results &mdash; Phase 3</h3>
+      <p>Minimum clearance against chainage (lateral, vertical, to each SOD item), a chainage selector showing the cross-section at that point (SOD, our KE, static profile) and the list of locations below the required clearance.</p></div>
+  </section>
+
+  <!-- ======================= OVERALL SUMMARY ======================= -->
+  <section id="tab-summary" class="panel" role="tabpanel" aria-labelledby="tabbtn-summary" hidden>
+    <div class="card"><h3>Input readiness</h3>
+      <p class="hint">Errors must be fixed before a simulation can run (Phase 2). Warnings are worth reading.</p>
+      <div id="summary-inputs" class="tablewrap"></div></div>
+    <div class="card phase"><h3>Static and dynamic results summary &mdash; Phase 4</h3>
+      <p>Pass / fail per check, minimum clearances with location and governing case, and an Excel / report export.</p></div>
+    <div class="card"><h3>All messages</h3><div class="messages" data-msgs="all"></div></div>
+  </section>
+
+  <!-- ======================= METHOD ======================= -->
+  <section id="tab-method" class="panel" role="tabpanel" aria-labelledby="tabbtn-method" hidden>
+    <div class="toolbar"><button type="button" id="method-dl" class="ghost">Download METHOD.md</button></div>
+    <div class="methodlayout"><nav id="method-toc" class="toc" aria-label="Method contents"></nav><article id="method-body" class="method"></article></div>
+  </section>
+</main>
+<footer>Runs in the browser from local files only. Bundled example data is fictional.</footer>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/chart.umd.js"></script>
+<script src="js/schema.js"></script>
+<script src="js/model.js"></script>
+<script src="js/markdown.js"></script>
+<script src="js/method.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/io.js"></script>
+<script src="js/plot.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
