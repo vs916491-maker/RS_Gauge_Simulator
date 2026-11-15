@@ -59,6 +59,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 15 | Third-rail current collector (CCD) checks | Done |
 | 16 | EN 15273-2: rules of gauges GA, GB, GC, GB1, GB2, G2, DE1–DE3 | Done |
 | 17 | EN 15273-2: dynamic method (§5.2, Annex O) – new EN Dynamic Method tab | Done |
+| 18 | Applicable-rules framework (Customer KE / EN / EBO / BOStrab), BOStrab §34 limits | Done |
+| 19 | EBO Anlage 9 and BOStrab-Lichtraum-Richtlinien | When the documents are available |
 
 ## For developers
 

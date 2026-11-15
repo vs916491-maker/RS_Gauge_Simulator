@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.9.0';
+  var VERSION = '5.0.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -311,7 +311,8 @@
         if (n0(d.bogie.b1.n_axle, 2) !== 2 || n0(d.bogie.b2.n_axle, 2) !== 2) { warnings.push(c.name + ': EN 15273-2 formulae are written for two-axle bogies (§5.1.2); adapt them to the actual geometry.'); }
       }
       if (yes(opt.en_static)) { res.enStatic = enStaticRun(p, d, c, stRef, profs, opt); }
-      res.ok = cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok);
+      if (yes(opt.bst_check)) { res.bostrab = bostrabCheck(p, d, profs, opt); }
+      res.ok = cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok) && (!res.bostrab || res.bostrab.ok);
       if (worst && (!gov || worst.min.c < gov.c)) { gov = { car: c.name, id: worst.id, label: worst.label, c: worst.min.c, pt: worst.min.pt }; }
       return res;
     });
@@ -325,6 +326,9 @@
       list.forEach(function (c) { if (!c.enStatic) { return; } ['int', 'ext', 'end'].forEach(function (sec) { var m = c.enStatic.checks[sec].min; if (m && (!g || m.margin < g.margin)) { g = { car: c.car, section: sec, margin: m.margin, h: m.h }; } }); });
       return g;
     }
+    var fw = p.train.framework;
+    if (fw === 'ebo') { warnings.push('Framework EBO: the EN 15273-2 rules of reference line ' + (p.train.ebo_use === 'g1' ? 'G1 (Anlage 7)' : 'G2 (Anlage 8)') + ' are used; the EBO-specific rules of Anlage 9 (e.g. track gauge 1,435 m for bogie vehicles in curves) are pending the documents and are not applied.'); }
+    if (fw === 'bostrab') { warnings.push('Framework BOStrab: only the public limits of §34 are checked; the Lichtraumbedarf method of the BOStrab-Lichtraum-Richtlinien is pending the documents and is not applied.'); }
     var ccdRes = (p.ccds || []).length ? ccdStatic(p, opt, (p.thirdRail && p.thirdRail.tr_ke && findBy(p.ke.profiles, 'name', p.thirdRail.tr_ke)) ? (function () { var q = findBy(p.ke.profiles, 'name', p.thirdRail.tr_ke), o = outline(q.points, q.n_up); o.name = q.name; return o; }()) : ke) : null;
     var enRes = null;
     if (yes(opt.en_check)) {
@@ -1180,6 +1184,41 @@
     return { engineVersion: VERSION, tangent: simTangent(p, sOpt || {}), validation: simValidation(p) };
   }
 
+  // ================================================================ BOStrab §34 (METHOD §16.3)
+  // Public limits of BOStrab §34(3) (street-running vehicles: width up to / above the split height, height to the top of
+  // the lowered pantograph) and §34(2) (extra curve throw on street track at the minimum radius). mm.
+  function bostrabCheck(p, d, profs, opt) {
+    var t = p.train, street = yes(t.bostrab_street), g = d.geo, P = d.bogie.p, R = n0(p.track.params.R_min_m);
+    var split = n0(opt.bst_h_split_mm, 3400) / 1000, out = { street: street, rows: [], ok: true };
+    function row(id, label, v, lim, unit, applies, note) {
+      var r = { id: id, label: label, value: v, limit: lim, margin: lim - v, unit: unit, applies: applies, note: note || '' };
+      r.ok = !applies || r.margin >= 0; if (!r.ok) { out.ok = false; } out.rows.push(r); return r;
+    }
+    var wLo = 0, wHi = 0, top = 0, wLoAt = '', wHiAt = '';
+    ['int', 'ext', 'end'].forEach(function (k) {
+      var pr = profs[k]; if (!pr) { return; }
+      top = Math.max(top, pr.top);
+      pr.pts.forEach(function (q) { if (q.h <= split + 1e-9) { if (q.x > wLo) { wLo = q.x; wLoAt = pr.name + ' ' + q.pt; } } else if (q.x > wHi) { wHi = q.x; wHiAt = pr.name + ' ' + q.pt; } });
+      var ws = profileWidth(pr, split); if (ws > wLo) { wLo = ws; wLoAt = pr.name + ' at the split height'; }
+      var wa = profileWidth(pr, split + 1e-6); if (wa > wHi) { wHi = wa; wHiAt = pr.name + ' just above the split height'; }
+    });
+    var pantos = (p.pantographs || []).filter(function (x) { return x.car === d.car && x.h_low_mm !== null && x.h_low_mm !== undefined && x.h_low_mm !== ''; });
+    var hTop = top * 1000, hNote = 'RS profile top';
+    pantos.forEach(function (x) { if (n0(x.h_low_mm) > hTop) { hTop = n0(x.h_low_mm); hNote = 'lowered pantograph ' + x.name; } });
+    var na = street ? '' : 'not applicable: §34(3) applies to street-running vehicles';
+    row('w_low', 'Width up to ' + fmtM(split) + ' m above rail (' + wLoAt + ')', 2 * wLo * 1000, n0(opt.bst_w_low_mm, 2650), 'mm', street, na);
+    row('w_high', 'Width above ' + fmtM(split) + ' m (' + (wHiAt || 'none') + ')', 2 * wHi * 1000, n0(opt.bst_w_high_mm, 2250), 'mm', street && wHi > 0, na);
+    row('h', 'Height to the top of the lowered pantograph (' + hNote + ')', hTop, n0(opt.bst_h_max_mm, 4000), 'mm', street, na);
+    if (R > 0) {
+      var nE = g.n_end, ti = (g.a * g.a + P * P) / (8 * R) * 1000, ta = (g.a * nE + nE * nE - P * P / 4) / (2 * R) * 1000;
+      var n2 = street ? '' : 'not applicable: §34(2) applies on street track';
+      row('ov_in', 'Extra curve throw inside, mid-car, at R ' + R + ' m', ti, n0(opt.bst_ov_mm, 650), 'mm', street, n2);
+      row('ov_out', 'Extra curve throw outside, car end, at R ' + R + ' m', ta, n0(opt.bst_ov_mm, 650), 'mm', street, n2);
+    }
+    return out;
+  }
+  function fmtM(v) { return (Math.round(v * 100) / 100).toString().replace('.', ','); }
+
   // ================================================================ TEST CALCULATIONS (METHOD §13)
   // Least-squares fit of y = a·(D·h) + b·D over readings [{D, h, y}] (mm): s = a·L, hc = −b/a.
   function swayFit(pts, L) {
@@ -1654,6 +1693,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, simDisp: simDisp, simCases: simCases, simSection: simSection, simContext: simContext, simAlong: simAlong, simCurve: simCurve, simPick: simPick, simTangent: simTangent, simValidation: simValidation, simRun: simRun, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, bostrabCheck: bostrabCheck, simDisp: simDisp, simCases: simCases, simSection: simSection, simContext: simContext, simAlong: simAlong, simCurve: simCurve, simPick: simPick, simTangent: simTangent, simValidation: simValidation, simRun: simRun, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));

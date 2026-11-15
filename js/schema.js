@@ -18,6 +18,7 @@
     return o;
   }
   var YN = [['yes', 'Yes'], ['no', 'No']];
+  var FRAMEWORKS = [['customer', 'Customer KE – metro practice'], ['en', 'EN 15273-2 (European)'], ['ebo', 'EBO – German main line'], ['bostrab', 'BOStrab – German tram, light rail, U-Bahn']];
 
   // ---------------------------------------------------------------- Train Configuration tab
   var trainDescription = [
@@ -35,7 +36,10 @@
     f('L_mm', 'Distance between rail centres G (cant base)', 'num', 'mm', { min: 600, max: 1900, d: 1500, h: 'Converts cant to an angle; 1500 mm for 1435 mm gauge' }),
     f('primary_type', 'Primary suspension', 'sel', '', { o: [['chevron', 'Chevron / rubber'], ['coil', 'Coil spring'], ['other', 'Other']], d: 'chevron' }),
     f('secondary_type', 'Secondary suspension', 'sel', '', { o: [['air', 'Air spring'], ['coil', 'Coil spring'], ['other', 'Other']], d: 'air' }),
-    f('power_supply', 'Power supply', 'sel', '', { o: [['third_rail', 'Third rail'], ['ohe', 'Overhead (pantograph)'], ['none', 'None / other']], d: 'third_rail' })
+    f('power_supply', 'Power supply', 'sel', '', { o: [['third_rail', 'Third rail'], ['ohe', 'Overhead (pantograph)'], ['none', 'None / other']], d: 'third_rail' }),
+    f('framework', 'Applicable rules (framework)', 'sel', '', { o: FRAMEWORKS, d: 'customer', h: 'Sets the default checks and rules; each check can still be switched on the Static Simulation tab' }),
+    f('ebo_use', 'EBO: vehicle use (§22)', 'sel', '', { o: [['g1', 'Cross-border traffic – reference line G1 (Anlage 7)'], ['g2', 'Other vehicles – reference line G2 (Anlage 8)']], d: 'g2' }),
+    f('bostrab_street', 'BOStrab: street-running vehicle (straßenabhängig, §34(3))', 'sel', '', { o: YN, d: 'no' })
   ];
   var trainLoad = [
     f('tare_label', 'Tare load condition', 'text', '', { d: 'AW0', h: 'Empty: highest body, largest wind roll' }),
@@ -385,6 +389,12 @@
     f('ma_step_mm', 'Method A: height step', 'num', 'mm', { min: 10, max: 1000, d: 100 }),
     f('en_check', 'Also check EN 15273-2:2009 kinematic (customer KE as reference profile)', 'sel', '', { o: YN, d: 'no', h: 'Reductions Ei / Ea with the rules on the Customer KE & SOD tab; in the verdict when Yes' }),
     f('en_mc', 'EN: car with one motor bogie uses', 'sel', '', { o: [['traction', 'Traction-unit formulae (Table A.4 note a)'], ['motor', 'Motor-coach formulae A.3.9.2']], d: 'traction' }),
+    f('bst_check', 'Also check BOStrab §34 vehicle dimensions', 'sel', '', { o: YN, d: 'no', h: 'Public limits of §34(2) and §34(3); the BOStrab-Lichtraum-Richtlinien are not yet included' }),
+    f('bst_w_low_mm', 'BOStrab §34(3): width up to the split height', 'num', 'mm', { min: 1000, max: 5000, d: 2650 }),
+    f('bst_h_split_mm', 'BOStrab §34(3): split height', 'num', 'mm', { min: 1000, max: 6000, d: 3400 }),
+    f('bst_w_high_mm', 'BOStrab §34(3): width above the split height', 'num', 'mm', { min: 1000, max: 5000, d: 2250 }),
+    f('bst_h_max_mm', 'BOStrab §34(3): height to the top of the lowered pantograph', 'num', 'mm', { min: 2000, max: 6000, d: 4000 }),
+    f('bst_ov_mm', 'BOStrab §34(2): extra curve throw on street track per side', 'num', 'mm', { min: 0, max: 2000, d: 650 }),
     f('en_static', 'Also check EN 15273-2:2009 static gauge method (A.2)', 'sel', '', { o: YN, d: 'no', h: 'Reductions A.2–A.5, no roll term; allowed only for s ≤ s_max; in the verdict when Yes' }),
     f('en_static_ref', 'EN static: reference profile (Customer KE & SOD tab)', 'text', '', { d: '', h: 'Blank = the KE of the static check' })
   ];
@@ -516,6 +526,15 @@
     DE1: { zb_from_mm: 0, zb_to_mm: 8000, zb_s0: 0.28, zb_hc0_mm: 700, zb_IorD_mm: 150, zb_extra_mm: 54 },
     DE2: { zb_from_mm: 3765, zb_to_mm: 4335, zb_s0: 0.19, zb_hc0_mm: 695, zb_IorD_mm: 150, zb_extra_mm: 54 }
   };
+  // Default checks of each framework (Train Configuration); applied to the Static Simulation options and the EN rules
+  // when the framework is chosen; every option can be changed afterwards (data only).
+  var frameworkDefaults = {
+    customer: { 'static': { en_check: 'no', en_static: 'no', bst_check: 'no' } },
+    en: { 'static': { en_check: 'yes', en_static: 'no', bst_check: 'no' }, gauge: 'G1' },
+    ebo: { 'static': { en_check: 'yes', en_static: 'no', bst_check: 'no' }, gauge: 'ebo' },
+    bostrab: { 'static': { en_check: 'no', en_static: 'no', bst_check: 'yes' } }
+  };
+  function frameworkGauge(t) { var fw = frameworkDefaults[t.framework] || {}; return fw.gauge === 'ebo' ? (t.ebo_use === 'g1' ? 'G1' : 'G2') : (fw.gauge || null); }
   function enGaugeValues(g) {
     var o = {}, src = enGaugeRules[g];
     if (!src) { return null; }
@@ -540,7 +559,7 @@
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
     trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
     staticOptions: staticOptions, dynamicOptions: dynamicOptions, reportOptions: reportOptions, swayTest: swayTest,
-    enGaugeRules: enGaugeRules, enGaugeValues: enGaugeValues,
+    enGaugeRules: enGaugeRules, enGaugeValues: enGaugeValues, FRAMEWORKS: FRAMEWORKS, frameworkDefaults: frameworkDefaults, frameworkGauge: frameworkGauge,
     defaults: defaults, byKey: byKey
   };
 }));
