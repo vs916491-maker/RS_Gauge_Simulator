@@ -375,6 +375,7 @@ polygon edges (not the horizontal / vertical split of §6.4).
    Bogie parts (`tests/en15273-bogie.test.js`): A.56–A.59 typed in literally, hand check of the sample.
    Static gauge (`tests/en15273-static.test.js`): A.2–A.5 typed in literally, s limit, hand check of the sample.
    Doors and steps (`tests/en15273-doors.test.js`): A.105 / A.106 typed in, step gaps by hand.
+   Pantographs (`tests/en15273-panto.test.js`): A.66–A.85 typed in literally, hand check.
 6. Inputs are never mutated; results are deterministic.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
@@ -606,7 +607,36 @@ lowest / highest point with the car tare and new wheels. Valid for speeds up to 
 * A failed element fails the EN verdict. Not applied: the opening movement of doors fulfilling a) and b) together
   (to be checked on drawings), A.3.15.3 platform-mounted devices.
 
-### 10.11 Results
+### 10.11 Pantograph gauge (A.3.12)
+
+Part of the kinematic check, for overhead-line vehicles. One row per pantograph on the RS Profile tab: car type,
+position (between / beyond the pivots), `n` from the nearer pivot (blank: `a/2` or the car-end overhang), height of the
+pantograph base `h_t` (lower articulation; the head's lateral flexibility is taken as growing linearly from `h_t`, as in
+A.68), flexibility `t` (lateral head displacement at 6,5 m under 300 N), inclination tolerance `θ` (rad), construction /
+installation tolerance `τ` (at 6,5 m), head semi-width `b_w`, and optionally the top of the lowered pantograph and the
+insulating distance. Everything in m in the formulae; the numbers are those of G1 (fixed).
+
+`s ≤ 0,225` (A.66–A.70, A.76–A.80): `k = 0,066`, `c' = 0,1175`, `c" = 0,0925`; `s > 0,225` (A.71–A.75, A.81–A.85):
+`k = 0,2`, `c' = 0,2375`, `c" = 0,1825`:
+
+* `z' = k·(6,5 − hc)/1,5·s + √(t² + τ² + [θ·(6,5 − hc)]²) − c'`
+* `z" = k·(5 − hc)/1,5·s + √([t·(5 − h_t)/(6,5 − h_t)]² + τ² + [θ·(5 − hc)]²) − c"`
+* between the pivots (vehicle stationary on canted track): `j'_i = q + w_iR − 0,0375`,
+  `Po = [(a·n − n² + p²/4 − 5)/(2R)]>0 + j'_i + z'`, `Pu` the same with `z"`;
+* beyond the pivots (running with cant deficiency): `j'_a = q·(2n + a)/a + w_aR·(n + a)/a + w_iR·n/a − 0,0375`,
+  `Po = [(a·n + n² − p²/4 − 5)/(2R)]>0 + (1,465 − d)/2·2n/a + j'_a + z'`, `Pu` with `z"`.
+
+The pantograph is inside the gauge when `Po ≤ 0` (upper collecting point, 6,5 m) and `Pu ≤ 0` (lower, 5,0 m). Cases
+(A.3.12.3): straight track (`R = ∞`, geometric term 0), `R = R2` (150 m) and, for a bogie with variable stops, the
+radius `Rv` where they begin. `w_R` of each bogie at `R`: `w∞`, `w(Rv)` at `Rv`, otherwise linear in `1/R` through
+`w∞`, `w(250)`, `w(150)`. `s`, `hc` of tare and crush (§10.2), both bogie orientations, larger `p` between and smaller
+beyond; the worst case is reported, every case is exported.
+
+Lowered pantograph (A.3.12.7), when its top is given: `b_w + insulating distance ≤ W_KE(h) − E(h)` at the pantograph's
+`n`, and `h + insulating distance ≤` KE top. Not covered: the special zones and the 25 kV live-part zone of Figure A.16
+as data (A.3.12.2, A.3.12.8), tilting vehicles and `I_p > I_c` (A.3.13).
+
+### 10.12 Results
 
 * Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
   Method A for comparison.
@@ -617,7 +647,8 @@ lowest / highest point with the car tare and new wheels. Valid for speeds up to 
 * Bogie parts (§10.8): one row per part and bogie type.
 * Static gauge (§10.9): per car type, when selected.
 * Doors and steps (§10.10): one row per element and governing height; step position per platform side.
-* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), pantograph gauge (A.3.12), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
+* Pantographs (§10.11): worst Po and Pu per pantograph, lowered position.
+* Not covered yet: the GIC1/GIC2 and GIS1/GIS2 outlines as data (limits are entered), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
   and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.
 
