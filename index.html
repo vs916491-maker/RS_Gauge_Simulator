@@ -47,6 +47,7 @@
   <button type="button" role="tab" id="tabbtn-dres" aria-controls="tab-dres" aria-selected="false" tabindex="-1">Dynamic Results</button>
   <button type="button" role="tab" id="tabbtn-tests" aria-controls="tab-tests" aria-selected="false" tabindex="-1">Tests</button>
   <button type="button" role="tab" id="tabbtn-summary" aria-controls="tab-summary" aria-selected="false" tabindex="-1">Overall Summary</button>
+  <button type="button" role="tab" id="tabbtn-calc" aria-controls="tab-calc" aria-selected="false" tabindex="-1">Calculation Method</button>
   <button type="button" role="tab" id="tabbtn-method" aria-controls="tab-method" aria-selected="false" tabindex="-1">Method &amp; Assumptions</button>
 </nav>
 
@@ -330,6 +331,17 @@
     <div class="card"><h3>All messages</h3><div class="messages" data-msgs="all"></div></div>
   </section>
 
+  <!-- ======================= CALCULATION METHOD ======================= -->
+  <section id="tab-calc" class="panel" role="tabpanel" aria-labelledby="tabbtn-calc" hidden>
+    <div class="card"><div class="row"><h3>Calculation method, step by step <span class="muted">(EN 15273, UIC 505, metro SOD practice)</span></h3>
+        <label>Car type <select id="calc-car"></select></label><label>Static case <select id="calc-case"></select></label>
+        <label>Chainage <input id="calc-ch" type="number" step="any" placeholder="worst" aria-label="Chainage for the dynamic example"></label></div>
+      <p class="hint">Each step explains what is calculated and why, with the standard it comes from, the formula, and the numbers of the loaded project (from the calculation engine).
+        The formal specification with every symbol is on the Method &amp; Assumptions tab. Chainage blank = the point of largest outside excess.</p>
+      <p id="cm-status" class="muted"></p></div>
+    <div class="methodlayout"><nav id="cm-toc" class="toc" aria-label="Calculation steps"></nav><article id="cm-body" class="calc"></article></div>
+  </section>
+
   <!-- ======================= METHOD ======================= -->
   <section id="tab-method" class="panel" role="tabpanel" aria-labelledby="tabbtn-method" hidden>
     <div class="toolbar"><button type="button" id="method-dl" class="ghost">Download METHOD.md</button></div>
@@ -350,6 +362,7 @@
 <script src="js/plot.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/report.js"></script>
+<script src="js/calcsteps.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

@@ -34,7 +34,7 @@ with sync_playwright() as pw:
     ok(page.locator('#train-drawing svg rect.car-body').count() == 6, 'train drawing has 6 cars')
     ok('14.8' in page.locator('#calc-geometry').text_content(), 'calculated pivot distance shown')
 
-    tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'method']
+    tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'calc', 'method']
     for i, t in enumerate(tabs):
         page.click('#tabbtn-' + t)
         page.wait_for_timeout(300)
@@ -150,6 +150,16 @@ with sync_playwright() as pw:
     ok('7. Dynamic results' in docxml and '6. EN 15273-2:2009' in docxml, 'report has the EN and dynamic chapters')
     ok(d.value.suggested_filename.startswith('DEMO-GAU-001'), 'report file name starts with the document number (%s)' % d.value.suggested_filename)
     ok('Report written' in page.locator('#report-status').text_content(), 'report status message')
+
+    # Calculation Method tab (static and dynamic runs available)
+    page.click('#tabbtn-calc'); page.wait_for_timeout(500)
+    ok(page.locator('#cm-body section.step').count() == 20 and page.locator('#cm-body .step .example table').count() == 18, 'calculation method: 20 steps, 18 with project numbers')
+    ok('39.65' in page.locator('#cm-methodB').text_content(), 'step B7 shows the governing clearance 39.65 mm')
+    page.select_option('#calc-car', 'DMC'); page.wait_for_timeout(300); page.select_option('#calc-case', 'int_t'); page.wait_for_timeout(300)
+    ok('DMC / Interior – Tare' in page.locator('#cm-geometry').text_content(), 'car type and case selectors drive the examples')
+    page.fill('#calc-ch', '1990'); page.dispatch_event('#calc-ch', 'change'); page.wait_for_timeout(400)
+    ok('1990.0 m' in page.locator('#cm-track').text_content() and 'Tunnel' in page.locator('#cm-outline').text_content(), 'chainage drives the dynamic examples (tunnel SOD at 1990 m)')
+    page.screenshot(path=os.path.join(out, '26-calc.png'), full_page=True)
 
     # stale flag after an input change, and an option change
     page.click('#tabbtn-track'); page.wait_for_timeout(200)

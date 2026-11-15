@@ -27,6 +27,7 @@ css/style.css           all styling (light/dark via CSS variables)
 js/schema.js            every input field: key, label, type, unit, range, default, help (forms, templates, importers, checks)
 js/model.js             project structure, normalisation (safe copy, defaults), input checks per tab, profile/track helpers (DOM-free)
 js/engine.js            CALCULATION ENGINE (pure, DOM-free): derived car data, static run (Method B, Method A, vertical checks), dynamic run (sweep, summaries, speed steps, cross-section)
+js/calcsteps.js         Calculation Method tab content (DOM-free): steps with standard references, formulae and examples from engine results
 js/report.js            Word report (DOM-free): content blocks from the project and the runs, .docx parts (WordprocessingML); no equations
 js/markdown.js          small Markdown renderer for the Method tab (DOM nodes, never innerHTML)
 js/method.js            GENERATED from METHOD.md by tools/make-presets.js
@@ -41,7 +42,7 @@ tools/                  make-presets.js, ui-smoke.py (optional browser check), w
 ```
 
 Script order: `vendor/xlsx.full.min.js` → `vendor/chart.umd.js` → `vendor/jszip.min.js` → `js/schema.js` → `js/model.js` →
-`js/markdown.js` → `js/method.js` → `js/presets.js` → `js/io.js` → `js/plot.js` → `js/engine.js` → `js/report.js` → `js/ui.js`.
+`js/markdown.js` → `js/method.js` → `js/presets.js` → `js/io.js` → `js/plot.js` → `js/engine.js` → `js/report.js` → `js/calcsteps.js` → `js/ui.js`.
 
 ## 3. Data model (project file `*.rsgauge.json`, `format: "rsgauge-project"`, version 2)
 
@@ -103,7 +104,8 @@ reads every known sheet.
 
 ## 5. Testing
 
-* `node tests/run-tests.js` — Node built-ins only. `test-calcs.test.js`: sway fit (exact recovery), acceptance, gauge test
+* `node tests/run-tests.js` — Node built-ins only. `calcsteps.test.js`: Calculation Method steps (parts, references, examples
+  equal to engine values, selectors, hints without runs). `test-calcs.test.js`: sway fit (exact recovery), acceptance, gauge test
   plan equal to the static run (linear and RSS), measured-s positions, input checks, tests export. `sod-outline.test.js`: closed-form SOD outline and point-item cases
   (rectangular outline, widening, cant rotation, item sides, ranges and curve hand) and the sample line. `report.test.js`: report chapters with and without the dynamic run and
   EN, well-formed .docx XML parts, escaping, image relations, figure numbering. `en15273.test.js`: the EN 15273-2 reductions and z_kin against the
@@ -130,4 +132,5 @@ reads every known sheet.
 | 4 | EN 15273-2:2009 kinematic method as a static option (customer KE as reference profile) | Done (PR #4) |
 | 5 | Word gauging report (Overall Summary tab) | Done (PR #5) |
 | 6 | Dynamic: whole-profile check against the SOD outline (widened on curves) and point items | Done (PR #6) |
-| 7 | Tests tab: sway-test evaluation and kinematic gauge test plan | **This pull request** |
+| 7 | Tests tab: sway-test evaluation and kinematic gauge test plan | Done (PR #7) |
+| 8 | Calculation Method tab: step-by-step explanation with standard references and live examples | **This pull request** |

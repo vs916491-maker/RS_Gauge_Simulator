@@ -224,7 +224,7 @@
       var x = q.x + E / 1000, h = q.h - cp.thtot * q.x - cp.drop / 1000 + cp.up / 1000;
       var W = keWidth(ke, Math.max(h, ke.hUpBottom)), dX = (W - x) * 1000;
       var Hk = keTop(ke, x), dH = (Hk - h) * 1000, c = clearance(dX, dH);
-      var r = { i: i + 1, pt: q.pt, x0: q.x * 1000, h0: q.h * 1000, E: E, x: x * 1000, h: h * 1000, W: W * 1000, dX: dX, H: Hk * 1000, dH: dH, c: c, ok: c >= 0 };
+      var r = { i: i + 1, pt: q.pt, x0: q.x * 1000, h0: q.h * 1000, E: E, roll: cp.thq * (q.h - cp.hc) * 1000, x: x * 1000, h: h * 1000, W: W * 1000, dX: dX, H: Hk * 1000, dH: dH, c: c, ok: c >= 0 };
       pts.push(r);
       if (!min || c < min.c) { min = r; }
     });
