@@ -179,6 +179,22 @@
     f('note', 'Note', 'text', '', { d: '' })
   ];
 
+  // Pantographs checked by EN 15273-2 A.3.12 (one row per pantograph; METHOD §10.11)
+  var pantograph = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('name', 'Pantograph', 'text', '', { d: '' }),
+    f('pos', 'Position', 'sel', '', { o: [['between', 'Between the pivots'], ['beyond', 'Beyond the pivots']], d: 'between' }),
+    f('n_m', 'Distance n from the nearer pivot', 'num', 'm', { min: 0, max: 20, opt: true, h: 'Blank: between = a/2, beyond = car-end overhang' }),
+    f('ht_mm', 'Height of the pantograph base h_t (lower articulation)', 'num', 'mm', { min: 2000, max: 5000, d: 3900 }),
+    f('t_mm', 'Flexibility t: head displacement at 6,5 m under 300 N', 'num', 'mm', { min: 0, max: 200, d: 30 }),
+    f('theta_mrad', 'Inclination tolerance θ', 'num', 'mrad', { min: 0, max: 50, d: 2.5 }),
+    f('tau_mm', 'Construction / installation tolerance τ at 6,5 m', 'num', 'mm', { min: 0, max: 100, d: 10 }),
+    f('bw_mm', 'Semi-width of the head b_w', 'num', 'mm', { min: 0, max: 1500, d: 800 }),
+    f('h_low_mm', 'Top of the lowered pantograph above rail', 'num', 'mm', { min: 0, max: 6000, opt: true, h: 'Blank = no lowered-position check (A.3.12.7)' }),
+    f('ins_mm', 'Insulating distance for the lowered head', 'num', 'mm', { min: 0, max: 500, d: 0, h: 'EN 50119; 170 mm for 25 kV' }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
+
   // ---------------------------------------------------------------- Customer KE & SOD tab
   var customerLimits = [
     f('uf_min_body_mm', 'Min. clearance body-mounted equipment to rail cb', 'num', 'mm', { min: 0, max: 500, d: 100 }),
@@ -366,7 +382,7 @@
   return {
     trainDescription: trainDescription, trainConfig: trainConfig, trainLoad: trainLoad, trainWind: trainWind,
     trainFields: trainDescription.concat(trainConfig, trainLoad, trainWind),
-    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep,
+    carType: carType, bogie: bogie.concat(playCalc), bogieMain: bogie, body: body, playCalc: playCalc, lowerPart: lowerPart, bogiePart: bogiePart, doorStep: doorStep, pantograph: pantograph,
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,

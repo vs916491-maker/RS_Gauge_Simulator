@@ -31,7 +31,7 @@
     train: ['Train', 'CarTypes'],
     bogie: ['Bogies', 'CarBodies', 'EN_Lower_Parts', 'EN_Bogie_Parts'],
     ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params'],
-    rs: ['RSProfile', 'EN_Doors_Steps'],
+    rs: ['RSProfile', 'EN_Doors_Steps', 'EN_Pantographs'],
     track: ['TrackParams', 'Track'],
     tests: ['Sway_Test']
   };
@@ -95,6 +95,7 @@
       case 'EN_Lower_Parts': return tableRows(p.lowerParts || [], S.lowerPart);
       case 'EN_Bogie_Parts': return tableRows(p.bogieParts || [], S.bogiePart);
       case 'EN_Doors_Steps': return tableRows(p.doorSteps || [], S.doorStep);
+      case 'EN_Pantographs': return tableRows(p.pantographs || [], S.pantograph);
       case 'KE': return profileRows(p.ke.profiles, S.keProfile);
       case 'CustomerLimits': return paramRows(p.ke.limits, S.customerLimits);
       case 'EN_Params': return paramRows(p.ke.en, S.enParams);
@@ -115,6 +116,7 @@
     Bogies: 'One column per bogie type (e.g. M, T): plays, vertical travels, mass, suspension stiffness (theoretical s and hc) and the play calculator. Car types refer to these names.',
     CarBodies: 'One column per car type: wind-exposed side, lower parts, specified flexibility coefficient and roll-centre height, EN 15273-2 A.3.4 vertical data.',
     EN_Doors_Steps: 'Open access doors and deployed steps checked by EN 15273-2 A.3.14 / A.3.15 (static option): car type, door or step, between / beyond the pivots, distance n, half-width of the open element and its lowest and highest point above rail (tare, new wheels).',
+    EN_Pantographs: 'Pantographs checked by EN 15273-2 A.3.12 (static option): car type, between / beyond the pivots, distance n, base height h_t, flexibility t, inclination tolerance θ, installation tolerance τ, head semi-width, lowered height and insulating distance.',
     EN_Bogie_Parts: 'Bogie parts checked laterally by EN 15273-2 A.3.11 (static option): one row per part with bogie type, mounting (frame / axle), position (between / beyond the end axles), distance n from the nearer end axle, half-width and height above rail (tare, new wheels).',
     EN_Lower_Parts: 'Lower parts checked by EN 15273-2 A.3.4.1 (static option): one row per part with car type, mounting (body / bogie), position (between / beyond the pivots or axles), distance n, half-width b, height above rail (tare, new wheels) and the lower limit at that position (blank = customer minimum clearance). A car type without rows uses the lower parts of the car body inputs.',
     KE: 'Customer kinematic envelope(s): one row per point, right half (Y >= 0) from the top centre round the outside to rail level, in mm. Repeat the profile name (and n_up = points of the upper envelope) on every row; several profiles may follow each other.',
@@ -267,6 +269,7 @@
         case 'EN_Lower_Parts': v = readTable(rows, S.lowerPart, msgs, n); if (v) { raw.lowerParts = v; } break;
         case 'EN_Bogie_Parts': v = readTable(rows, S.bogiePart, msgs, n); if (v) { raw.bogieParts = v; } break;
         case 'EN_Doors_Steps': v = readTable(rows, S.doorStep, msgs, n); if (v) { raw.doorSteps = v; } break;
+        case 'EN_Pantographs': v = readTable(rows, S.pantograph, msgs, n); if (v) { raw.pantographs = v; } break;
         case 'EN_Params': v = readParams(rows, S.enParams, msgs, n); Object.keys(v).forEach(function (k) { raw.ke.en[k] = v[k]; }); break;
         case 'CustomerLimits': v = readParams(rows, S.customerLimits, msgs, n); Object.keys(v).forEach(function (k) { raw.ke.limits[k] = v[k]; }); break;
         case 'SOD_Settings': v = readParams(rows, S.sodSettings, msgs, n); Object.keys(v).forEach(function (k) { raw.sod[k] = v[k]; }); break;
@@ -345,6 +348,12 @@
         q.gap.forEach(function (gp) { dsr.push([c.car, q.name, 'step position A.3.15.2', gp.side + ' of curve', r2(q.n, 3), '', 'b_q0 ' + r2(gp.bq0, 0), 'dg ' + r2(gp.dg, 2), 'dg_max ' + r2(gp.dgmax, 2), 'gap straight / at R', r2(gp.gap0, 1), r2(gp.gapR, 1), 'limit ' + r2(gp.bgap, 0), r2(gp.bgap - gp.gapMax, 2), gp.ok ? 'OK' : 'GAP TOO LARGE']); });
       }); });
       if (dsr.length > 1) { add('EN15273_DoorsSteps', dsr, 10); }
+      var pgr = [['Car type', 'Pantograph', 'Position', 'n (m)', 'R (m)', 'Load', 'Far / near bogie', 'w_i / w_a (mm)', 'Geometric term (mm)', 'Play term (mm)', "j' (mm)", "z' (mm)", 'z" (mm)', 'Po at 6,5 m (mm)', 'Pu at 5,0 m (mm)', 'Status']];
+      res.cars.forEach(function (c) { if (!c.en || !c.en.pantographs) { return; } c.en.pantographs.rows.forEach(function (q) {
+        q.cases.forEach(function (x) { pgr.push([c.car, q.name, q.pos, r2(q.n, 3), x.R === null ? 'straight' : r2(x.R, 0), x.load, x.far + ' / ' + x.near, r2(x.wi, 1) + ' / ' + r2(x.wa, 1), r2(x.geo, 2), r2(x.play, 2), r2(x.j, 2), r2(x.zo, 2), r2(x.zu, 2), r2(x.Po, 2), r2(x.Pu, 2), x.Po <= 1e-9 && x.Pu <= 1e-9 ? 'OK' : 'EXCEEDS']); });
+        if (q.lowered) { var lw = q.lowered; pgr.push([c.car, q.name, 'lowered (A.3.12.7)', '', '', '', 'h ' + r2(lw.h, 0), 'b_w + ins ' + r2(lw.bw + lw.ins, 0), 'EN max ' + r2(lw.max, 1), 'KE top ' + r2(lw.top, 0), '', '', '', r2(lw.marginW, 1), r2(lw.marginH, 1), lw.ok ? 'OK' : 'EXCEEDS']); }
+      }); });
+      if (pgr.length > 1) { add('EN15273_Pantographs', pgr, 10); }
       var bpr = res.en && res.en.bogieParts ? res.en.bogieParts.rows : [];
       if (bpr.length) {
         var bs = [['Bogie type', 'Part', 'Mounted', 'Position', 'p (m)', 'n (m)', 'Height (mm)', 'Lowest (mm)', 'Highest (mm)', 'Half-width (mm)', 'd worn (mm)', 'q (mm)', 'z_kin (mm)', 'Δ (m²)', 'Branch', 'E (mm)', 'KE half-width (mm)', 'EN max (mm)', 'Margin (mm)', 'Status']];

@@ -6,7 +6,7 @@ check our RS profile + movements against the customer KE (static), and check our
 chainage by chainage along the line (dynamic). The method is the owner's gauging workbook ("Vehicle Gauging Calculation
 Tool"): Method B (generated KE, point clearance) and Method A (maximum static half-width); optional static check by the
 EN 15273-2:2009 kinematic method (customer KE as reference profile, G1 rules as editable defaults; traction units,
-motor coaches and coaches, w varying with the radius and variable stops, heights A.3.4 with a lower-parts table, bogie parts A.3.11, open doors / steps A.3.14–A.3.15; static gauge method A.2 as a second option; METHOD §10). The engine
+motor coaches and coaches, w varying with the radius and variable stops, heights A.3.4 with a lower-parts table, bogie parts A.3.11, open doors / steps A.3.14–A.3.15, pantograph gauge A.3.12; static gauge method A.2 as a second option; METHOD §10). The engine
 reproduces the workbook exactly (`tests/workbook.test.js`, `tests/workbook-dynamic.test.js`); `tests/en15273*.test.js` check the
 EN formulae against the standard typed in literally.
 

@@ -126,6 +126,7 @@
     out.lowerParts = (p.lowerParts || []).map(function (r) { return record(r, S.lowerPart); });
     out.bogieParts = (p.bogieParts || []).map(function (r) { return record(r, S.bogiePart); });
     out.doorSteps = (p.doorSteps || []).map(function (r) { return record(r, S.doorStep); });
+    out.pantographs = (p.pantographs || []).map(function (r) { return record(r, S.pantograph); });
     var ke = p.ke || {}, sod = p.sod || {}, rs = p.rs || {}, tr = p.track || {};
     out.ke = { limits: record(ke.limits, S.customerLimits), en: record(ke.en, S.enParams), profiles: profiles(ke.profiles, S.keProfile) };
     var so = record(sod, S.sodSettings);
@@ -347,6 +348,13 @@
       if (!r.car || carNames.indexOf(r.car) < 0) { m.add('rs', 'err', id + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
       if (r.h_lo_mm !== null && r.h_hi_mm !== null && r.h_hi_mm < r.h_lo_mm) { m.add('rs', 'err', id + ': the highest point is below the lowest point.'); }
     });
+
+    (p.pantographs || []).forEach(function (r, k) {
+      var id = 'Pantograph ' + (r.name || k + 1);
+      rangeChecks(m, 'rs', id, r, S.pantograph);
+      if (!r.car || carNames.indexOf(r.car) < 0) { m.add('rs', 'err', id + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
+    });
+    if ((p.pantographs || []).length && p.train.power_supply !== 'ohe') { m.add('rs', 'warn', 'Pantographs are given but the power supply on the Train Configuration tab is not overhead.'); }
 
     // ---- Tests (sway test rows)
     ((p.tests || {}).sway || []).forEach(function (r, k) {

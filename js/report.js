@@ -233,6 +233,16 @@
           para('Open doors and deployed steps (A.3.14, A.3.15, speed ≤ 5 km/h): allowed half-width = KE half-width − E + allowance (doors above 1,05 m: 0,2 m; below 1,05 m and steps: w_i ≤ 0,035 m between the pivots, A.105 / A.106 beyond), in the lowest position of the stationary vehicle; step position by the platform gap of A.3.15.2.');
           table(['Car type', 'Door / step', 'Position', 'Half-width [mm]', 'Allowed [mm]', 'Margin [mm]', 'Step position', 'Status'], drs);
         }
+        var pgs = [];
+        s.cars.forEach(function (c) { if (!c.en || !c.en.pantographs) { return; } c.en.pantographs.rows.forEach(function (q) {
+          var o = q.worstO, u = q.worstU;
+          pgs.push([c.car, q.name, (q.pos === 'beyond' ? 'beyond' : 'between') + ', n ' + fmt(q.n, 2) + ' m', fmt(o.Po, 1) + (o.R ? ' (R ' + fmt(o.R) + ')' : ' (straight)'), fmt(u.Pu, 1) + (u.R ? ' (R ' + fmt(u.R) + ')' : ' (straight)'),
+            q.lowered ? fmt(Math.min(q.lowered.marginW, q.lowered.marginH), 1) : '–', status(q.ok)]);
+        }); });
+        if (pgs.length) {
+          para('Pantograph gauge (A.3.12): Po (head at 6,5 m) and Pu (5,0 m) shall be ≤ 0 on straight track, at R = 150 m and where variable stops begin (A.66–A.85); the lowered pantograph shall stay within the maximum construction gauge (A.3.12.7).');
+          table(['Car type', 'Pantograph', 'Position', 'Po [mm]', 'Pu [mm]', 'Lowered margin [mm]', 'Status'], pgs);
+        }
         var bpr = s.en && s.en.bogieParts ? s.en.bogieParts.rows : [];
         if (bpr.length) {
           para('Bogie parts (A.3.11): reduction formulae of independent-axle vehicles A.56–A.59 with w = 0 and a = distance between the end axles; KE half-width taken as the smallest over the height range of the part.');
@@ -312,7 +322,7 @@
     h1('9. Assumptions and limitations');
     var a11 = methodSection(ctx.methodMd, 11), a12 = methodSection(ctx.methodMd, 12);
     add({ type: 'list', ordered: true, items: a11.items.map(plain) });
-    if (en) { para('EN 15273-2: implemented from the 2009 edition (superseded by EN 15273-2:2013). Vertical (A.3.4): the GIC1 / GIC2 lower profiles are not encoded (lower limits as entered or the customer minimum), hump-shunting terms of A.3.4.1.5 and contact ramps (A.3.5) are not applied. Bogie parts (A.3.11) by A.56–A.59; doors and steps open (A.3.14, A.3.15.2). Not covered: pantograph, tilting vehicles, wagons.'); }
+    if (en) { para('EN 15273-2: implemented from the 2009 edition (superseded by EN 15273-2:2013). Vertical (A.3.4): the GIC1 / GIC2 lower profiles are not encoded (lower limits as entered or the customer minimum), hump-shunting terms of A.3.4.1.5 and contact ramps (A.3.5) are not applied. Bogie parts (A.3.11) by A.56–A.59; doors and steps open (A.3.14, A.3.15.2); pantograph gauge (A.3.12). Not covered: tilting vehicles (A.3.13, A.3.16), wagons.'); }
     if (a12.text) { para('Out of scope: ' + plain(a12.text)); }
 
     // ---- 9 warnings

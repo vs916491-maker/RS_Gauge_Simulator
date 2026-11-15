@@ -302,7 +302,7 @@
       },
       onAdd: function () { M.syncBodies(state.p); M.fillRefs(state.p); },
       onChange: function (it, k, old) {
-        if (k === 'name') { renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.doorSteps, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
+        if (k === 'name') { renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.doorSteps, ['car'], old, it.name); renameRefs(state.p.pantographs, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
       }
     });
     drawTrain(); calcGeometry();
@@ -446,6 +446,11 @@
       addLabel: 'Add door / step',
       refs: { car: function () { return state.p.train.carTypes.map(function (c) { return c.name; }); } },
       newRow: function () { var t = state.p.doorSteps, last = t[t.length - 1], r = S.defaults(S.doorStep); r.car = last ? last.car : ((state.p.train.carTypes[0] || {}).name || ''); return r; }
+    });
+    table($('t-panto'), state.p.pantographs, S.pantograph, {
+      addLabel: 'Add pantograph',
+      refs: { car: function () { return state.p.train.carTypes.map(function (c) { return c.name; }); } },
+      newRow: function () { var t = state.p.pantographs, last = t[t.length - 1], r = S.defaults(S.pantograph); r.car = last ? last.car : ((state.p.train.carTypes[0] || {}).name || ''); return r; }
     });
   }
 
@@ -612,6 +617,17 @@
       });
     });
     roTable($('sres-en-doors-table'), ['Door / step', 'Kind', 'Position', 'n (m)', 'Heights lowered', 'Governing h', 'Max construction', 'Rule', 'Allowance', 'Allowed', 'Half-width', 'Margin', 'Status'], drows);
+    var pg = en.pantographs ? en.pantographs.rows : [], prow = [];
+    $('sres-en-panto').hidden = !pg.length;
+    pg.forEach(function (q) {
+      [['Upper collecting point 6,5 m – Po', q.worstO, 'Po', 'zo'], ['Lower collecting point 5,0 m – Pu', q.worstU, 'Pu', 'zu']].forEach(function (w, i) {
+        var x = w[1];
+        prow.push([i ? '' : q.name, i ? '' : (q.pos === 'beyond' ? 'Beyond' : 'Between') + ', n ' + fmt(q.n, 2) + ' m', w[0], x.R === null ? 'straight' : fmt(x.R, 0) + ' m', x.load + ', ' + x.far + '/' + x.near,
+          fmt(x.geo, 1), fmt(x.play, 1), fmt(x.j, 1), fmt(x[w[3]], 1), { v: fmt(x[w[2]], 1), cls: x[w[2]] <= 1e-9 ? 'okcell' : 'badcell' }, x[w[2]] <= 1e-9 ? 'OK' : 'EXCEEDS']);
+      });
+      if (q.lowered) { var lw = q.lowered; prow.push(['', 'Lowered, top ' + fmt(lw.h, 0), 'Lowered pantograph (A.3.12.7)', '', 'b_w + insulating ' + fmt(lw.bw + lw.ins, 0), 'EN max ' + fmt(lw.max, 1), '', '', 'KE top ' + fmt(lw.top, 0), cCell(Math.min(lw.marginW, lw.marginH)), lw.ok ? 'OK' : 'EXCEEDS']); }
+    });
+    roTable($('sres-en-panto-table'), ['Pantograph', 'Position', 'Check', 'Worst R', 'Load, bogies', 'Geometric', 'Play', "j'", "z' / z\"", 'P (≤ 0)', 'Status'], prow);
     var bp = r.en && r.en.bogieParts ? r.en.bogieParts.rows : [];
     $('sres-en-bogie').hidden = !bp.length;
     roTable($('sres-en-bogie-table'), ['Bogie', 'Part', 'Mounted', 'Position', 'n (m)', 'Height range', 'Half-width', 'z_kin', 'Branch', 'E', 'KE half-width', 'EN max', 'Margin', 'Status'],
