@@ -175,7 +175,10 @@
     f('type', 'Type', 'sel', '', { o: [['third_rail', 'Third rail'], ['platform', 'Platform edge'], ['walkway', 'Walkway'], ['ohe', 'Overhead line'], ['equipment', 'Equipment'], ['other', 'Other']], d: 'other' }),
     f('y', 'Y lateral', 'num', 'mm', { min: 0, max: 6000 }),
     f('z', 'Z height', 'num', 'mm', { min: -500, max: 8000 }),
-    f('min_clear_mm', 'Required clearance', 'num', 'mm', { min: 0, max: 1000, d: 50 })
+    f('min_clear_mm', 'Required clearance', 'num', 'mm', { min: 0, max: 1000, d: 50 }),
+    f('side', 'Side (in the direction of increasing chainage)', 'sel', '', { o: [['both', 'Both'], ['L', 'Left'], ['R', 'Right']], d: 'both' }),
+    f('ch_from_m', 'From chainage', 'num', 'm', { min: -1e6, max: 1e7, opt: true, h: 'Blank = from the start of the line' }),
+    f('ch_to_m', 'To chainage', 'num', 'm', { min: -1e6, max: 1e7, opt: true, h: 'Blank = to the end of the line' })
   ];
   var keProfile = [
     f('name', 'Profile name', 'text'), f('note', 'Note / condition', 'text'),

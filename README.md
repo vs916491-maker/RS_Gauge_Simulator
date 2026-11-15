@@ -25,7 +25,9 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 6. **Dynamic Simulation**: sweeps every car type along the Track Data and press **Run dynamic simulation**;
    **Dynamic Results** gives the line summary (worst car type per chainage), charts against chainage, a chainage
    selector with the cross-section in the vertical frame, the per-element table and the speed-step study, and
-   exports every sweep row to Excel.
+   exports every sweep row to Excel. Where a track element names an SOD profile, the whole displaced profile is checked
+   against that outline (widened by the curve allowance); point items (third rail, platform edges, signals…) are
+   checked on their side and chainage range.
 7. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
 8. The **Overall Summary** tab shows what still needs fixing and writes the **Word gauging report** (document number,
    revision, prepared / checked / approved, then inputs, method, static, EN and dynamic results with charts, assumptions
@@ -40,7 +42,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 3 | Dynamic Simulation and Dynamic Results (chainage selector, cross-section, speed-step study) | Done |
 | 4 | EN 15273-2:2009 kinematic method (static option) | Done |
 | 5 | Word gauging report | Done |
-| 6 | Full SOD outline checks, validation calculations | Later |
+| 6 | SOD outline and point-item checks (dynamic) | Done |
+| 7 | Validation calculations | Later |
 
 ## For developers
 
