@@ -116,6 +116,24 @@
     ];
   }
 
-  return { profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries,
+  // ---------------------------------------------------------------- dynamic results
+  function chainageSeries(rows, key, scale) {
+    scale = scale || 1;
+    return rows.map(function (r) { var v = r[key]; return { x: r.ch, y: (v === null || v === undefined || v === '') ? null : v * scale }; });
+  }
+  function crossSectionDatasets(xs, colors) {
+    colors = colors || {};
+    var ds = [
+      line('Customer KE (' + xs.row.ke + ')', xs.ke, colors.ke || '#2563eb', { w: 2 }),
+      line('KE + SOD curve allowance', xs.keSod, colors.sod || '#6b7280', { dash: [6, 4] }),
+      line('Static profile', xs.staticProfile, colors.rs || '#059669', { w: 1.4 }),
+      line('Dynamic envelope (right: outside at speed, left: inside stopped)', xs.envelope, colors.env || '#dc2626', { w: 2 }),
+      { label: 'Rails', data: xs.rails, showLine: true, borderColor: colors.rail || '#1b1f24', backgroundColor: colors.rail || '#1b1f24', borderWidth: 3, pointRadius: 3 }
+    ];
+    if (xs.structure) { ds.push({ label: 'Structure at h2', data: xs.structure, showLine: true, borderColor: colors.str || '#9a3412', backgroundColor: colors.str || '#9a3412', borderWidth: 3, pointRadius: 0 }); }
+    return ds;
+  }
+
+  return { chainageSeries: chainageSeries, crossSectionDatasets: crossSectionDatasets, profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries,
     sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
 }));
