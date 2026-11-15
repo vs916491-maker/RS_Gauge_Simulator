@@ -267,3 +267,15 @@ details.card[open] summary { margin-bottom: .6rem; }
 #sres-stale:empty { display: none; }
 #sres-stale { margin-bottom: .75rem; border-radius: 8px; }
 table.grid td select { width: 11rem; }
+/* ---------- Phase 3 additions ---------- */
+.sticky-sel { position: sticky; top: 0; z-index: 5; box-shadow: 0 4px 10px rgba(0,0,0,.06); }
+.sticky-sel .row { gap: 1rem; }
+.slider { flex: 1; min-width: 16rem; accent-color: var(--accent); }
+#dres-ch { width: 9rem; }
+#dres-stale:empty { display: none; }
+#dres-stale { margin-bottom: .75rem; border-radius: 8px; }
+table.ro td.l { white-space: normal; }
+.stat.bad { border-color: var(--c4); background: var(--err-bg); }
+ul.errlist { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--err-text); font-size: .85rem; }
+#dres-summary td.l, #dres-xs td.l { min-width: 17rem; }
+#dres-summary table, #dres-xs table { width: 100%; }

@@ -324,6 +324,51 @@
     return wb;
   }
 
+  // ---------------------------------------------------------------- dynamic results export
+  function dynamicResultsWorkbook(res, p, meta) {
+    var XL = X(), wb = XL.utils.book_new(), o = p.settings.dynamic, so = p.settings['static'], sm = res.summary;
+    function add(name, rows, w) { var sh = XL.utils.aoa_to_sheet(rows); sh['!cols'] = rows[0].map(function (c, i) { return { wch: i === 0 ? (w || 22) : 13 }; }); XL.utils.book_append_sheet(wb, sh, name); }
+    function ex(x) { return x ? [r2(x.v, 2), r2(x.ch, 2), x.car || ''] : ['n/a', '', '']; }
+    var sum = [['Rolling Stock Gauge Simulator – dynamic results (all car types: worst per chainage)'], ['Project', p.name], ['Engine version', res.engineVersion],
+      ['Inputs changed since this run', meta && meta.stale ? 'YES – run again' : 'no'], ['Fictional example data', p.fictional ? 'YES' : 'no'], [''],
+      ['Result', 'Value', 'At chainage (m)', 'Car type', 'Limit / reference', 'Status'],
+      ['Alignment length evaluated (m)', r2(sm.length, 2)], ['Points evaluated', sm.points + ' (every ' + sm.step + ' m)'],
+      ['Maximum cant deficiency at line speed (mm)'].concat(ex(sm.def), [sm.def_lim, sm.def_ok ? 'OK' : 'ABOVE LIMIT']),
+      ['Maximum excess over KE – OUTSIDE, car end (mm)'].concat(ex(sm.xo), ['curve allowance needed']),
+      ['Maximum excess over KE – INSIDE, mid-car (mm)'].concat(ex(sm.xi), ['curve allowance needed']),
+      ['Points where excess > SOD curve allowance', sm.sod_n, sm.sod_first === null ? '' : r2(sm.sod_first, 2), '', 0, sm.sod_n ? 'CHECK' : 'OK'],
+      ['Minimum structure clearance (mm)'].concat(ex(sm.sc), [0, sm.sc ? (sm.sc_ok ? 'OK' : 'INFRINGES') : '']),
+      ['Minimum underframe height, body-mounted, worst (mm)'].concat(ex(sm.uf), [sm.uf_lim, sm.uf_ok ? 'OK' : 'BELOW MIN']),
+      ['Minimum platform gap, worst movement (mm)'].concat(ex(sm.gm), [0, sm.gm ? (sm.gm_ok ? 'OK' : 'CONTACT') : '']),
+      ['Maximum nominal platform gap (mm)'].concat(ex(sm.gn), [sm.prm, sm.gn ? (sm.gn_info ? 'INFO: above PRM value' : 'OK') : '']),
+      ['Points with any CHECK', sm.check_n, '', '', 0, sm.ok ? 'ALL OK' : 'REVIEW'], [''], ['Options']];
+    S.dynamicOptions.forEach(function (fd) { sum.push([fd.l, o[fd.k] === null ? '' : o[fd.k]]); });
+    sum.push(['Sweep step (m)', res.sweep.step], ['Common options (Static Simulation tab)']);
+    S.staticOptions.forEach(function (fd) { if (fd.k.indexOf('ma_') !== 0) { sum.push([fd.l, so[fd.k] === null ? '' : so[fd.k]]); } });
+    add('Dyn_Summary', sum, 44);
+    var cars = [['Car type', 'Profile', 's', 'hc (m)', 'Max deficiency (mm)', 'Max OUT excess (mm)', 'at (m)', 'Max IN excess (mm)', 'at (m)', 'SOD checks', 'Min structure clearance (mm)', 'Min underframe (mm)', 'Min platform gap (mm)', 'CHECK points']];
+    res.cars.forEach(function (c) { var q = c.summary; cars.push([c.car, c.consts.profile, r2(c.consts.s, 4), r2(c.consts.hc, 4), r2(q.def && q.def.v, 2), r2(q.xo && q.xo.v, 2), r2(q.xo && q.xo.ch, 2), r2(q.xi && q.xi.v, 2), r2(q.xi && q.xi.ch, 2), q.sod_n, q.sc ? r2(q.sc.v, 2) : 'n/a', r2(q.uf && q.uf.v, 2), q.gm ? r2(q.gm.v, 2) : 'n/a', q.check_n]); });
+    add('Dyn_CarTypes', cars, 12);
+    var eh = ['Car type', 'No', 'Ch start', 'Ch end', 'Element', 'Hand', 'R start', 'R end', 'Speed', 'Max deficiency', 'Max OUT h2', 'Max IN h2', 'Max excess OUT', 'Max excess IN', 'Min structure clearance', 'Min underframe', 'Status', 'Remarks'];
+    var el = [eh];
+    res.cars.forEach(function (c) { c.elements.forEach(function (e) { el.push([c.car, e.no, e.s0, e.s1, e.type, e.side, r2(e.R0, 1), r2(e.R1, 1), e.V, r2(e.def, 2), r2(e.o2, 1), r2(e.i2, 1), r2(e.xo, 2), r2(e.xi, 2), e.sc === null ? '' : r2(e.sc, 1), r2(e.uf, 1), e.status, e.remarks || '']); }); });
+    add('Dyn_Elements', el, 10);
+    var sh = ['Car type', 'V (km/h)', 'Eq. cant (mm)', 'I = Eeq − E (mm)', 'Deficiency', 'Excess', 'Wind eq. cant', 'Widening', 'dgi mid', 'dga end', 'OUT h1', 'OUT h2', 'IN h1', 'IN h2', 'KE w h1', 'KE w h2', 'Max excess over KE', 'Remark'];
+    var ss = [sh];
+    res.cars.forEach(function (c) { c.speedStep.rows.forEach(function (q) { ss.push([c.car, q.V, r2(q.Eeq, 2), r2(q.I, 2), r2(q.def, 2), r2(q.exc, 2), r2(q.Dw, 2), q.wd, r2(q.dgi, 2), r2(q.dga, 2), r2(q.o1, 1), r2(q.o2, 1), r2(q.i1, 1), r2(q.i2, 1), r2(q.kw1, 1), r2(q.kw2, 1), r2(q.excess, 2), q.remark]); }); });
+    add('Dyn_SpeedStep', ss, 10);
+    var cols = [['ch', 'Chainage (m)', 2], ['el', 'Element', 0], ['type', 'Type'], ['k', 'Curvature k (1/m, +L)', 7], ['Rl', 'Local R (m)', 1], ['cant', 'Cant (mm)', 2], ['V', 'Speed (km/h)', 0], ['Rv', 'Rv (m)', 0], ['ke', 'KE'],
+      ['loc', 'Location'], ['kg', 'Governing |k| (1/m)', 7], ['Rg', 'Governing R (m)', 1], ['Eeq', 'Eq. cant (mm)', 2], ['def', 'Deficiency (mm)', 2], ['exc', 'Excess stopped (mm)', 2], ['Vw', 'Wind speed (km/h)', 0],
+      ['Dw', 'Wind eq. cant (mm)', 2], ['wd', 'Widening (mm)', 1], ['dgi', 'dgi mid (mm)', 2], ['dga', 'dga end (mm)', 2], ['o1', 'OUT h1 (mm)', 2], ['o2', 'OUT h2 (mm)', 2], ['i1', 'IN h1 (mm)', 2], ['i2', 'IN h2 (mm)', 2],
+      ['kw1', 'KE w h1 (mm)', 2], ['kw2', 'KE w h2 (mm)', 2], ['xo', 'Excess OUT (mm)', 2], ['xi', 'Excess IN (mm)', 2], ['To', 'SOD allowance OUT (mm)', 2], ['Ti', 'SOD allowance IN (mm)', 2], ['sod', 'SOD check'],
+      ['lean', 'Lean at h2 (mm)', 2], ['ho', 'Req. horizontal OUT (mm)', 2], ['hi', 'Req. horizontal IN (mm)', 2], ['sc', 'Structure clearance (mm)', 2], ['ss', 'Structure status'], ['vc', 'Vertical-curve effect (mm)', 2],
+      ['uf', 'Underframe height (mm)', 2], ['ufs', 'Underframe status'], ['pl', 'Platform position'], ['gn', 'Gap nominal (mm)', 2], ['gm', 'Gap minimum (mm)', 2], ['gs', 'Gap status'], ['ok', 'Overall'], ['valid', 'Valid row']];
+    var sw = [['Car type'].concat(cols.map(function (c) { return c[1]; }))];
+    res.cars.forEach(function (c) { c.rows.forEach(function (q) { sw.push([c.car].concat(cols.map(function (k) { var v = q[k[0]]; return k[0] === 'valid' ? (v ? 1 : 0) : (k[2] === undefined ? (v === null ? '' : v) : r2(v, k[2])); }))); }); });
+    add('Dyn_Sweep', sw, 10);
+    return wb;
+  }
+
   // ---------------------------------------------------------------- project file
   function projectJson(p) {
     var o = M.normalizeProject(p);
@@ -362,7 +407,7 @@
 
   return {
     TAB_SHEETS: TAB_SHEETS, ALL_SHEETS: ALL_SHEETS, sheetRows: sheetRows, keyOf: keyOf,
-    tabWorkbook: tabWorkbook, allInputsWorkbook: allInputsWorkbook, workbookBytes: workbookBytes, staticResultsWorkbook: staticResultsWorkbook,
+    tabWorkbook: tabWorkbook, allInputsWorkbook: allInputsWorkbook, workbookBytes: workbookBytes, staticResultsWorkbook: staticResultsWorkbook, dynamicResultsWorkbook: dynamicResultsWorkbook,
     importWorkbook: importWorkbook, readWorkbookBytes: readWorkbookBytes,
     projectJson: projectJson, parseProject: parseProject, fileSlug: fileSlug,
     downloadBlob: downloadBlob, downloadText: downloadText, downloadWorkbook: downloadWorkbook, readFile: readFile

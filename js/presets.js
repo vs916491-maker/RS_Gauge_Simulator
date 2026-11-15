@@ -713,7 +713,7 @@
             "location": "platform",
             "wind": "Y",
             "struct_mm": 0,
-            "platform_mm": 1650,
+            "platform_mm": 1560,
             "platform_side": "L",
             "sod": "",
             "remarks": "Station A"
@@ -853,7 +853,7 @@
             "location": "platform",
             "wind": "Y",
             "struct_mm": 0,
-            "platform_mm": 1650,
+            "platform_mm": 1560,
             "platform_side": "R",
             "sod": "",
             "remarks": "Station B"
@@ -973,7 +973,7 @@
             "location": "platform",
             "wind": "Y",
             "struct_mm": 0,
-            "platform_mm": 1650,
+            "platform_mm": 1560,
             "platform_side": "L",
             "sod": "",
             "remarks": "Station C"
@@ -1118,6 +1118,19 @@
           "ma_from_mm": 900,
           "ma_to_mm": null,
           "ma_step_mm": 100
+        },
+        "dynamic": {
+          "ov_meth": "max",
+          "load": "tare",
+          "profile": "",
+          "ch_from_m": null,
+          "ch_to_m": null,
+          "ss_R_m": 1000,
+          "ss_cant_mm": 75,
+          "ss_wind_kmh": 60,
+          "ss_step_kmh": 10,
+          "ss_n": 13,
+          "ss_ke": ""
         }
       }
     },

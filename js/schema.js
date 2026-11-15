@@ -237,6 +237,21 @@
     f('ma_step_mm', 'Method A: height step', 'num', 'mm', { min: 10, max: 1000, d: 100 })
   ];
 
+  // ---------------------------------------------------------------- Dynamic Simulation tab (options)
+  var dynamicOptions = [
+    f('ov_meth', 'Overthrow method', 'sel', '', { o: [['max', 'Max curvature within the car length (conservative)'], ['local', 'Local radius']], d: 'max', h: 'Conservative covers transitions and reverse curves' }),
+    f('load', 'Load case for the dynamic calculation', 'sel', '', { o: [['tare', 'Tare (AW0)'], ['crush', 'Crush (AW4)']], d: 'tare', h: 'Tare normally governs (larger wind roll)' }),
+    f('profile', 'Profile for the dynamic gauge', 'text', '', { d: '', h: 'Blank = car-end section profile of each car type' }),
+    f('ch_from_m', 'Start chainage', 'num', 'm', { min: -1e6, max: 1e7, opt: true, h: 'Blank = start of the track data' }),
+    f('ch_to_m', 'End chainage', 'num', 'm', { min: -1e6, max: 1e7, opt: true, h: 'Blank = end of the track data' }),
+    f('ss_R_m', 'Speed-step study: curve radius (0 = tangent)', 'num', 'm', { min: 0, max: 1e6, d: 1000 }),
+    f('ss_cant_mm', 'Speed-step study: applied cant', 'num', 'mm', { min: 0, max: 250, d: 75 }),
+    f('ss_wind_kmh', 'Speed-step study: wind speed', 'num', 'km/h', { min: 0, max: 250, d: 60, h: 'Platform entry wind' }),
+    f('ss_step_kmh', 'Speed-step study: speed step', 'num', 'km/h', { min: 1, max: 100, d: 10 }),
+    f('ss_n', 'Speed-step study: number of steps (from 0)', 'int', '', { min: 1, max: 60, d: 13 }),
+    f('ss_ke', 'Speed-step study: KE', 'text', '', { d: '', h: 'Blank = KE of the static check' })
+  ];
+
   function defaults(fields) {
     var o = {}, i;
     for (i = 0; i < fields.length; i++) { o[fields[i].k] = fields[i].d !== undefined ? fields[i].d : (fields[i].opt ? null : undefined); if (o[fields[i].k] === undefined) { delete o[fields[i].k]; } }
@@ -252,7 +267,7 @@
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
     trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
-    staticOptions: staticOptions,
+    staticOptions: staticOptions, dynamicOptions: dynamicOptions,
     defaults: defaults, byKey: byKey
   };
 }));

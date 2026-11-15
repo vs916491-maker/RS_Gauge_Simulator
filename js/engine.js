@@ -4,6 +4,8 @@
  *   derived car data (pivots, yaw factors, wind equivalent cant, vertical travels, theoretical s and hc,
  *   shared-bogie check), the six static cases per car type (interior / exterior / car end x tare / crush),
  *   point-by-point clearance to the customer KE, Method A maximum static half-width and vertical checks.
+ * Dynamic (METHOD §8): chainage sweep per car type with the workbook's Dynamic Calc columns, line and element summaries,
+ *   speed-step study and the cross-section at a chainage.
  * Input: a project normalised by js/model.js (profile coordinates in mm). Never mutated.
  * Attaches to RSGAUGE.engine.
  */
@@ -14,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '2.0.0';
+  var VERSION = '3.0.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -313,8 +315,261 @@
     return { l: l, d_new: dNew, d_worn: dWorn, half_new: (l - dNew) / 2, half_worn: (l - dWorn) / 2 };
   }
 
+  // ================================================================ DYNAMIC (METHOD §8)
+  // Track model: elements sorted by start chainage with signed curvature (+ left) and cant at start and end.
+  function trackModel(p) {
+    var el = p.track.segments.filter(function (s) { return s.from_m !== null && s.to_m !== null && s.to_m > s.from_m; })
+      .slice().sort(function (a, b) { return a.from_m - b.from_m; })
+      .map(function (s, i) {
+        var sg = s.side === 'R' ? -1 : 1;
+        return { no: i + 1, s0: s.from_m, s1: s.to_m, type: s.element, side: s.side,
+          ks: n0(s.R_start_m) > 0 ? sg / n0(s.R_start_m) : 0, ke: n0(s.R_end_m) > 0 ? sg / n0(s.R_end_m) : 0,
+          cs: n0(s.cant_start_mm), ce: n0(s.cant_end_mm), V: n0(s.speed_kmh), Rv: n0(s.Rv_m), keName: s.ke, loc: s.location,
+          wind: s.wind, str: n0(s.struct_mm), pe: n0(s.platform_mm), ps: s.platform_side, remarks: s.remarks, seg: s };
+      });
+    var start = el.length ? el[0].s0 : 0, end = -Infinity;
+    el.forEach(function (e) { end = Math.max(end, e.s1); });
+    return { el: el, start: start, end: el.length ? end : 0 };
+  }
+  // Last element whose start is at or before the chainage (Excel MATCH(…, 1)).
+  function locate(tm, ch) {
+    var lo = 0, hi = tm.el.length - 1, i = 0;
+    while (lo <= hi) { var mid = (lo + hi) >> 1; if (tm.el[mid].s0 <= ch) { i = mid; lo = mid + 1; } else { hi = mid - 1; } }
+    return i;
+  }
+  // Sweep chainages: ch0 + i·step while ≤ end, then the end itself (evaluated, flagged not valid, as the workbook's repeated end rows).
+  function sweepChainages(tm, opt, step) {
+    var ch0 = (opt.ch_from_m === null || opt.ch_from_m === undefined || opt.ch_from_m === '') ? tm.start : Math.max(tm.start, n0(opt.ch_from_m));
+    var end = (opt.ch_to_m === null || opt.ch_to_m === undefined || opt.ch_to_m === '') ? tm.end : Math.min(tm.end, n0(opt.ch_to_m));
+    var out = [], i, ch;
+    step = Math.max(0.1, step);
+    for (i = 0; i < 100000; i++) {
+      ch = ch0 + i * step;
+      if (ch > end + 1e-9) { out.push({ ch: end, valid: false }); break; }
+      out.push({ ch: ch, valid: true });
+    }
+    return { ch0: ch0, end: end, step: step, pts: out };
+  }
+
+  // Constants of one car type for the dynamic calculation (Dynamic Calc §1).
+  function dynConstants(p, d, sOpt, dOpt) {
+    var tp = p.track.params, G = n0(p.train.L_mm, 1500), L = p.ke.limits || {}, g = d.geo, bg = d.bogie;
+    var tare = dOpt.load !== 'crush';
+    var s = tare ? d.s_t : d.s_c, hc = tare ? d.hc_t : d.hc_c, Cw = tare ? d.wind.Cw_t : d.wind.Cw_c;
+    var dT_in = bg.play + bg.q + d.w_use + n0(tp.fw_mm), dT_out = g.A_end * dT_in;
+    var thr = s * n0(tp.cl_err_mm) / G, tht = (yes(sOpt.tilt) ? 1 : 0) * n0(tp.cl_err_mm) / G;
+    var gt = n0(tp.g_tol_mm), al = n0(tp.align_tol_mm) * (yes(sOpt.align) ? 1 : 0), K = n0(sOpt.K_rss, 1), lin = sOpt.comb !== 'rss';
+    var gtOut = gt * g.A_end * (yes(sOpt.gtol_ext) ? 1 : 0);
+    function rnd(gtol, h) {   // h in m
+      var a = thr * (h - hc) * 1000, b = tht * h * 1000;
+      return lin ? gtol + al + a + b : K * Math.sqrt(gtol * gtol + al * al + a * a + b * b);
+    }
+    var prof = null, c = d.carRec;
+    var pname = dOpt.profile ? dOpt.profile : c.prof_end;
+    var pr = findBy(p.rs.profiles, 'name', pname) || p.rs.profiles[0];
+    prof = outline(pr.points, null); prof.name = pr.name;
+    var h1 = n0(L.h_ref1_mm) / 1000, h2 = n0(L.h_ref2_mm) / 1000, hf = n0(c.floor_mm) / 1000;
+    return {
+      s: s, hc: hc, Cw: Cw, dT_in: dT_in, dT_out: dT_out, thr: thr, tht: tht, h1: h1, h2: h2, hf: hf, G: G,
+      rnd_in1: rnd(gt, h1), rnd_in2: rnd(gt, h2), rout1: rnd(gtOut, h1), rout2: rnd(gtOut, h2), rfl: rnd(gt, hf), rnd: rnd, gtOut: gtOut, gt: gt,
+      win_m: g.a / 2 + g.n_end + bg.p / 2, profile: prof, pw1: profileWidth(prof, h1) * 1000, pw2: profileWidth(prof, h2) * 1000,
+      sod_C: blankOr(L.sod_C_m, g.a), sod_L: blankOr(L.sod_L_m, g.Lb), sod_b: blankOr(L.sod_b_m, bg.p),
+      nosing: n0(L.nosing_mm), sill_hw: n0(c.sill_hw_mm)
+    };
+  }
+  function blankOr(v, d) { return (v === null || v === undefined || v === '') ? d : Number(v); }
+
+  // One sweep row (Dynamic Calc §3 columns) for car d at chainage point.
+  function sweepRow(p, d, k, tm, kes, sOpt, ch, kg) {
+    var tp = p.track.params, L = p.ke.limits || {}, g = d.geo, bg = d.bogie, G = k.G, body = d.body || {};
+    var ei = locate(tm, ch), e = tm.el[ei];
+    var t = Math.max(0, Math.min(1, (ch - e.s0) / (e.s1 - e.s0)));
+    var kk = e.ks + (e.ke - e.ks) * t, ka = Math.abs(kk), cant = e.cs + (e.ce - e.cs) * t;
+    var Eeq = G * Math.pow(e.V / 3.6, 2) * ka / G_ACC, Iq = Eeq - cant, def = Math.max(Iq, 0), exc = cant;
+    var Vw = e.wind === 'N' ? 0 : (e.loc === 'platform' ? n0(tp.wind_plat_kmh) : n0(tp.wind_open_kmh));
+    var Dw = k.Cw * Vw * Vw * (yes(sOpt.wind) ? 1 : 0);
+    var Rg = kg === 0 ? 0 : 1 / kg;
+    var wd = (Rg > 0 && Rg < n0(tp.widen_R_m)) ? n0(tp.widen_mm) : 0;
+    var pw = bg.p, a = g.a, nE = g.n_end;
+    var dgi = (a * a + pw * pw) / 8 * kg * 1000, dga = (a * nE + nE * nE - pw * pw / 4) / 2 * kg * 1000;
+    var rollO = k.s * (def + Dw) / G, rollI = k.s * (exc + Dw) / G;
+    var o1 = k.pw1 + dga + k.dT_out + g.A_end * wd / 2 + rollO * (k.h1 - k.hc) * 1000 + k.rout1;
+    var o2 = k.pw2 + dga + k.dT_out + g.A_end * wd / 2 + rollO * (k.h2 - k.hc) * 1000 + k.rout2;
+    var i1 = k.pw1 + dgi + k.dT_in + wd / 2 + rollI * (k.h1 - k.hc) * 1000 + k.rnd_in1;
+    var i2 = k.pw2 + dgi + k.dT_in + wd / 2 + rollI * (k.h2 - k.hc) * 1000 + k.rnd_in2;
+    var ke = kes[e.keName] || kes.__default;
+    var kw1 = keWidth(ke, k.h1) * 1000, kw2 = keWidth(ke, k.h2) * 1000;
+    var xo = Math.max(o1 - kw1, o2 - kw2), xi = Math.max(i1 - kw1, i2 - kw2);
+    var To = Math.max((k.sod_L * k.sod_L - k.sod_C * k.sod_C) / 8 * kg * 1000 - k.nosing, 0) + wd / 2;
+    var Ti = Math.max((k.sod_C * k.sod_C + k.sod_b * k.sod_b) / 8 * kg * 1000 - k.nosing, 0) + wd / 2;
+    var sod = (xo <= To + 0.05 && xi <= Ti + 0.05) ? 'OK' : 'CHECK';
+    var lean = k.h2 * cant / G * 1000, ho = o2 - lean, hi = i2 + lean;
+    var sc = e.str === 0 ? null : e.str - Math.max(ho, hi), ss = sc === null ? '' : (sc >= 0 ? 'OK' : 'INFRINGES');
+    var vc = e.Rv > 0 ? a * a / (8 * e.Rv) * 1000 : (e.Rv < 0 ? (a * nE + nE * nE) / (2 * Math.abs(e.Rv)) * 1000 : 0);
+    var uf = n0(body.uf_h_mm) - d.dn_total - vc - d.s_c * (Math.max(def, exc) + d.wind.Cw_c * Vw * Vw * (yes(sOpt.wind) ? 1 : 0) + n0(tp.cl_err_mm)) / G * n0(body.uf_hw_mm);
+    var ufs = uf >= n0(L.uf_min_body_mm) ? 'OK' : 'BELOW MIN';
+    var pl = '', gn = null, gm = null, gs = '';
+    if (e.loc === 'platform') {
+      pl = ka === 0 ? 'Tangent' : (((e.ps === 'L' && kk > 0) || (e.ps === 'R' && kk < 0)) ? 'Inside' : 'Outside');
+      gn = e.pe - k.sill_hw - (pl === 'Inside' ? dgi : (pl === 'Outside' ? dga : 0));
+      gm = gn - (k.dT_in + wd / 2 + k.s * ((pl === 'Inside' ? exc : 0) + Dw) / G * (k.hf - k.hc) * 1000 + k.rfl);
+      gs = gm < 0 ? 'CONTACT' : (gn > n0(L.prm_gap_mm) ? 'OK (gap > PRM value: info)' : 'OK');
+    }
+    var ok = (sod === 'CHECK' || ss === 'INFRINGES' || ufs === 'BELOW MIN' || gs === 'CONTACT') ? 'CHECK' : 'OK';
+    return { ch: ch, el: e.no, t: t, type: e.type, k: kk, ka: ka, Rl: ka === 0 ? 0 : 1 / ka, cant: cant, V: e.V, Rv: e.Rv, ke: ke.name, loc: e.loc, wind: e.wind,
+      str: e.str, pe: e.pe, ps: e.ps, kg: kg, Rg: Rg, Eeq: Eeq, Iq: Iq, def: def, exc: exc, Vw: Vw, Dw: Dw, wd: wd, dgi: dgi, dga: dga,
+      o1: o1, o2: o2, i1: i1, i2: i2, kw1: kw1, kw2: kw2, xo: xo, xi: xi, To: To, Ti: Ti, sod: sod, lean: lean, ho: ho, hi: hi, sc: sc, ss: ss,
+      vc: vc, uf: uf, ufs: ufs, pl: pl, gn: gn, gm: gm, gs: gs, ok: ok };
+  }
+
+  // Speed-step study (Dynamic Calc §2) for one car.
+  function speedStep(p, d, k, kes, sOpt, dOpt) {
+    var tp = p.track.params, g = d.geo, bg = d.bogie, G = k.G;
+    var R = n0(dOpt.ss_R_m), cant = n0(dOpt.ss_cant_mm), Vw = n0(dOpt.ss_wind_kmh), step = n0(dOpt.ss_step_kmh, 10), n = Math.max(1, Math.round(n0(dOpt.ss_n, 13)));
+    var ke = kes[dOpt.ss_ke] || kes.__default, kw1 = keWidth(ke, k.h1) * 1000, kw2 = keWidth(ke, k.h2) * 1000;
+    var Dw = k.Cw * Vw * Vw * (yes(sOpt.wind) ? 1 : 0), wd = (R > 0 && R < n0(tp.widen_R_m)) ? n0(tp.widen_mm) : 0;
+    var dgi = R === 0 ? 0 : (g.a * g.a + bg.p * bg.p) / (8 * R) * 1000, dga = R === 0 ? 0 : (g.a * g.n_end + g.n_end * g.n_end - bg.p * bg.p / 4) / (2 * R) * 1000;
+    var rows = [], i;
+    for (i = 0; i < n; i++) {
+      var V = i * step, Eeq = R === 0 ? 0 : G * Math.pow(V / 3.6, 2) / (G_ACC * R), I = Eeq - cant, def = Math.max(I, 0), exc = Math.max(-I, 0);
+      var o1 = k.pw1 + dga + k.dT_out + g.A_end * wd / 2 + k.s * (def + Dw) / G * (k.h1 - k.hc) * 1000 + k.rout1;
+      var o2 = k.pw2 + dga + k.dT_out + g.A_end * wd / 2 + k.s * (def + Dw) / G * (k.h2 - k.hc) * 1000 + k.rout2;
+      var i1 = k.pw1 + dgi + k.dT_in + wd / 2 + k.s * (exc + Dw) / G * (k.h1 - k.hc) * 1000 + k.rnd_in1;
+      var i2 = k.pw2 + dgi + k.dT_in + wd / 2 + k.s * (exc + Dw) / G * (k.h2 - k.hc) * 1000 + k.rnd_in2;
+      rows.push({ V: V, Eeq: Eeq, I: I, def: def, exc: exc, Dw: Dw, wd: wd, dgi: dgi, dga: dga, o1: o1, o2: o2, i1: i1, i2: i2, kw1: kw1, kw2: kw2,
+        excess: Math.max(o1 - kw1, o2 - kw2, i1 - kw1, i2 - kw2),
+        remark: def > n0(tp.cantdef_max_mm) ? 'Above cant-deficiency limit' : (V > n0(p.train.vmax_kmh) ? 'Above design speed' : '') });
+    }
+    return { R: R, cant: cant, wind: Vw, ke: ke.name, rows: rows };
+  }
+
+  // Line summary (Dynamic Gauge Output §Summary) over the rows of one car or the envelope.
+  function lineSummary(p, rows, sw) {
+    var tp = p.track.params, L = p.ke.limits || {};
+    function ext(key, fn) {
+      var best = null;
+      rows.forEach(function (r) { var v = r[key]; if (v === null || v === undefined) { return; } if (!best || fn(v, best.v)) { best = { v: v, ch: r.ch, car: r.car }; } });
+      return best;
+    }
+    var gt = function (a, b) { return a > b; }, lt = function (a, b) { return a < b; };
+    var valid = rows.filter(function (r) { return r.valid; });
+    var def = ext('def', gt), xo = ext('xo', gt), xi = ext('xi', gt), sc = ext('sc', lt), uf = ext('uf', lt), gm = ext('gm', lt), gn = ext('gn', gt);
+    var sodN = valid.filter(function (r) { return r.sod === 'CHECK'; }), chkN = valid.filter(function (r) { return r.ok === 'CHECK'; });
+    var firstSod = rows.filter(function (r) { return r.sod === 'CHECK'; })[0];
+    return {
+      length: sw.end - sw.ch0, points: valid.length, step: sw.step,
+      def: def, def_lim: n0(tp.cantdef_max_mm), def_ok: def ? def.v <= n0(tp.cantdef_max_mm) : true,
+      xo: xo, xi: xi, sod_n: sodN.length, sod_first: firstSod ? firstSod.ch : null,
+      sc: sc, sc_ok: sc ? sc.v >= 0 : null, uf: uf, uf_lim: n0(L.uf_min_body_mm), uf_ok: uf ? uf.v >= n0(L.uf_min_body_mm) : true,
+      gm: gm, gm_ok: gm ? gm.v >= 0 : null, gn: gn, prm: n0(L.prm_gap_mm), gn_info: gn ? gn.v > n0(L.prm_gap_mm) : false,
+      check_n: chkN.length, ok: chkN.length === 0
+    };
+  }
+  // Per-element summary (Dynamic Gauge Output, element table).
+  function elementSummary(tm, rows) {
+    return tm.el.map(function (e) {
+      var rs = rows.filter(function (r) { return r.el === e.no; });
+      function mx(k) { var v = null; rs.forEach(function (r) { if (r[k] !== null && (v === null || r[k] > v)) { v = r[k]; } }); return v; }
+      function mn(k) { var v = null; rs.forEach(function (r) { if (r[k] !== null && (v === null || r[k] < v)) { v = r[k]; } }); return v; }
+      return { no: e.no, s0: e.s0, s1: e.s1, type: e.type, side: e.side, R0: e.ks === 0 ? 0 : 1 / Math.abs(e.ks), R1: e.ke === 0 ? 0 : 1 / Math.abs(e.ke), V: e.V,
+        remarks: e.remarks, n: rs.length, def: mx('def'), o2: mx('o2'), i2: mx('i2'), xo: mx('xo'), xi: mx('xi'), sc: mn('sc'), uf: mn('uf'),
+        status: rs.length ? (rs.some(function (r) { return r.ok === 'CHECK'; }) ? 'CHECK' : 'OK') : 'not evaluated' };
+    });
+  }
+
+  /*
+   * Dynamic run (METHOD §8): sweep every selected car type along the track data; returns per car the sweep rows,
+   * line summary, per-element summary and speed-step study, plus the envelope of all cars (worst per chainage).
+   */
+  function dynamicRun(p, sOpt, dOpt) {
+    sOpt = sOpt || {}; dOpt = dOpt || {};
+    var tm = trackModel(p);
+    if (!tm.el.length) { throw new Error('No track data.'); }
+    var kes = {};
+    p.ke.profiles.forEach(function (pr) { var o = outline(pr.points, pr.n_up); o.name = pr.name; kes[pr.name] = o; });
+    kes.__default = kes[sOpt.ke] || kes[(p.ke.profiles[0] || {}).name];
+    if (!kes.__default) { throw new Error('No customer KE.'); }
+    var sw = sweepChainages(tm, dOpt, n0(p.track.params.dx_m, 10));
+    var want = dOpt.cars && dOpt.cars !== 'all' ? String(dOpt.cars).split(',') : null;
+    var cars = p.train.carTypes.filter(function (c) { return !want || want.indexOf(c.name) >= 0; });
+    var warnings = [];
+    var out = cars.map(function (c) {
+      var d = deriveCar(p, c, sOpt), k = dynConstants(p, d, sOpt, dOpt);
+      var win = Math.ceil(k.win_m / sw.step - 1e-12);   // ROUNDUP(… / step, 0)
+      var ka = sw.pts.map(function (q) { var e = tm.el[locate(tm, q.ch)], t = Math.max(0, Math.min(1, (q.ch - e.s0) / (e.s1 - e.s0))); return Math.abs(e.ks + (e.ke - e.ks) * t); });
+      var rows = sw.pts.map(function (q, i) {
+        var kg = ka[i];
+        if (dOpt.ov_meth !== 'local') { for (var j = Math.max(0, i - win); j <= Math.min(ka.length - 1, i + win); j++) { if (ka[j] > kg) { kg = ka[j]; } } }
+        var r = sweepRow(p, d, k, tm, kes, sOpt, q.ch, kg);
+        r.valid = q.valid; r.car = c.name;
+        return r;
+      });
+      return { car: c.name, count: c.count, derived: d, consts: { s: k.s, hc: k.hc, Cw: k.Cw, dT_in: k.dT_in, dT_out: k.dT_out, thr: k.thr, tht: k.tht,
+          rnd_in1: k.rnd_in1, rnd_in2: k.rnd_in2, rout1: k.rout1, rout2: k.rout2, rfl: k.rfl, pw1: k.pw1, pw2: k.pw2, profile: k.profile.name, win: win,
+          sod_C: k.sod_C, sod_L: k.sod_L, sod_b: k.sod_b },
+        rows: rows, summary: lineSummary(p, rows, sw), elements: elementSummary(tm, rows), speedStep: speedStep(p, d, k, kes, sOpt, dOpt), _k: k };
+    });
+    // envelope: worst over car types at each chainage
+    var env = sw.pts.map(function (q, i) {
+      var r = { ch: q.ch, valid: q.valid, el: out[0] ? out[0].rows[i].el : null, def: out[0] ? out[0].rows[i].def : null, sod: 'OK', ok: 'OK' };
+      function take(key, better) {
+        out.forEach(function (o) { var v = o.rows[i][key]; if (v === null || v === undefined) { return; } if (r[key] === undefined || r[key] === null || better(v, r[key])) { r[key] = v; r[key + '_car'] = o.car; } });
+      }
+      ['xo', 'xi', 'o2', 'i2', 'gn'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a > b; }); });
+      ['sc', 'uf', 'gm'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a < b; }); });
+      out.forEach(function (o) { var x = o.rows[i]; if (x.sod === 'CHECK') { r.sod = 'CHECK'; } if (x.ok === 'CHECK') { r.ok = 'CHECK'; } });
+      r.car = r.xo_car;
+      return r;
+    });
+    var summary = lineSummary(p, env, sw);
+    ['def', 'xo', 'xi', 'sc', 'uf', 'gm', 'gn'].forEach(function (key) {
+      if (summary[key]) { var row = env.filter(function (r) { return r.ch === summary[key].ch; })[0]; summary[key].car = row ? row[key + '_car'] : null; }
+    });
+    return { engineVersion: VERSION, sweep: { ch0: sw.ch0, end: sw.end, step: sw.step, n: sw.pts.length }, ke: kes.__default.name,
+      cars: out, envelope: env, summary: summary, elements: elementSummary(tm, env), ok: summary.ok, warnings: warnings };
+  }
+
+  /*
+   * Cross-section at a chainage for one car (Dynamic Calc §4): right = OUTSIDE (car end at line speed), left = INSIDE
+   * (mid-car, stopped), rotated by the cant angle into the vertical frame. ch = null → chainage of the largest outside excess.
+   */
+  function crossSection(p, dres, carName, ch, sOpt) {
+    var cr = dres.cars.filter(function (c) { return c.car === carName; })[0] || dres.cars[0];
+    if (!cr) { return null; }
+    var rows = cr.rows, k = cr._k, d = cr.derived, g = d.geo, tp = p.track.params, i, idx = 0;
+    if (ch === null || ch === undefined || ch === '' || !isFinite(ch)) {
+      var best = -Infinity;
+      rows.forEach(function (r, j) { if (r.xo > best) { best = r.xo; idx = j; } });
+      ch = rows[idx].ch;
+    } else {
+      ch = Math.min(Math.max(Number(ch), dres.sweep.ch0), dres.sweep.end);
+      for (i = 0; i < rows.length; i++) { if (rows[i].ch <= ch + 1e-9) { idx = i; } }
+    }
+    var r = rows[idx], G = k.G, phi = Math.asin(r.cant / G), cs = Math.cos(phi), sn = Math.sin(phi);
+    var tho = k.s * (r.def + r.Dw) / G + k.thr + k.tht, thi = k.s * (r.exc + r.Dw) / G + k.thr + k.tht;
+    function rot(x, z) { return { x: x * cs - z * sn, y: x * sn + z * cs }; }
+    function Eout(h) { return r.dga + k.dT_out + g.A_end * r.wd / 2 + k.s * (r.def + r.Dw) / G * (h - k.hc) * 1000 + k.rnd(k.gtOut, h); }
+    function Ein(h) { return r.dgi + k.dT_in + r.wd / 2 + k.s * (r.exc + r.Dw) / G * (h - k.hc) * 1000 + k.rnd(k.gt, h); }
+    var prof = k.profile.pts, ke = null;
+    p.ke.profiles.forEach(function (pr) { if (pr.name === r.ke) { ke = pr; } });
+    var right = prof.map(function (q) { var E = Eout(q.h); return { pt: q.pt, x0: q.x, h0: q.h, E: E, th: tho, xt: q.x + E / 1000, zt: q.h - tho * q.x }; });
+    var left = prof.map(function (q) { var E = Ein(q.h); return { pt: q.pt, x0: q.x, h0: q.h, E: E, th: thi, xt: -(q.x + E / 1000), zt: q.h - thi * q.x }; });
+    function both(fnR, fnL, list) { var a = list.map(fnR), b = list.slice().reverse().map(fnL); return a.concat(b, a.length ? [a[0]] : []); }
+    var envelope = right.map(function (q) { return rot(q.xt, q.zt); }).concat(left.slice().reverse().map(function (q) { return rot(q.xt, q.zt); }));
+    if (envelope.length) { envelope.push(envelope[0]); }
+    var stat = both(function (q) { return rot(q.x, q.h); }, function (q) { return rot(-q.x, q.h); }, prof);
+    var kp = ke ? ke.points.map(function (q) { return { x: q.y / 1000, h: q.z / 1000 }; }) : [];
+    var keR = both(function (q) { return rot(q.x, q.h); }, function (q) { return rot(-q.x, q.h); }, kp);
+    var keS = both(function (q) { return rot(q.x + r.To / 1000, q.h); }, function (q) { return rot(-(q.x + r.Ti / 1000), q.h); }, kp);
+    var mm = function (list) { return list.map(function (q) { return { x: q.x * 1000, y: q.y * 1000 }; }); };
+    return { car: cr.car, ch: r.ch, row: r, phi: phi, tho: tho, thi: thi, right: right, left: left,
+      envelope: mm(envelope), staticProfile: mm(stat), ke: mm(keR), keSod: mm(keS), rails: mm([rot(-0.75, 0), rot(0.75, 0)]),
+      structure: r.str ? mm([rot(r.str / 1000, k.h2 - 0.3), rot(r.str / 1000, k.h2 + 0.3)]) : null, h2: k.h2 * 1000 };
+  }
+
   return {
     VERSION: VERSION, CASES: CASES, G_ACC: G_ACC, playCalc: playCalc,
+    trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun
   };

@@ -21,8 +21,12 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 5. **Static Simulation**: choose the options (defaults = reference method) and press **Run static simulation**;
    **Static Results** shows the governing car and case, charts of each section, the movement build-up, every point,
    Method A and the vertical checks, and exports them to Excel.
-6. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
-7. The **Overall Summary** tab shows what still needs fixing; the **Method & Assumptions** tab is the full method.
+6. **Dynamic Simulation**: sweeps every car type along the Track Data and press **Run dynamic simulation**;
+   **Dynamic Results** gives the line summary (worst car type per chainage), charts against chainage, a chainage
+   selector with the cross-section in the vertical frame, the per-element table and the speed-step study, and
+   exports every sweep row to Excel.
+7. **Apply typical values** (Train Configuration) loads LRV, Metro or High-speed typical inputs.
+8. The **Overall Summary** tab shows what still needs fixing; the **Method & Assumptions** tab is the full method.
 
 ## Status
 
@@ -30,8 +34,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 |---|---|---|
 | 1 | Input tabs, templates, import/export, previews, input checks | Done |
 | 2 | Inputs aligned to the workbook, static engine, Static Simulation and Static Results | Done |
-| 3 | Dynamic Simulation and Dynamic Results (chainage selector) | Next |
-| 4 | Overall Summary of results, Excel export, report | |
+| 3 | Dynamic Simulation and Dynamic Results (chainage selector, cross-section, speed-step study) | Done |
+| 4 | Report, full SOD outline checks, EN 15273-2 option, validation calculations | Later |
 
 ## For developers
 
