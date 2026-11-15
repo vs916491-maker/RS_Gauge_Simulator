@@ -143,4 +143,6 @@ reads every known sheet.
 | 14 | EN 15273-2: pantograph gauge A.3.12 (A.66–A.85, lowered position) | Done |
 | 15 | Third-rail current collector (CCD): shoe gear vs envelope, shoe–rail reach and overlap (bottom / top / side contact), clearance to rail parts, along the line (METHOD §14) | Done |
 | 16 | EN 15273-2: rules of the other reference gauges GA, GB, GC, GB1, GB2, G2, DE1–DE3 (height law k, roll band) | Done |
-| 17 | EN 15273-2: dynamic method (§5.2, Annex O): simulation results import (O.6), displacements O.4–O.18, rigid-body swept envelope (tangent and along the line), model validation O.2 | **This pull request** |
+| 17 | EN 15273-2: dynamic method (§5.2, Annex O): simulation results import (O.6), displacements O.4–O.18, rigid-body swept envelope (tangent and along the line), model validation O.2 | Done |
+| 18 | Applicable-rules framework (Customer KE / EN 15273-2 / EBO / BOStrab) with per-check override; BOStrab §34 public limits | **This pull request** |
+| 19 | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |
