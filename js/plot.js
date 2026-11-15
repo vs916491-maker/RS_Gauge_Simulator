@@ -146,6 +146,25 @@
       line('Used in gauging (s ' + sr.used.s.toFixed(3) + ', hc ' + Math.round(sr.used.hc) + ' mm)', sr.curve.map(function (q) { return { x: q.used, y: q.h }; }), colors.used || '#dc2626', { w: 1.6, dash: [6, 4] })
     ];
   }
+  // Third-rail CCD layout (rail side, nominal): envelope, CCD outlines working / retracted, rail contact face, rail parts.
+  function ccdDatasets(p, keName, colors) {
+    colors = colors || {};
+    var ds = [], ke = (p.ke.profiles || []).filter(function (x) { return x.name === keName; })[0], tr = p.thirdRail || {};
+    if (ke) { ds.push(line('Envelope – ' + ke.name, ke.points.map(function (q) { return { x: q.y, y: q.z, label: q.pt }; }), colors.ke || '#475569', { w: 1.6 })); }
+    (p.ccds || []).forEach(function (c, i) {
+      ['working', 'retracted'].forEach(function (st) {
+        var pts = (p.ccdPoints || []).filter(function (q) { return q.ccd === c.name && q.state === st; }).map(function (q) { return { x: q.y_mm, y: q.z_mm, label: q.pt + ' (' + q.part + ')' }; });
+        if (pts.length) { ds.push({ label: c.name + ' – ' + st, data: pts, showLine: false, pointRadius: 4, pointStyle: st === 'working' ? 'circle' : 'triangle',
+          borderColor: st === 'working' ? (colors.work || '#2563eb') : (colors.ret || '#7c3aed'), backgroundColor: st === 'working' ? (colors.work || '#2563eb') : (colors.ret || '#7c3aed') }); }
+      });
+      if (i === 0 && tr.tr_contact !== 'side') { ds.push(line(c.name + ' – shoe face', [{ x: c.o_min_mm, y: tr.tr_c_mm }, { x: c.o_max_mm, y: tr.tr_c_mm }], colors.work || '#2563eb', { w: 3 })); }
+    });
+    var face = tr.tr_contact === 'side' ? [{ x: tr.tr_c_mm, y: tr.tr_o_min_mm }, { x: tr.tr_c_mm, y: tr.tr_o_max_mm }] : [{ x: tr.tr_o_min_mm, y: tr.tr_c_mm }, { x: tr.tr_o_max_mm, y: tr.tr_c_mm }];
+    if (tr.tr_c_mm !== null && tr.tr_c_mm !== undefined) { ds.push(line('Conductor rail contact face', face, colors.rail || '#dc2626', { w: 5 })); }
+    var parts = (tr.parts || []).map(function (q) { return { x: q.y_mm, y: q.z_mm, label: q.name + ' (clearance ' + q.clear_mm + ' mm)' }; });
+    if (parts.length) { ds.push({ label: 'Rail parts', data: parts, showLine: false, pointRadius: 5, pointStyle: 'rect', borderColor: colors.part || '#d97706', backgroundColor: colors.part || '#d97706' }); }
+    return ds;
+  }
   // Gauge test plan of one case: template, expected positions (design and measured s), static profile.
   function testPlanDatasets(k, colors) {
     colors = colors || {};
@@ -179,5 +198,5 @@
   }
 
   return { chainageSeries: chainageSeries, crossSectionDatasets: crossSectionDatasets, profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries,
-    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, enDatasets: enDatasets, swayDatasets: swayDatasets, testPlanDatasets: testPlanDatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
+    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, enDatasets: enDatasets, swayDatasets: swayDatasets, testPlanDatasets: testPlanDatasets, ccdDatasets: ccdDatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
 }));
