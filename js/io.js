@@ -309,6 +309,17 @@
     var ma = [['Car type', 'h (mm)', 'KE width (mm)', 'E Int-T', 'E Int-C', 'E Ext-T', 'E Ext-C', 'E End-T', 'E End-C', 'Max static Int (mm)', 'Max static Ext (mm)', 'Max static End (mm)', 'Profile Int (mm)', 'Profile Ext (mm)', 'Profile End (mm)', 'Margin Int (mm)', 'Margin Ext (mm)', 'Margin End (mm)']];
     res.cars.forEach(function (c) { c.methodA.forEach(function (r) { ma.push([c.car, r2(r.h, 0), r2(r.W)].concat(r.E.map(function (e) { return r2(e); }), [r2(r.max_int), r2(r.max_ext), r2(r.max_end), r2(r.prof_int), r2(r.prof_ext), r2(r.prof_end), r2(r.margin_int), r2(r.margin_ext), r2(r.margin_end)])); }); });
     add('Method_A', ma, 10);
+    if (res.en) {
+      var en = [['Car type', 'Formula set', 'h (mm)', 'KE width (mm)', 'Ei Int (mm)', 'Ea Ext (mm)', 'Ea End (mm)', 'z Int (mm)', 'z End (mm)', 'EN max Int (mm)', 'EN max Ext (mm)', 'EN max End (mm)',
+        'Method A Int (mm)', 'Method A Ext (mm)', 'Method A End (mm)', 'Margin Int (mm)', 'Margin Ext (mm)', 'Margin End (mm)']];
+      res.cars.forEach(function (c) { if (c.en) { c.en.rows.forEach(function (r) { en.push([c.car, c.en.clause, r2(r.h, 0), r2(r.W), r2(r.E_int, 2), r2(r.E_ext, 2), r2(r.E_end, 2), r2(r.z_int, 2), r2(r.z_end, 2), r2(r.max_int), r2(r.max_ext), r2(r.max_end),
+        r2(r.ma_int), r2(r.ma_ext), r2(r.ma_end), r2(r.margin_int), r2(r.margin_ext), r2(r.margin_end)]); }); } });
+      add('EN15273_MaxGauge', en, 10);
+      var ec = [['Car type', 'Section', 'Profile', 'h (mm)', 'Profile half-width (mm)', 'KE half-width (mm)', 'E (mm)', 'z_kin (mm)', 'Branch', 'Load', 'EN max (mm)', 'Margin (mm)', 'Status']];
+      res.cars.forEach(function (c) { if (c.en) { ['int', 'ext', 'end'].forEach(function (k) { var ck = c.en.checks[k]; ck.points.forEach(function (q) {
+        ec.push([c.car, k, ck.profile, r2(q.h, 0), r2(q.x), r2(q.W), r2(q.E, 2), r2(q.z, 2), q.branch, q.load, r2(q.max), r2(q.margin, 2), q.ok ? 'OK' : 'EXCEEDS']); }); }); } });
+      add('EN15273_Check', ec, 10);
+    }
     var vc = [['Car type', 'Check', 'Value (mm)', 'Limit (mm)', 'Margin (mm)', 'Status']];
     res.cars.forEach(function (c) { c.vertical.forEach(function (v) { vc.push([c.car, v.label, r2(v.value, 2), v.info ? '' : r2(v.limit, 1), v.info ? '' : r2(v.margin, 2), v.info ? '' : (v.ok ? 'OK' : 'BELOW MIN / INFRINGES')]); }); });
     add('Vertical_Checks', vc, 10);

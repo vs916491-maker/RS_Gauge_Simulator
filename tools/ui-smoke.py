@@ -69,6 +69,12 @@ with sync_playwright() as pw:
     page.select_option('#sres-car', 'DMC'); page.wait_for_timeout(300)
     page.select_option('#sres-case', 'int_c'); page.wait_for_timeout(300)
     ok(page.locator('#sres-points tbody tr').count() == 15, 'points table of interior crush (15 roof points)')
+    eg = page.evaluate('RSGAUGE.app.state.run.en.governing')
+    ok(page.locator('#sres-en').is_visible() and eg and eg['car'] == 'DMC' and abs(eg['margin'] - 10.45) < 0.05, 'EN 15273-2 section shown, smallest margin DMC car end 10.45 mm (%s)' % eg)
+    ok(page.evaluate("!!Chart.getChart('chart-en')"), 'EN maximum construction gauge chart drawn')
+    page.select_option('#sres-en-sec', 'end'); page.wait_for_timeout(300)
+    ok(page.locator('#sres-en-check tbody tr.selrow').count() == 1, 'EN check table marks the governing point')
+    page.locator('#sres-en').screenshot(path=os.path.join(out, '20b-static-en.png'))
     with page.expect_download() as d:
         page.click('#btn-export-static')
     f = os.path.join(out, 'static-results.xlsx'); d.value.save_as(f)

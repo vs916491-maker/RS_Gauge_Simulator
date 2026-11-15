@@ -8,7 +8,8 @@ var tests = [];
 function test(name, fn) { tests.push({ name: name, fn: fn }); }
 function copy(o) { return JSON.parse(JSON.stringify(o)); }
 function reread(wb) { return IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(wb))); }
-function inputs(p) { var o = copy(p); delete o.name; delete o.notes; delete o.fictional; return JSON.stringify(o); }
+// run options (settings) are kept in the project file, not in the inputs workbook
+function inputs(p) { var o = copy(p); delete o.name; delete o.notes; delete o.fictional; delete o.settings; return JSON.stringify(o); }
 var P = M.normalizeProject(sample);
 
 test('Export all inputs -> import into an empty project gives the same inputs', function () {
@@ -84,12 +85,18 @@ test('Workbook-style track rows (labels as in the gauging workbook) are imported
   assert.deepStrictEqual([s.element, s.side, s.R_end_m, s.cant_end_mm, s.location, s.wind, s.remarks], ['transition', 'L', 900, 30, 'open', 'Y', 'Curve 2']);
 });
 
-test('Static results workbook has the summary, build-up, points, Method A, vertical and derived sheets', function () {
+test('Static results workbook has the summary, build-up, points, Method A, EN (when selected), vertical and derived sheets', function () {
   var E = require('../js/engine.js'), res = E.staticRun(P, P.settings['static']);
   var wb = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(res, P, { stale: false }))));
-  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Vertical_Checks', 'Derived_Values']);
+  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'EN15273_MaxGauge', 'EN15273_Check', 'Vertical_Checks', 'Derived_Values']);
   var pts = XL.utils.sheet_to_json(wb.Sheets.Static_Points, { header: 1 });
   assert.strictEqual(pts.length - 1, res.cars.reduce(function (n, c) { return n + c.cases.reduce(function (m, k) { return m + k.points.length; }, 0); }, 0));
+  var ec = XL.utils.sheet_to_json(wb.Sheets.EN15273_Check, { header: 1 });
+  assert.strictEqual(ec.length - 1, res.cars.reduce(function (n, c) { return n + c.en.checks.int.points.length + c.en.checks.ext.points.length + c.en.checks.end.points.length; }, 0));
+  // without the EN check: no EN sheets
+  var o = JSON.parse(JSON.stringify(P.settings['static'])); o.en_check = 'no';
+  var wb2 = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(E.staticRun(P, o), P, { stale: false }))));
+  assert.deepStrictEqual(wb2.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Vertical_Checks', 'Derived_Values']);
 });
 
 test('Project file: save/parse round trip, wrong format and newer version are refused', function () {
