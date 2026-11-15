@@ -158,7 +158,7 @@
     rows.forEach(function (r, i) {
       var tr = el('tr', {}, [el('td', { class: 'idx', text: String(i + 1) })]);
       fields.forEach(function (fd, j) {
-        var c = control(fd, r, function () { changed(false); }, o.refs);
+        var c = control(fd, r, function (k, old) { if (o.onChange) { o.onChange(r, k, old); } changed(!!(o.structural && o.structural[k])); }, o.refs);
         c.addEventListener('paste', pasteHandler(i, j, function (ri, cj, v) {
           while (rows.length <= ri) { rows.push(blank()); }
           if (fields[cj]) { setValue(rows[ri], fields[cj], v); }
@@ -291,11 +291,12 @@
       if (k === 'framework' || (k === 'ebo_use' && t.framework === 'ebo')) { applyFramework(); changed(true); return; }
       changed(false);
     });
-    form($('f-train-load'), S.trainLoad, t);
+    M.syncLoads(state.p, true);
+    loadTables();
     endsTable();
     grid($('g-cartypes'), t.carTypes, S.carType.filter(function (fd) { return !END_KEYS[fd.k]; }), {
       refs: { prof_int: rsNames, prof_ext: rsNames, prof_end: rsNames },
-      groups: { name: 'Identification', length_m: 'Body geometry and pivots (bogie ends: Load definition above)', ni_m: 'Sections checked', width_mm: 'Body and door sill', mass_tare_t: 'Masses and centre of gravity', prof_int: 'Section profiles' },
+      groups: { name: 'Identification', length_m: 'Body geometry and pivots (bogie ends and masses: Load definition above)', ni_m: 'Sections checked', width_mm: 'Body and door sill', prof_int: 'Section profiles' },
       addLabel: 'Add car type',
       newItem: function () {
         var c = M.record(S.defaults(S.carType), S.carType);
@@ -303,13 +304,42 @@
         if (state.p.bogies[0]) { c.bogie1 = c.bogie2 = state.p.bogies[0].name; }
         return c;
       },
-      onAdd: function () { M.syncBodies(state.p); M.fillRefs(state.p); },
+      onAdd: function () { M.syncBodies(state.p); M.fillRefs(state.p); M.syncLoads(state.p, true); },
       onChange: function (it, k, old) {
-        if (k === 'name') { renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.doorSteps, ['car'], old, it.name); renameRefs(state.p.pantographs, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
+        if (k === 'name') { renameRefs(state.p.loads.cars, ['car'], old, it.name); renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.doorSteps, ['car'], old, it.name); renameRefs(state.p.pantographs, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
       }
     });
     drawTrain(); calcGeometry();
   }
+  // Load cases and masses (Load definition card, METHOD §4.1a)
+  function loadNames() { return state.p.loads.cases.map(function (c) { return c.name; }); }
+  function loadTables() {
+    var L = state.p.loads;
+    table($('t-loadcases'), L.cases, S.loadCase, {
+      addLabel: 'Add load case', structural: { role: true },
+      newRow: function () { var r = S.defaults(S.loadCase); r.name = uniqueName('AW', L.cases); r.role = 'other'; return r; },
+      onChange: function (r, k, old) { if (k === 'name') { renameRefs(L.cars, ['load'], old, r.name); if (state.p.settings.dynamic.load === old) { state.p.settings.dynamic.load = r.name; } carLoadTable(); } }
+    });
+    carLoadTable();
+  }
+  function carLoadTable() {
+    table($('t-carloads'), state.p.loads.cars, S.carLoad, { addLabel: 'Add row', refs: { car: carNames, load: loadNames }, structural: { car: true, load: true }, onChange: function () { loadValues(); } });
+    loadValues();
+  }
+  function loadValues() {
+    var rows = [], opt = state.p.settings['static'];
+    state.p.train.carTypes.forEach(function (c) {
+      if (!c.name) { return; }
+      var d; try { d = E.deriveCar(state.p, c, opt); } catch (e) { return; }
+      d.loads.forEach(function (x) {
+        rows.push([c.name, x.name, x.role, fmt(x.m / 1000, 2), fmt(x.hG * 1000, 0), fmt(x.dz, 1), fmt(x.s, 3), fmt(x.hc * 1000, 0), fmt(x.Dw, 1)]);
+      });
+    });
+    roTable($('calc-loads'), ['Car type', 'Load case', 'Role', 'm (t)', 'hG (mm)', 'Δz (mm)', 's used', 'hc used (mm)', 'Wind cant Dw (mm)'], rows);
+    var box = $('calc-loads');
+    box.appendChild(el('p', { class: 'muted', text: 's and hc follow the Static Simulation options (' + (opt.flex === 'theoretical' ? 'theoretical' : 'specified') + ', lateral state ' + (opt.lat_state || 'inflated') + '); wind at ' + fmt(state.p.track.params.wind_open_kmh, 0) + ' km/h.' }));
+  }
+
   // Bogie ends of every car type (Load definition card): one row per car type, the ends and their bogie types.
   var END_KEYS = { end1: true, bogie1: true, end2: true, bogie2: true };
   function endsTable() {
@@ -536,7 +566,7 @@
     function rowFor(label, key, note) { var def = (fw['static'] || {})[key]; return [label, def === undefined ? '–' : yn(def), { v: yn(so[key]) + (def !== undefined && def !== so[key] ? ' (changed)' : ''), cls: def !== undefined && def !== so[key] ? 'warncell' : '' }, note || '']; }
     var g = S.frameworkGauge(t), rows = [
       ['Framework', name, '', t.framework === 'ebo' ? 'EBO Anlage 9 specifics pending the documents' : (t.framework === 'bostrab' ? 'BOStrab-Lichtraum-Richtlinien pending the documents' : '')],
-      ['Customer KE: Method B (six cases) and Method A', 'Yes', 'Yes', 'Always'],
+      ['Customer KE: Method B (3 sections × load cases) and Method A', 'Yes', 'Yes', 'Always'],
       rowFor('EN 15273-2 kinematic check', 'en_check', g ? 'Rules of gauge ' + g + (state.p.ke.en.en_gauge !== g ? ' (now ' + state.p.ke.en.en_gauge + ')' : '') : ''),
       rowFor('EN 15273-2 static gauge method', 'en_static', ''),
       rowFor('BOStrab §34 vehicle dimensions', 'bst_check', t.bostrab_street === 'yes' ? 'Street-running vehicle' : 'Applies to street-running vehicles only'),
@@ -632,7 +662,7 @@
     var lowV = null; r.cars.forEach(function (x) { x.vertical.forEach(function (v) { if (!v.info && (!lowV || v.margin < lowV.margin)) { lowV = { car: x.car, label: v.label, margin: v.margin }; } }); });
     stat('Smallest vertical margin', lowV ? fmt(lowV.margin, 1) : '—', 'mm');
     // table car x case
-    var head = ['Car type'].concat(E.CASES.map(function (k) { return k.label; }), ['Governing', 'Vertical checks', 'Axle load (t)']);
+    var head = ['Car type'].concat((r.cars[0] ? r.cars[0].cases : E.CASES).map(function (k) { return k.label; }), ['Governing', 'Vertical checks', 'Axle load (t)']);
     roTable($('sres-table'), head, r.cars.map(function (x) {
       var vOk = x.vertical.every(function (v) { return v.info || v.ok; });
       return { cls: x.car === c.car ? 'selrow' : '', cells: [x.car].concat(x.cases.map(function (k) { return { v: fmt(k.min.c, 1) + ' @ ' + k.min.pt, cls: k.ok ? 'okcell' : 'badcell', title: k.profile }; }),
@@ -645,7 +675,7 @@
       ['w', 'Secondary lateral play × A', 'mm', 2], ['fw', 'Rail gauge-face wear × A', 'mm', 2], ['widen', 'Gauge widening/2 × A', 'mm', 2], ['T', 'Quasi-static translation T', 'mm', 2, true],
       ['rnd_gauge', 'Random: track gauge tolerance', 'mm', 2], ['rnd_align', 'Random: alignment tolerance', 'mm', 2], ['cant', 'Cant excess (interior) / deficiency (exterior, end)', 'mm', 1], ['wind', 'Wind equivalent cant', 'mm', 2],
       ['cl', 'Cross-level error', 'mm', 1], ['s', 'Flexibility coefficient s', '–', 3], ['hc', 'Roll-centre height hc', 'm', 3], ['thq', 'Roll angle – quasi-static θq = s·(cant + wind)/G', 'rad', 5, true], ['thr', 'Roll angle – cross-level θr (random)', 'rad', 5],
-      ['tht', 'Rigid tilt – cross-level θt', 'rad', 5], ['thtot', 'Total angle for vertical shift', 'rad', 5], ['drop', 'Body lowering (crush)', 'mm', 1], ['up', 'Upward movement combined with roll', 'mm', 1]];
+      ['tht', 'Rigid tilt – cross-level θt', 'rad', 5], ['thtot', 'Total angle for vertical shift', 'rad', 5], ['drop', 'Body lowering Δz from tare', 'mm', 1], ['up', 'Upward movement combined with roll', 'mm', 1]];
     roTable($('sres-buildup'), ['Quantity', 'Unit'].concat(c.cases.map(function (k) { return k.label; })), keys.map(function (k) {
       return { cls: k[4] ? 'b' : '', cells: [k[1], k[2]].concat(c.cases.map(function (cs) { return fmt(cs.params[k[0]], k[3]); })) };
     }).concat([{ cls: 'total', cells: ['Minimum clearance', 'mm'].concat(c.cases.map(function (cs) { return cCell(cs.min.c); })) },
@@ -798,7 +828,7 @@
   function renderDsim() {
     var o = dynOpts();
     form($('f-dynamic'), S.dynamicOptions, o, function () { changed(false); },
-      { profile: function () { return [''].concat(rsNames()); }, ss_ke: function () { return [''].concat(keNames()); } });
+      { profile: function () { return [''].concat(rsNames()); }, ss_ke: function () { return [''].concat(keNames()); }, load: loadNames });
     form($('f-dyn-step'), S.trackSweep, state.p.track.params);
     carPicker($('dsim-cars'), o);
     readiness($('ready-dsim'), 'dynamic');

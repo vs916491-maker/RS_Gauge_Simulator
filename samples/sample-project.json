@@ -20,8 +20,6 @@
     "framework": "customer",
     "ebo_use": "g2",
     "bostrab_street": "no",
-    "tare_label": "AW0",
-    "laden_label": "AW4",
     "rho_air": 1.2,
     "Beq_mm": 1510,
     "carTypes": [
@@ -38,11 +36,6 @@
         "width_mm": 2880,
         "floor_mm": 1100,
         "sill_hw_mm": 1440,
-        "mass_tare_t": 25.5,
-        "mass_crush_t": 44,
-        "cg_tare_mm": 1620,
-        "cg_crush_mm": 1740,
-        "drop_crush_mm": 22,
         "bogie1": "T",
         "bogie2": "M",
         "prof_int": "Roof section",
@@ -62,11 +55,6 @@
         "width_mm": 2880,
         "floor_mm": 1100,
         "sill_hw_mm": 1440,
-        "mass_tare_t": 23,
-        "mass_crush_t": 42.5,
-        "cg_tare_mm": 1600,
-        "cg_crush_mm": 1730,
-        "drop_crush_mm": 22,
         "bogie1": "T",
         "bogie2": "T",
         "prof_int": "Roof section",
@@ -86,16 +74,145 @@
         "width_mm": 2880,
         "floor_mm": 1100,
         "sill_hw_mm": 1440,
-        "mass_tare_t": 24,
-        "mass_crush_t": 43.5,
-        "cg_tare_mm": 1610,
-        "cg_crush_mm": 1735,
-        "drop_crush_mm": 22,
         "bogie1": "M",
         "bogie2": "M",
         "prof_int": "Roof section",
         "prof_ext": "HVAC section",
         "prof_end": "Roof section"
+      }
+    ]
+  },
+  "loads": {
+    "cases": [
+      {
+        "name": "AW0",
+        "role": "tare",
+        "note": "Empty car (fictional)"
+      },
+      {
+        "name": "AW2",
+        "role": "other",
+        "note": "Seated + 4 standing passengers/m² (fictional)"
+      },
+      {
+        "name": "AW3",
+        "role": "other",
+        "note": "Seated + 6 standing passengers/m² (fictional)"
+      },
+      {
+        "name": "AW4",
+        "role": "crush",
+        "note": "Seated + 8 standing passengers/m² (fictional)"
+      }
+    ],
+    "cars": [
+      {
+        "car": "DMC",
+        "load": "AW0",
+        "mass_t": 25.5,
+        "cg_mm": 1620,
+        "dz_mm": 0,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "DMC",
+        "load": "AW2",
+        "mass_t": 35.7,
+        "cg_mm": 1690,
+        "dz_mm": null,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "DMC",
+        "load": "AW3",
+        "mass_t": 40.0,
+        "cg_mm": 1715,
+        "dz_mm": null,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "DMC",
+        "load": "AW4",
+        "mass_t": 44,
+        "cg_mm": 1740,
+        "dz_mm": 22,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "TC",
+        "load": "AW0",
+        "mass_t": 23,
+        "cg_mm": 1600,
+        "dz_mm": 0,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "TC",
+        "load": "AW2",
+        "mass_t": 34.0,
+        "cg_mm": 1670,
+        "dz_mm": null,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "TC",
+        "load": "AW3",
+        "mass_t": 38.2,
+        "cg_mm": 1700,
+        "dz_mm": null,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "TC",
+        "load": "AW4",
+        "mass_t": 42.5,
+        "cg_mm": 1730,
+        "dz_mm": 22,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "MC",
+        "load": "AW0",
+        "mass_t": 24,
+        "cg_mm": 1610,
+        "dz_mm": 0,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "MC",
+        "load": "AW2",
+        "mass_t": 35.0,
+        "cg_mm": 1680,
+        "dz_mm": null,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "MC",
+        "load": "AW3",
+        "mass_t": 39.2,
+        "cg_mm": 1710,
+        "dz_mm": 18,
+        "s": null,
+        "hc_mm": null
+      },
+      {
+        "car": "MC",
+        "load": "AW4",
+        "mass_t": 43.5,
+        "cg_mm": 1735,
+        "dz_mm": 22,
+        "s": null,
+        "hc_mm": null
       }
     ]
   },
@@ -2239,7 +2356,7 @@
     },
     "dynamic": {
       "ov_meth": "max",
-      "load": "tare",
+      "load": "AW0",
       "profile": "",
       "ch_from_m": null,
       "ch_to_m": null,

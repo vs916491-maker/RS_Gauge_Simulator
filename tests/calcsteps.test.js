@@ -28,7 +28,7 @@ test('Calculation steps: four parts, references on every step, examples from the
 test('Calculation steps: selected car type, case and chainage drive the examples; missing runs give a hint', function () {
   var c = ctx(true); c.car = 'MC'; c.caseId = 'end_c'; c.ch = 1990;
   var st = CS.steps(c), b1 = st.filter(function (x) { return x.id === 'geometry'; })[0], c1 = st.filter(function (x) { return x.id === 'track'; })[0];
-  assert.strictEqual(b1.example.rows[0][1], 'MC / Car end – Crush');
+  assert.strictEqual(b1.example.rows[0][1], 'MC / Car end – AW4');
   assert.ok(/1990\.0 m/.test(c1.example.rows[0][1]), c1.example.rows[0][1]);
   var none = CS.steps({ p: c.p, sres: null, dres: null, sway: [], plan: [] });
   none.filter(function (x) { return x.part !== 'A. Concepts'; }).forEach(function (x) { assert.ok(!x.example && x.nodata, x.id + ' gives a hint'); });

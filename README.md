@@ -7,7 +7,7 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 * **Dynamic (route):** chainage by chainage along the line (curve, cant, vertical curve, speed, section type), check
   our KE against the structure gauge / SOD and items such as the third rail and platform edge.
 * Method of the reference gauging workbook: **Method B** (generated KE, point-by-point clearance) and **Method A**
-  (maximum static half-width), six cases per car type (interior / exterior / car end × tare / crush), vertical checks,
+  (maximum static half-width), 3 sections × every load case per car type (interior / exterior / car end × AW0, AW2, AW3, AW4 …, masses in the Load definition), vertical checks,
   theoretical flexibility coefficient and roll centre, shared-bogie and axle-load check.
 
 ## How to use

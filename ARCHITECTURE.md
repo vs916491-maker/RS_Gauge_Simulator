@@ -51,10 +51,11 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
 ```
 { format, version: 2, name, notes, fictional,
   train:  { name, customer, line, formation, n_cars, vehicle_type: lrv|metro|hs, vmax_kmh, gauge_mm, L_mm (G),
-            primary_type, secondary_type, power_supply, tare_label, laden_label, rho_air, Beq_mm,
+            primary_type, secondary_type, power_supply, framework, ebo_use, bostrab_street, rho_air, Beq_mm,
             carTypes: [{ name, count, length_m, n_free_m, n_art_m, end1/end2: free|shared, ni_m (blank = a/2), na_m, width_mm, floor_mm,
-                         sill_hw_mm, mass_tare_t, mass_crush_t, cg_tare_mm, cg_crush_mm, drop_crush_mm, bogie1, bogie2,
-                         prof_int, prof_ext, prof_end }] },
+                         sill_hw_mm, bogie1, bogie2, prof_int, prof_ext, prof_end }] },
+  loads:  { cases: [{ name, role: tare|crush|other, note }],
+            cars:  [{ car, load, mass_t, cg_mm, dz_mm (blank = interpolated), s, hc_mm (other cases; blank = interpolated) }] },
   bogies: [{ name, p_m, play_ld_mm, q_mm, w_mm, w_defl_mm, wheel_new_mm, wheel_worn_mm, pack_step_mm, dn_prim_mm, dn_sec_inf_mm,
              dn_sec_def_mm, up_prim_mm, up_sec_mm, up_oi_mm, mass_t, n_axle, kz_prim, n_ps, b1_mm, z_prim_mm, kz2_t, kz2_c, kz_em,
              n_as, b2_mm, k_arb, z_sec_mm, z_sec_d_mm, ky_prim, ky_sec, ky2_d, bb_mm, ef_new_mm, ef_worn_mm }],
@@ -145,6 +146,6 @@ reads every known sheet.
 | 16 | EN 15273-2: rules of the other reference gauges GA, GB, GC, GB1, GB2, G2, DE1–DE3 (height law k, roll band) | Done |
 | 17 | EN 15273-2: dynamic method (§5.2, Annex O): simulation results import (O.6), displacements O.4–O.18, rigid-body swept envelope (tangent and along the line), model validation O.2 | Done |
 | 18 | Applicable-rules framework (Customer KE / EN 15273-2 / EBO / BOStrab) with per-check override; BOStrab §34 public limits | Done |
-| 19 | Load definition (1): bogie ends per car type, formation drawing with shared bogies and joint checks | **This pull request** |
-| 20 | Load definition (2): any number of load cases (AW0, AW2, AW3, AW4 …) with masses per car type, every case calculated | Next |
+| 19 | Load definition (1): bogie ends per car type, formation drawing with shared bogies and joint checks | Done |
+| 20 | Load definition (2): any number of load cases (AW0, AW2, AW3, AW4 …) with masses per car type, every case calculated | **This pull request** |
 | 21 | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |

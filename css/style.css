@@ -295,3 +295,5 @@ ul.errlist { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--err-text); fo
 .calc pre.formula { background: var(--bg); border-left: 3px solid var(--accent); padding: .5rem .7rem; margin: .5rem 0; white-space: pre-wrap; font-size: .85rem; }
 .calc .example h4 { margin: .7rem 0 .3rem; font-size: .9rem; }
 .calc .nodata { font-style: italic; }
+#t-loadcases td:nth-child(4) input { min-width: 22rem; }
+#t-loadcases td:nth-child(3) select { min-width: 14rem; }

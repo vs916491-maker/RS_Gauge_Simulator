@@ -28,7 +28,7 @@
     RSProfile: { group: 'rs', fields: S.rsProfile }
   };
   var TAB_SHEETS = {
-    train: ['Train', 'CarTypes'],
+    train: ['Train', 'CarTypes', 'LoadCases', 'CarLoads'],
     bogie: ['Bogies', 'CarBodies', 'EN_Lower_Parts', 'EN_Bogie_Parts', 'CCD', 'CCD_Points'],
     ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params', 'Third_Rail', 'Third_Rail_Parts'],
     rs: ['RSProfile', 'EN_Doors_Steps', 'EN_Pantographs'],
@@ -40,7 +40,7 @@
   var ALL_SHEETS = [].concat(TAB_SHEETS.train, TAB_SHEETS.bogie, TAB_SHEETS.ke, TAB_SHEETS.rs, TAB_SHEETS.track, TAB_SHEETS.tests, TAB_SHEETS.endyn);
 
   // parameters of older versions, skipped without a warning when an older file is imported
-  var RETIRED = { bogie_arrangement: true };
+  var RETIRED = { bogie_arrangement: true, tare_label: true, laden_label: true };
 
   function head(fd) { return fd.l + (fd.u ? ' [' + fd.u + ']' : '') + ' (' + fd.k + ')'; }
   function keyOf(cell) {
@@ -94,6 +94,8 @@
     switch (name) {
       case 'Train': return paramRows(p.train, S.trainFields);
       case 'CarTypes': return gridRows(p.train.carTypes, S.carType);
+      case 'LoadCases': return tableRows((p.loads || {}).cases || [], S.loadCase);
+      case 'CarLoads': return tableRows((p.loads || {}).cars || [], S.carLoad);
       case 'Bogies': return gridRows(p.bogies, S.bogie);
       case 'CarBodies': return gridRows(p.bodies, S.body);
       case 'EN_Lower_Parts': return tableRows(p.lowerParts || [], S.lowerPart);
@@ -127,8 +129,10 @@
   }
 
   var README = {
-    Train: 'Train description, configuration, load labels and wind constants. Edit the Value column only.',
-    CarTypes: 'One column per car type (add columns to the right for more types): body length, overhangs, shared ends, section positions, masses, CG, bogie types and the RS profile of each section. Key column must stay unchanged.',
+    Train: 'Train description, configuration and wind constants. Edit the Value column only.',
+    CarTypes: 'One column per car type (add columns to the right for more types): body length, overhangs, shared ends, section positions, bogie types and the RS profile of each section. Key column must stay unchanged.',
+    LoadCases: 'Load cases (Load definition): one row per case, e.g. AW0, AW2, AW3, AW4, with its role: exactly one tare (empty car) and one crush (fully loaded); every other case "Other".',
+    CarLoads: 'Masses per car type and load case: sprung car-body mass, CG height, body lowering from tare (tare 0; blank for other cases = interpolated), and for other cases optional s and hc (blank = interpolated by mass).',
     Bogies: 'One column per bogie type (e.g. M, T): plays, vertical travels, mass, suspension stiffness (theoretical s and hc) and the play calculator. Car types refer to these names.',
     CarBodies: 'One column per car type: wind-exposed side, lower parts, specified flexibility coefficient and roll-centre height, EN 15273-2 A.3.4 vertical data.',
     EN_Doors_Steps: 'Open access doors and deployed steps checked by EN 15273-2 A.3.14 / A.3.15 (static option): car type, door or step, between / beyond the pivots, distance n, half-width of the open element and its lowest and highest point above rail (tare, new wheels).',
@@ -295,7 +299,23 @@
           v = readParams(rows, S.trainFields, msgs, n);
           Object.keys(v).forEach(function (k) { raw.train[k] = v[k]; });
           break;
-        case 'CarTypes': v = readGrid(rows, S.carType, msgs, n); if (v) { raw.train.carTypes = v; } break;
+        case 'CarTypes':
+          v = readGrid(rows, S.carType.concat(S.legacyCarMass), msgs, n);
+          if (v) {
+            raw.train.carTypes = v;
+            // an older CarTypes sheet with tare / crush masses and no CarLoads sheet: masses become the load rows
+            if (names.indexOf('CarLoads') < 0 && v.some(function (c) { return c.mass_tare_t !== undefined || c.mass_crush_t !== undefined; })) {
+              raw.loads = raw.loads || { cases: [], cars: [] };
+              if (!raw.loads.cases || !raw.loads.cases.length) { raw.loads.cases = [{ name: 'AW0', role: 'tare', note: 'Empty car' }, { name: 'AW4', role: 'crush', note: 'Crush load' }]; }
+              raw.loads.cars = null;   // rebuilt from the car types by normalizeProject
+              raw.train.tare_label = (raw.loads.cases.filter(function (c) { return c.role === 'tare'; })[0] || raw.loads.cases[0]).name;
+              raw.train.laden_label = (raw.loads.cases.filter(function (c) { return c.role === 'crush'; })[0] || raw.loads.cases[raw.loads.cases.length - 1]).name;
+              msgs.push({ level: 'ok', text: 'CarTypes: tare and crush masses of an older template moved to the load cases ' + raw.train.tare_label + ' / ' + raw.train.laden_label + '.' });
+            }
+          }
+          break;
+        case 'LoadCases': v = readTable(rows, S.loadCase, msgs, n); if (v) { raw.loads = raw.loads || { cases: [], cars: [] }; raw.loads.cases = v; } break;
+        case 'CarLoads': v = readTable(rows, S.carLoad, msgs, n); if (v) { raw.loads = raw.loads || { cases: [], cars: [] }; raw.loads.cars = v; } break;
         case 'Bogies': v = readGrid(rows, S.bogie, msgs, n); if (v) { raw.bogies = v; } break;
         case 'CarBodies': v = readGrid(rows, S.body, msgs, n); if (v) { raw.bodies = v; } break;
         case 'EN_Lower_Parts': v = readTable(rows, S.lowerPart, msgs, n); if (v) { raw.lowerParts = v; } break;
@@ -359,7 +379,7 @@
       ['w', 'Secondary lateral play × A', 'mm', 2], ['fw', 'Rail gauge-face wear × A', 'mm', 2], ['widen', 'Gauge widening/2 × A', 'mm', 2], ['T', 'Quasi-static translation T', 'mm', 2],
       ['rnd_gauge', 'Random: track gauge tolerance', 'mm', 2], ['rnd_align', 'Random: alignment tolerance', 'mm', 2], ['cant', 'Cant excess (int) / deficiency (ext, end)', 'mm', 1], ['wind', 'Wind equivalent cant', 'mm', 2],
       ['cl', 'Cross-level error', 'mm', 1], ['s', 'Flexibility coefficient s', '–', 4], ['hc', 'Roll-centre height hc', 'm', 4], ['thq', 'Roll angle quasi-static θq', 'rad', 5], ['thr', 'Roll angle cross-level θr', 'rad', 5],
-      ['tht', 'Rigid tilt θt', 'rad', 5], ['thtot', 'Total angle for vertical shift', 'rad', 5], ['drop', 'Body lowering (crush)', 'mm', 1], ['up', 'Upward movement combined with roll', 'mm', 1]];
+      ['tht', 'Rigid tilt θt', 'rad', 5], ['thtot', 'Total angle for vertical shift', 'rad', 5], ['drop', 'Body lowering Δz from tare', 'mm', 1], ['up', 'Upward movement combined with roll', 'mm', 1]];
     var bu = [['Car type', 'Quantity', 'Unit'].concat(res.cars[0] ? res.cars[0].cases.map(function (k) { return k.label; }) : [])];
     res.cars.forEach(function (c) { keys.forEach(function (k) { bu.push([c.car, k[1], k[2]].concat(c.cases.map(function (cs) { return r2(cs.params[k[0]], k[3]); }))); }); });
     add('Static_BuildUp', bu, 12);

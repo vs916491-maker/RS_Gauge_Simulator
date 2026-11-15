@@ -2,7 +2,7 @@
  * CALCULATION ENGINE - pure, deterministic, DOM-free (loads in Node for tests).
  * Implements METHOD.md (the workbook method "Vehicle Gauging Calculation Tool"):
  *   derived car data (pivots, yaw factors, wind equivalent cant, vertical travels, theoretical s and hc,
- *   shared-bogie check), the six static cases per car type (interior / exterior / car end x tare / crush),
+ *   shared-bogie check), the static cases per car type (interior / exterior / car end x every load case),
  *   point-by-point clearance to the customer KE, Method A maximum static half-width and vertical checks.
  * Dynamic (METHOD §8): chainage sweep per car type with the workbook's Dynamic Calc columns, line and element summaries,
  *   speed-step study and the cross-section at a chainage.
@@ -18,6 +18,7 @@
 
   var VERSION = '5.0.0';
   var G_ACC = 9.81;
+  // The six cases of the reference workbook (tare and crush); the cases of a run follow the load cases (carCases).
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
     { id: 'int_c', section: 'int', load: 'crush', label: 'Interior – Crush' },
@@ -105,8 +106,46 @@
     };
   }
 
-  // Theoretical flexibility coefficient and roll-centre height (METHOD §5.3), states: tare, crush, defl.
-  function theoretical(p, c, g, body, latflex) {
+  // ---------------------------------------------------------------- load cases (METHOD §4.1a)
+  function interp(m, mt, mc, xt, xc) { return mc === mt ? xt : xt + (xc - xt) * (m - mt) / (mc - mt); }
+  function blankV(v) { return v === null || v === undefined || v === ''; }
+  // Load cases of one car type, in the order of the load-case table: { name, role, m [kg], hG [m], dz [mm], s, hc [mm] }
+  // (s, hc as entered; blank = interpolated in deriveCar). Cases without a row for this car are skipped (validation).
+  function carLoads(p, c) {
+    var L = p.loads || {}, rows = (L.cars || []).filter(function (r) { return r.car === c.name; }), out = [];
+    (L.cases || []).forEach(function (lc) {
+      var r = findBy(rows, 'load', lc.name);
+      if (!r) { return; }
+      out.push({ name: lc.name, role: lc.role, m: n0(r.mass_t) * 1000, hG: n0(r.cg_mm) / 1000, dz: r.dz_mm, s: r.s, hc: r.hc_mm });
+    });
+    if (!out.length) { out.push({ name: 'tare', role: 'tare', m: 0, hG: 0, dz: 0 }); }
+    var lt = loadRole(out, 'tare'), lc2 = loadRole(out, 'crush');
+    out.forEach(function (x) {   // body lowering from tare: tare 0, crush as entered, other blank = interpolated
+      x.dz = x === lt ? 0 : (x === lc2 || !blankV(x.dz) ? n0(x.dz) : interp(x.m, lt.m, lc2.m, 0, n0(lc2.dz)));
+    });
+    return out;
+  }
+  // The load case of a role; without one, tare = the first and crush = the heaviest case.
+  function loadRole(loads, role) {
+    var x = loads.filter(function (l) { return l.role === role; })[0];
+    if (x) { return x; }
+    if (role === 'tare') { return loads[0]; }
+    return loads.reduce(function (a, b) { return b.m > a.m ? b : a; }, loads[0]);
+  }
+  // Static cases of a car: 3 sections × the load cases (section-major, METHOD §6.1).
+  var SEC_LABEL = { int: 'Interior', ext: 'Exterior', end: 'Car end' };
+  function carCases(d) {
+    var out = [];
+    ['int', 'ext', 'end'].forEach(function (sec) {
+      d.loads.forEach(function (L, i) {
+        out.push({ id: sec + '_' + (L.role === 'tare' ? 't' : (L.role === 'crush' ? 'c' : 'L' + i)), section: sec, li: i, load: L.name, role: L.role, label: SEC_LABEL[sec] + ' – ' + L.name });
+      });
+    });
+    return out;
+  }
+
+  // Theoretical flexibility coefficient and roll-centre height (METHOD §5.3), states: tare, crush, defl and per load case.
+  function theoretical(p, c, g, body, latflex, loads) {
     var bs = [[findBy(p.bogies, 'name', c.bogie1) || p.bogies[0] || {}, g.share1], [findBy(p.bogies, 'name', c.bogie2) || findBy(p.bogies, 'name', c.bogie1) || p.bogies[0] || {}, g.share2]];
     function sum(fn) { return bs[0][1] * fn(bs[0][0]) + bs[1][1] * fn(bs[1][0]); }
     function avg(fn) { return (bs[0][1] * fn(bs[0][0]) + bs[1][1] * fn(bs[1][0])) / (bs[0][1] + bs[1][1]); }
@@ -114,7 +153,8 @@
     var zp = avg(function (b) { return n0(b.z_prim_mm) / 1000; });
     var Kyp = sum(function (b) { return n0(b.n_ps) * n0(b.ky_prim); });
     function state(kz2Key, zsKey, kySecKey, m, hG) {
-      var K2 = sum(function (b) { return n0(b.n_as) * n0(b[kz2Key]) * Math.pow(n0(b.b2_mm) / 1000, 2) + n0(b.k_arb); });
+      var kz2 = typeof kz2Key === 'function' ? kz2Key : function (b) { return n0(b[kz2Key]); };
+      var K2 = sum(function (b) { return n0(b.n_as) * kz2(b) * Math.pow(n0(b.b2_mm) / 1000, 2) + n0(b.k_arb); });
       var zs = avg(function (b) { return n0(b[zsKey]) / 1000; });
       var Kys = sum(function (b) { return n0(b.n_as) * n0(b[kySecKey]); });
       var K = 1 / (1 / K1 + 1 / K2), Ky = 1 / (1 / Kyp + 1 / Kys);
@@ -125,16 +165,24 @@
       var check = (s < 0 || s > 0.6) ? 'REVIEW – very soft in roll' : (hc < 0.1 ? 'REVIEW – low hc' : 'OK');
       return { m: m, hG: hG, zs: zs, K1: K1, K2: K2, K: K, Ky: Ky, w1: w1, w2: w2, hc0: hc0, hc: hc, mgh: mgh, s: s, check: check };
     }
-    var mt = n0(c.mass_tare_t) * 1000, mc = n0(c.mass_crush_t) * 1000, ht = n0(c.cg_tare_mm) / 1000, hcr = n0(c.cg_crush_mm) / 1000;
+    loads = loads || carLoads(p, c);
+    var lt = loadRole(loads, 'tare'), lc = loadRole(loads, 'crush'), mt = lt.m, mc = lc.m, ht = lt.hG, hcr = lc.hG;
     var tare = state('kz2_t', 'z_sec_mm', 'ky_sec', mt, ht);
     // crush: crush air-spring stiffness; lateral stiffness as tare (workbook rule)
     var crush = state('kz2_c', 'z_sec_mm', 'ky_sec', mc, hcr);
     var defl = state('kz_em', 'z_sec_d_mm', 'ky2_d', mt, ht);
-    return { roll_share: g.share1 + g.share2, zp: zp, tare: tare, crush: crush, defl: defl };
+    // every load case (METHOD §5.4): tare and crush as above, other cases with kz2 interpolated by mass
+    var per = loads.map(function (L) {
+      if (L.role === 'tare') { return tare; }
+      if (L.role === 'crush') { return crush; }
+      return state(function (b) { return interp(L.m, mt, mc, n0(b.kz2_t), n0(b.kz2_c)); }, 'z_sec_mm', 'ky_sec', L.m, L.hG);
+    });
+    return { roll_share: g.share1 + g.share2, zp: zp, tare: tare, crush: crush, defl: defl, loads: per };
   }
 
-  function sharedCheck(p, c, g, bg) {
-    var L = p.ke.limits || {}, Rmin = n0(p.track.params.R_min_m), mc = n0(c.mass_crush_t) * 1000;
+  function sharedCheck(p, c, g, bg, loads) {
+    var L = p.ke.limits || {}, Rmin = n0(p.track.params.R_min_m);
+    var mc = (loads || carLoads(p, c)).reduce(function (a, l) { return Math.max(a, l.m); }, 0);   // heaviest load case (METHOD §5.5)
     var b1 = bg.b1, b2 = bg.b2;
     var R2 = g.a > 0 ? mc * (g.Lb / 2 - g.n1) / g.a : NaN, R1 = mc - R2;
     var Q1 = (g.shared1 ? 2 * R1 : R1) + n0(b1.mass_t) * 1000, Q2 = (g.shared2 ? 2 * R2 : R2) + n0(b2.mass_t) * 1000;
@@ -160,17 +208,26 @@
     var rho = n0(tr.rho_air, 1.2), Beq = n0(tr.Beq_mm, 1510);
     var Lw = (body.wind_len_m === null || body.wind_len_m === undefined || body.wind_len_m === '') ? g.Lb : n0(body.wind_len_m);
     var Aw = Lw * (n0(body.wind_top_mm) - n0(body.wind_bot_mm)) / 1000, Cf = n0(body.Cf, 1);
-    var mt = n0(c.mass_tare_t) * 1000, mc = n0(c.mass_crush_t) * 1000;
-    var Cw_t = mt > 0 ? 0.5 * rho * Cf * Aw * Beq / (mt * G_ACC) / (3.6 * 3.6) : 0;
-    var Cw_c = mc > 0 ? 0.5 * rho * Cf * Aw * Beq / (mc * G_ACC) / (3.6 * 3.6) : 0;
+    var Ls = carLoads(p, c), lT = loadRole(Ls, 'tare'), lC = loadRole(Ls, 'crush'), mt = lT.m, mc = lC.m;
+    function cw(m) { return m > 0 ? 0.5 * rho * Cf * Aw * Beq / (m * G_ACC) / (3.6 * 3.6) : 0; }
+    var Cw_t = cw(mt), Cw_c = cw(mc);
     var Vw = n0(tp.wind_open_kmh);
     var deflLat = opt.lat_state === 'deflated', deflVert = opt.vert_state !== 'inflated';
-    var th = theoretical(p, c, g, body, yes(opt.latflex));
+    var th = theoretical(p, c, g, body, yes(opt.latflex), Ls);
     var theo = opt.flex === 'theoretical';
     var sT = deflLat ? (theo ? th.defl.s : n0(body.s_defl)) : (theo ? th.tare.s : n0(body.s_tare));
     var sC = deflLat ? (theo ? th.defl.s : n0(body.s_defl)) : (theo ? th.crush.s : n0(body.s_crush));
     var hT = deflLat ? (theo ? th.defl.hc : n0(body.hc_defl_mm) / 1000) : (theo ? th.tare.hc : n0(body.hc_tare_mm) / 1000);
     var hC = deflLat ? (theo ? th.defl.hc : n0(body.hc_defl_mm) / 1000) : (theo ? th.crush.hc : n0(body.hc_crush_mm) / 1000);
+    // per load case (METHOD §4.1a): tare / crush as above; other cases their own or interpolated values
+    var loads = Ls.map(function (L, i) {
+      var s, hc;
+      if (L === lT) { s = sT; hc = hT; } else if (L === lC) { s = sC; hc = hC; }
+      else if (deflLat) { s = sT; hc = hT; }
+      else if (theo) { s = th.loads[i].s; hc = th.loads[i].hc; }
+      else { s = blankV(L.s) ? interp(L.m, mt, mc, sT, sC) : n0(L.s); hc = blankV(L.hc) ? interp(L.m, mt, mc, hT, hC) : n0(L.hc) / 1000; }
+      return { name: L.name, role: L === lT ? 'tare' : (L === lC ? 'crush' : 'other'), m: L.m, hG: L.hG, dz: L.dz, s: s, hc: hc, Cw: cw(L.m), Dw: cw(L.m) * Vw * Vw };
+    });
     var up = bg.up_prim + bg.up_sec + (yes(opt.over_infl) ? bg.up_oi : 0);
     var dn = bg.dn_wheel + bg.dn_prim + (deflVert ? bg.dn_sec_def : bg.dn_sec_inf);
     return {
@@ -178,15 +235,15 @@
       w_use: deflLat ? bg.w_defl : bg.w,
       wind: { Lw: Lw, Aw: Aw, Cf: Cf, rho: rho, Beq: Beq, Cw_t: Cw_t, Cw_c: Cw_c, F: 0.5 * rho * Cf * Aw * Math.pow(Vw / 3.6, 2), Dw_t: Cw_t * Vw * Vw, Dw_c: Cw_c * Vw * Vw },
       dn_total: dn, up_total: up,
-      theoretical: th, s_t: sT, s_c: sC, hc_t: hT, hc_c: hC,
-      shared: sharedCheck(p, c, g, bg)
+      theoretical: th, s_t: sT, s_c: sC, hc_t: hT, hc_c: hC, loads: loads,
+      shared: sharedCheck(p, c, g, bg, Ls)
     };
   }
 
   // ---------------------------------------------------------------- static cases (METHOD §6)
   function caseParams(p, d, cs, opt) {
     var tp = p.track.params, g = d.geo, bg = d.bogie, G = n0(p.train.L_mm, 1500);
-    var Rs = n0(tp.R_static_m), crush = cs.load === 'crush', inner = cs.section === 'int';
+    var Rs = n0(tp.R_static_m), L = d.loads[cs.li || 0], inner = cs.section === 'int';
     var n = cs.section === 'int' ? g.ni : (cs.section === 'ext' ? g.na : g.n_end);
     var A = cs.section === 'int' ? 1 : (cs.section === 'ext' ? g.A_ext : g.A_end);
     var pw = bg.p;
@@ -197,14 +254,14 @@
     var rg = inner ? n0(tp.g_tol_mm) : n0(tp.g_tol_mm) * A * (yes(opt.gtol_ext) ? 1 : 0);
     var ra = n0(tp.align_tol_mm) * (yes(opt.align) ? 1 : 0);
     var cant = inner ? n0(tp.cantexc_max_mm) : n0(tp.cantdef_max_mm);
-    var wind = (crush ? d.wind.Cw_c : d.wind.Cw_t) * Math.pow(n0(tp.wind_open_kmh), 2) * (yes(opt.wind) ? 1 : 0);
-    var cl = n0(tp.cl_err_mm), s = crush ? d.s_c : d.s_t, hc = crush ? d.hc_c : d.hc_t;
+    var wind = L.Cw * Math.pow(n0(tp.wind_open_kmh), 2) * (yes(opt.wind) ? 1 : 0);
+    var cl = n0(tp.cl_err_mm), s = L.s, hc = L.hc;
     var thq = s * (cant + wind) / G, thr = s * cl / G, tht = (yes(opt.tilt) ? 1 : 0) * cl / G;
     return {
       n: n, A: A, dg: dg, play: t.play, q: t.q, w: t.w, fw: t.fw, widen: t.widen, T: T,
       rnd_gauge: rg, rnd_align: ra, cant: cant, wind: wind, cl: cl, s: s, hc: hc,
       thq: thq, thr: thr, tht: tht, thtot: thq + thr + tht,
-      drop: crush ? n0(d.carRec.drop_crush_mm) : 0,
+      drop: L.dz,
       up: yes(opt.up_roll) ? d.up_total : 0
     };
   }
@@ -228,7 +285,7 @@
       pts.push(r);
       if (!min || c < min.c) { min = r; }
     });
-    return { id: cs.id, label: cs.label, section: cs.section, load: cs.load, profile: prof.name, params: cp, points: pts, min: min, ok: min ? min.c >= 0 : true };
+    return { id: cs.id, label: cs.label, section: cs.section, load: cs.load, role: cs.role, li: cs.li, profile: prof.name, params: cp, points: pts, min: min, ok: min ? min.c >= 0 : true };
   }
 
   function methodA(p, d, cases, ke, profs, opt) {
@@ -241,7 +298,9 @@
       var W = keWidth(ke, h), E = cases.map(function (cs) { return lateralE(cs.params, h, opt); });
       var r = { h: h * 1000, W: W * 1000, E: E };
       ['int', 'ext', 'end'].forEach(function (sec, j) {
-        var em = Math.max(E[2 * j], E[2 * j + 1]), mx = W - em / 1000, pw = profileWidth(profs[sec], h);
+        var em = -Infinity;
+        cases.forEach(function (cs, i) { if (cs.section === sec) { em = Math.max(em, E[i]); } });
+        var mx = W - em / 1000, pw = profileWidth(profs[sec], h);
         r['max_' + sec] = mx * 1000; r['prof_' + sec] = pw * 1000; r['margin_' + sec] = pw === 0 ? null : (mx - pw) * 1000;   // blank above the profile top
       });
       rows.push(r);
@@ -259,7 +318,7 @@
       rows.push({ id: 'top_' + sec, label: { int: 'Interior', ext: 'Exterior', end: 'Car-end' }[sec] + ' profile top + upward movement', value: v, limit: ke.top * 1000, margin: ke.top * 1000 - v, unit: 'mm' });
     });
     var vc = Rv === 0 ? 0 : a * a / (8 * Rv) * 1000;
-    var roll = Math.max(cases[1].params.thtot, cases[3].params.thtot, cases[5].params.thtot) * n0(b.uf_hw_mm);
+    var roll = cases.filter(function (k) { return k.role === 'crush'; }).reduce(function (m, k) { return Math.max(m, k.params.thtot); }, 0) * n0(b.uf_hw_mm);
     var body = n0(b.uf_h_mm) - d.dn_total - vc - roll;
     var bog = n0(b.uf_bog_h_mm) - d.bogie.dn_wheel - d.bogie.dn_prim;
     rows.push({ id: 'vc', label: 'Vertical-curve lowering at mid-car (crest Rv static)', value: vc, unit: 'mm', info: true });
@@ -295,7 +354,7 @@
       if (!(d.geo.a > 0)) { warnings.push(c.name + ': pivot distance a ≤ 0 — check body length and overhangs.'); }
       if (!d.geo.na_ok) { warnings.push(c.name + ': exterior section na is beyond the car-end overhang.'); }
       var profs = { int: profileFor(p, c.prof_int), ext: profileFor(p, c.prof_ext), end: profileFor(p, c.prof_end) };
-      var cases = CASES.map(function (cs) { return runCase(p, d, cs, ke, profs[cs.section], opt); });
+      var cases = carCases(d).map(function (cs) { return runCase(p, d, cs, ke, profs[cs.section], opt); });
       var worst = null;
       cases.forEach(function (r) { if (r.min && (!worst || r.min.c < worst.min.c)) { worst = r; } });
       var res = { car: c.name, count: c.count, derived: d, cases: cases, governing: worst ? { id: worst.id, label: worst.label, c: worst.min.c } : null,
@@ -487,7 +546,7 @@
     var en = {
       set: set, bogies: [bog(b1), bog(b2)], a: g.a, p: bg.p, d: dW, q: bg.q / 1000, w: d.w_use / 1000, eta: n0(d.body.eta0_deg) * Math.PI / 180,
       n: { int: g.ni, ext: g.na, end: g.n_end },
-      loads: [{ load: 'tare', s: d.s_t, hc: d.hc_t }, { load: 'crush', s: d.s_c, hc: d.hc_c }]
+      loads: d.loads.map(function (L) { return { load: L.name, role: L.role, s: L.s, hc: L.hc }; })
     };
     var varW = en.bogies.some(function (b) { return b.w250 !== b.winf || b.w150 !== b.w250; }), nonlin = en.bogies.some(function (b) { return b.Rv > 0; });
     var clause = set === 'motor' ? 'A.3.9.2' : (set === 'traction' ? (nonlin ? 'A.3.9.1.1 + A.3.9.1.2' : 'A.3.9.1.1') : (nonlin ? 'A.3.9.3.1 + A.3.9.3.2' : 'A.3.9.3.1'));
@@ -663,7 +722,7 @@
     var r = enRules(p), g = d.geo, bg = d.bogie, b1 = bg.b1, b2 = bg.b2;
     var dW = Math.min(n0(b1.bb_mm) + 2 * n0(b1.ef_worn_mm), n0(b2.bb_mm) + 2 * n0(b2.ef_worn_mm)) / 1000;
     var pMax = Math.max(n0(b1.p_m), n0(b2.p_m)), pMin = Math.min(n0(b1.p_m), n0(b2.p_m));
-    var s = Math.max(d.s_t, d.s_c), N = { int: g.ni, ext: g.na, end: g.n_end };
+    var s = d.loads.reduce(function (m, L) { return Math.max(m, L.s); }, 0), N = { int: g.ni, ext: g.na, end: g.n_end };
     var out = { gauge: r.gauge, ref: ref.name, d: dW * 1000, P: (r.lmax - dW) / 2 * 1000, q: bg.q, w: d.w_use, s: s, smax: r.st_smax, sOk: s <= r.st_smax + 1e-12, sections: {}, checks: {}, lower: [], ok: true };
     ['int', 'ext', 'end'].forEach(function (sec) {
       var beyond = sec !== 'int', so = { side: beyond ? 'a' : 'i', n: N[sec], a: g.a, p: beyond ? pMin : pMax, d: dW, q: bg.q / 1000, w: d.w_use / 1000 }, e = enStaticE(r, so);
@@ -800,7 +859,7 @@
             if (k === 1 && B[0].name === B[1].name) { return; }
             var o = {}, x; for (x in base) { if (Object.prototype.hasOwnProperty.call(base, x)) { o[x] = base[x]; } }
             o.R = R; o.s = ld.s; o.hc = ld.hc; o.wi = wAtR(r, pr[0], R); o.wa = wAtR(r, pr[1], R);
-            var e = enPantoP(o), row = { R: R === Infinity ? null : R, load: ld.load, far: pr[0].name, near: pr[1].name, wi: o.wi * 1000, wa: o.wa * 1000,
+            var e = enPantoP(o), row = { R: R === Infinity ? null : R, load: ld.load, role: ld.role, far: pr[0].name, near: pr[1].name, wi: o.wi * 1000, wa: o.wa * 1000,
               geo: e.geo * 1000, play: e.play * 1000, j: e.j * 1000, zo: e.zo * 1000, zu: e.zu * 1000, Po: e.Po * 1000, Pu: e.Pu * 1000, soft: e.soft };
             cases.push(row);
             if (!wo || row.Po > wo.Po) { wo = row; }
@@ -1293,9 +1352,10 @@
   function gaugeTestPlan(p, sres, sway) {
     var L = n0(p.train.L_mm, 1500);
     return sres.cars.map(function (c) {
-      var cases = c.cases.map(function (k) {
-        var cp = k.params, Dt = cp.cant + cp.wind, Rlat = cp.play + cp.q + cp.w, hcm = cp.hc * 1000;
-        var sw = (sway || []).filter(function (x) { return x.car === c.car && x.load === k.load && !x.error; })[0] || null;
+      // tare and crush cases only (METHOD §13.2); load = role, matching the sway-test load states
+      var cases = c.cases.filter(function (k) { return k.role !== 'other'; }).map(function (k) {
+        var role = k.role || k.load, cp = k.params, Dt = cp.cant + cp.wind, Rlat = cp.play + cp.q + cp.w, hcm = cp.hc * 1000;
+        var sw = (sway || []).filter(function (x) { return x.car === c.car && x.load === role && !x.error; })[0] || null;
         var min = null, minM = null;
         var pts = k.points.map(function (q) {
           var roll = cp.thq * (q.h0 - hcm), xt = q.x0 + Rlat + roll, ht = q.h0 - cp.thq * q.x0 - cp.drop;
@@ -1311,7 +1371,7 @@
           if (!min || cl < min.c) { min = r; }
           return r;
         });
-        return { id: k.id, label: k.label, section: k.section, load: k.load, profile: k.profile, D: Dt, cant: cp.cant, wind: cp.wind, A: cp.A,
+        return { id: k.id, label: k.label, section: k.section, load: role, loadName: k.load, profile: k.profile, D: Dt, cant: cp.cant, wind: cp.wind, A: cp.A,
           play: cp.play, q: cp.q, w: cp.w, Rlat: Rlat, thq: cp.thq, s: cp.s, hc: cp.hc, drop: cp.drop,
           sway: sw ? { s: sw.s, hc: sw.hc, maxD: sw.maxD } : null, beyondSway: !!(sw && Dt > sw.maxD + 1e-9), points: pts, min: min, minMeasured: minM };
       });
@@ -1361,11 +1421,16 @@
     return { ch0: ch0, end: end, step: step, pts: out };
   }
 
+  // Load case of the dynamic calculation: a load-case name, or the words tare / crush (role); default the tare case.
+  function dynLoad(d, want) {
+    var x = d.loads.filter(function (L) { return L.name === want; })[0] || d.loads.filter(function (L) { return L.role === (want === 'crush' ? 'crush' : 'tare'); })[0];
+    return x || d.loads[0];
+  }
   // Constants of one car type for the dynamic calculation (Dynamic Calc §1).
   function dynConstants(p, d, sOpt, dOpt) {
     var tp = p.track.params, G = n0(p.train.L_mm, 1500), L = p.ke.limits || {}, g = d.geo, bg = d.bogie;
-    var tare = dOpt.load !== 'crush';
-    var s = tare ? d.s_t : d.s_c, hc = tare ? d.hc_t : d.hc_c, Cw = tare ? d.wind.Cw_t : d.wind.Cw_c;
+    var ld = dynLoad(d, dOpt.load);
+    var s = ld.s, hc = ld.hc, Cw = ld.Cw;
     var dT_in = bg.play + bg.q + d.w_use + n0(tp.fw_mm), dT_out = g.A_end * dT_in;
     var thr = s * n0(tp.cl_err_mm) / G, tht = (yes(sOpt.tilt) ? 1 : 0) * n0(tp.cl_err_mm) / G;
     var gt = n0(tp.g_tol_mm), al = n0(tp.align_tol_mm) * (yes(sOpt.align) ? 1 : 0), K = n0(sOpt.K_rss, 1), lin = sOpt.comb !== 'rss';
@@ -1688,7 +1753,7 @@
 
 
   return {
-    VERSION: VERSION, CASES: CASES, G_ACC: G_ACC, playCalc: playCalc,
+    VERSION: VERSION, CASES: CASES, carLoads: carLoads, carCases: carCases, G_ACC: G_ACC, playCalc: playCalc,
     trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,

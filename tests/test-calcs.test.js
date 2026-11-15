@@ -48,8 +48,9 @@ test('Gauge test plan: expected test margins equal the static run (linear and RS
     var o = JSON.parse(JSON.stringify(p.settings['static'])); o.comb = comb; o.align = 'yes'; o.tilt = 'yes'; o.up_roll = 'yes';
     var s = E.staticRun(p, o), plan = E.gaugeTestPlan(p, s, []);
     plan.forEach(function (c, i) {
-      c.cases.forEach(function (k, j) {
-        var cs = s.cars[i].cases[j];
+      assert.strictEqual(c.cases.length, 6, 'tare and crush cases only (METHOD §13.2)');
+      c.cases.forEach(function (k) {
+        var cs = s.cars[i].cases.filter(function (x) { return x.id === k.id; })[0];
         near(k.D, cs.params.cant + cs.params.wind, 1e-12); near(k.Rlat, cs.params.play + cs.params.q + cs.params.w, 1e-12);
         k.points.forEach(function (q, m) { var o2 = cs.points[m]; worst = Math.max(worst, Math.abs(q.dX - o2.dX), Math.abs(q.dH - o2.dH), Math.abs(q.c - o2.c)); });
         near(k.min.c, cs.min.c, 1e-9);
@@ -63,7 +64,7 @@ test('Gauge test plan: expected test margins equal the static run (linear and RS
 test('Gauge test plan with a sway test: measured s, hc equal to the used ones give the same positions', function () {
   var p = sample(), s = E.staticRun(p, p.settings['static']);
   var c = s.cars[0], k = c.cases[0], cp = k.params;
-  var plan = E.gaugeTestPlan(p, s, [{ car: c.car, load: k.load, s: cp.s, hc: cp.hc * 1000 }]);
+  var plan = E.gaugeTestPlan(p, s, [{ car: c.car, load: k.role, s: cp.s, hc: cp.hc * 1000 }]);
   plan[0].cases[0].points.forEach(function (q) { near(q.xm, q.xt, 1e-9); near(q.hm, q.ht, 1e-9); near(q.cm, q.c, 1e-9); });
   var sw = E.swayEval(p, p.settings['static']), plan2 = E.gaugeTestPlan(p, s, sw), dmcT = plan2[0].cases[0];
   assert.ok(dmcT.sway && dmcT.minMeasured, 'DMC tare uses the measured sway values');
@@ -90,7 +91,7 @@ test('Tests export: sway evaluation, test set-up (6 cases per car type) and ever
   assert.deepStrictEqual(wb.SheetNames, ['Sway_Evaluation', 'Gauge_Test_Setup', 'Gauge_Test_Points']);
   var setup = global.XLSX.utils.sheet_to_json(wb.Sheets.Gauge_Test_Setup, { header: 1 }), pts = global.XLSX.utils.sheet_to_json(wb.Sheets.Gauge_Test_Points, { header: 1 });
   assert.strictEqual(setup.length - 5, s.cars.length * 6);
-  assert.strictEqual(pts.length - 1, s.cars.reduce(function (n, c) { return n + c.cases.reduce(function (m, k) { return m + k.points.length; }, 0); }, 0));
+  assert.strictEqual(pts.length - 1, s.cars.reduce(function (n, c) { return n + c.cases.filter(function (k) { return k.role !== 'other'; }).reduce(function (m, k) { return m + k.points.length; }, 0); }, 0));
 });
 
 module.exports = tests;

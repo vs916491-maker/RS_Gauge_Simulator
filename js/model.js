@@ -29,6 +29,7 @@
     if (typeof v === 'string' && v.trim() !== '') { var n = Number(v.trim().replace(',', '.')); return isFinite(n) ? n : null; }
     return null;
   }
+  function findBy(list, key, val) { for (var i = 0; i < (list || []).length; i++) { if (list[i][key] === val) { return list[i]; } } return null; }
   function blank(v) { return v === undefined || v === null || (typeof v === 'string' && v.trim() === ''); }
   // Fill one record from its field list: numbers converted, defaults applied (blank stays blank for optional fields).
   function record(src, fields) {
@@ -104,6 +105,56 @@
     return p;
   }
 
+  // ---------------------------------------------------------------- load definition (METHOD §4.1a)
+  var LEGACY_MASS = ['mass_tare_t', 'mass_crush_t', 'cg_tare_mm', 'cg_crush_mm', 'drop_crush_mm'];
+  // Older projects kept tare / crush masses on the car type and two load labels on the train: they become the
+  // load cases AW0 (tare) and AW4 (crush) with one row per car type and case (defaults as the old fields).
+  function legacyRows(c, tare, crush) {
+    function v(k, d) { var x = num(c[k]); return x === null ? d : x; }
+    return [{ car: c.name, load: tare, mass_t: v('mass_tare_t', 24), cg_mm: v('cg_tare_mm', 1600), dz_mm: 0, s: null, hc_mm: null },
+      { car: c.name, load: crush, mass_t: v('mass_crush_t', 42), cg_mm: v('cg_crush_mm', 1720), dz_mm: v('drop_crush_mm', 22), s: null, hc_mm: null }];
+  }
+  function roleName(cases, role, k) {
+    var x = cases.filter(function (c) { return c.role === role; })[0] || cases[k];
+    return x ? x.name : '';
+  }
+  function normalizeLoads(p) {
+    var L = p.loads || {}, tr = p.train || {};
+    var cases = (L.cases && L.cases.length) ? L.cases :
+      [{ name: blank(tr.tare_label) ? 'AW0' : String(tr.tare_label).trim(), role: 'tare', note: 'Empty car' },
+        { name: blank(tr.laden_label) ? 'AW4' : String(tr.laden_label).trim(), role: 'crush', note: 'Crush load' }];
+    cases = cases.map(function (r) { return record(r, S.loadCase); });
+    var cars = L.cars;
+    if (!cars) {
+      var tn = roleName(cases, 'tare', 0), cn = roleName(cases, 'crush', cases.length - 1);
+      cars = [];
+      (tr.carTypes || []).forEach(function (c) { if (c && !blank(c.name)) { cars = cars.concat(legacyRows(c, tn, cn)); } });
+    }
+    return { cases: cases, cars: cars.map(function (r) { return record(r, S.carLoad); }) };
+  }
+  // One row per car type and load case (missing rows added, blank). With prune, rows of car types or load cases
+  // that no longer exist are removed. The UI calls this; normalizeProject does not (validation reports them).
+  function syncLoads(p, prune) {
+    var L = p.loads, cars = {}, cases = {};
+    p.train.carTypes.forEach(function (c) { if (c.name) { cars[c.name] = true; } });
+    L.cases.forEach(function (c) { if (c.name) { cases[c.name] = true; } });
+    if (prune) { L.cars = L.cars.filter(function (r) { return cars[r.car] && cases[r.load]; }); }
+    p.train.carTypes.forEach(function (c) {
+      if (!c.name) { return; }
+      L.cases.forEach(function (lc) {
+        if (!lc.name || L.cars.some(function (r) { return r.car === c.name && r.load === lc.name; })) { return; }
+        var r = S.defaults(S.carLoad); r.car = c.name; r.load = lc.name; r.dz_mm = lc.role === 'tare' ? 0 : null;
+        L.cars.push(record(r, S.carLoad));
+      });
+    });
+    // keep the rows grouped by car type, cases in the order of the load-case table
+    var co = {}, lo = {};
+    p.train.carTypes.forEach(function (c, i) { co[c.name] = i; });
+    L.cases.forEach(function (c, i) { lo[c.name] = i; });
+    L.cars.sort(function (a, b) { return ((co[a.car] === undefined ? 999 : co[a.car]) - (co[b.car] === undefined ? 999 : co[b.car])) || ((lo[a.load] === undefined ? 999 : lo[a.load]) - (lo[b.load] === undefined ? 999 : lo[b.load])); });
+    return p;
+  }
+
   function emptyProject() {
     var t = S.defaults(S.trainFields);
     t.carTypes = [];
@@ -122,6 +173,9 @@
     delete t.bogie_arrangement;   // retired: bogie ends are set per car type (Load definition)
     t.carTypes = ((p.train && p.train.carTypes) || []).map(function (c) { return record(c, S.carType); });
     out.train = t;
+    out.loads = normalizeLoads(p);
+    t.carTypes.forEach(function (c) { LEGACY_MASS.forEach(function (k) { delete c[k]; }); });
+    delete t.tare_label; delete t.laden_label;
     out.bogies = (p.bogies || []).map(function (b) { return record(b, S.bogie); });
     out.bodies = (p.bodies || []).map(function (b) { return record(b, S.body); });
     out.lowerParts = (p.lowerParts || []).map(function (r) { return record(r, S.lowerPart); });
@@ -148,6 +202,8 @@
     out.tests = { sway: (((p.tests || {}).sway) || []).map(function (r) { return record(r, S.swayTest); }) };
     var st = p.settings || {};
     out.settings = { 'static': record(st['static'], S.staticOptions), dynamic: record(st.dynamic, S.dynamicOptions), report: record(st.report, S.reportOptions) };
+    var dl = out.settings.dynamic, lcs = out.loads.cases;   // dynamic load case: a load-case name (older files: tare / crush)
+    if (!lcs.some(function (c) { return c.name === dl.load; })) { dl.load = roleName(lcs, dl.load === 'crush' ? 'crush' : 'tare', dl.load === 'crush' ? lcs.length - 1 : 0); }
     Object.keys(st).forEach(function (k) { if (k !== 'static' && k !== 'dynamic' && k !== 'report') { out.settings[k] = clean(st[k]); } });
     syncBodies(out);
     fillRefs(out);
@@ -181,7 +237,24 @@
     function put(target, vals) { Object.keys(vals || {}).forEach(function (k) { if (!BAD_KEYS[k]) { target[k] = vals[k]; } }); }
     put(q.train, t.train); q.train.vehicle_type = type;
     put(q.track.params, t.track); put(q.ke.limits, t.limits);
-    q.train.carTypes.forEach(function (c) { put(c, t.car); });
+    var car = clean(t.car || {}), mass = {};
+    LEGACY_MASS.forEach(function (k) { if (car[k] !== undefined) { mass[k] = num(car[k]); delete car[k]; } });
+    q.train.carTypes.forEach(function (c) { put(c, car); });
+    if (Object.keys(mass).length && q.loads) {   // preset tare / crush masses; other cases keep their place between them
+      var tn = roleName(q.loads.cases, 'tare', 0), cn = roleName(q.loads.cases, 'crush', q.loads.cases.length - 1);
+      q.train.carTypes.forEach(function (c) {
+        var rows = q.loads.cars.filter(function (r) { return r.car === c.name; }), rt = findBy(rows, 'load', tn), rc = findBy(rows, 'load', cn);
+        var mt0 = rt ? num(rt.mass_t) : null, mc0 = rc ? num(rc.mass_t) : null, ht0 = rt ? num(rt.cg_mm) : null, hc0 = rc ? num(rc.cg_mm) : null;
+        var mt = mass.mass_tare_t, mc = mass.mass_crush_t, ht = mass.cg_tare_mm, hc = mass.cg_crush_mm;
+        rows.forEach(function (r) {
+          if (r === rt) { if (mt !== undefined) { r.mass_t = mt; } if (ht !== undefined) { r.cg_mm = ht; } return; }
+          if (r === rc) { if (mc !== undefined) { r.mass_t = mc; } if (hc !== undefined) { r.cg_mm = hc; } if (mass.drop_crush_mm !== undefined) { r.dz_mm = mass.drop_crush_mm; } return; }
+          var m = num(r.mass_t), fr = (m !== null && mt0 !== null && mc0 !== null && mc0 !== mt0) ? (m - mt0) / (mc0 - mt0) : null;
+          if (fr !== null && mt !== undefined && mc !== undefined) { r.mass_t = Math.round((mt + fr * (mc - mt)) * 1000) / 1000; }
+          if (fr !== null && ht !== undefined && hc !== undefined && ht0 !== null && hc0 !== null) { r.cg_mm = Math.round(ht + fr * (hc - ht)); }
+        });
+      });
+    }
     q.bodies.forEach(function (b) { put(b, t.body); });
     q.bogies.forEach(function (b) { put(b, t.bogie); });
     return normalizeProject(q);
@@ -297,6 +370,53 @@
     if (!isSod && pr.points[0].z < e.zmax - 0.001) { m.add(tab, 'warn', w + ': the first point is not the highest point; the top check uses the first point.'); }
   }
 
+  // Load definition (METHOD §4.1a): roles, one row per car type and load case, masses and CG present.
+  function validateLoads(m, p, carNames) {
+    var L = p.loads || { cases: [], cars: [] }, cases = L.cases, names = {}, LD = 'Load definition – ';
+    if (!cases.length) { m.add('train', 'err', LD + 'no load case defined.'); return; }
+    cases.forEach(function (c, i) {
+      if (!c.name) { m.add('train', 'err', LD + 'load case ' + (i + 1) + ' has no name.'); }
+      else if (names[c.name]) { m.add('train', 'err', LD + 'load case "' + c.name + '" is defined twice.'); }
+      names[c.name] = c;
+    });
+    ['tare', 'crush'].forEach(function (role) {
+      var n = cases.filter(function (c) { return c.role === role; }).length;
+      if (n !== 1) { m.add('train', 'err', LD + (n ? 'more than one load case has' : 'no load case has') + ' the role "' + role + '" (exactly one is needed).'); }
+    });
+    var seen = {};
+    L.cars.forEach(function (r, i) {
+      var w = LD + 'mass row ' + (i + 1) + ' (' + (r.car || '?') + ' / ' + (r.load || '?') + ')';
+      if (!carNames[r.car]) { m.add('train', 'warn', w + ': car type "' + r.car + '" is not defined (row ignored).'); return; }
+      if (!names[r.load]) { m.add('train', 'warn', w + ': load case "' + r.load + '" is not defined (row ignored).'); return; }
+      if (seen[r.car + '|' + r.load]) { m.add('train', 'err', w + ': this car type and load case have two rows.'); }
+      seen[r.car + '|' + r.load] = r;
+      var role = names[r.load].role;
+      if ((role === 'tare' || role === 'crush') && (r.s !== null || r.hc_mm !== null)) { m.add('train', 'warn', w + ': s and hc of the ' + role + ' case come from the Car body tab (values here ignored).'); }
+    });
+    p.train.carTypes.forEach(function (c) {
+      if (!c.name) { return; }
+      var rows = {}, tare = null, crush = null;
+      cases.forEach(function (lc) {
+        var r = seen[c.name + '|' + lc.name];
+        if (!r) { m.add('train', 'err', LD + c.name + ': no mass for load case ' + lc.name + '.'); return; }
+        if (r.mass_t === null) { m.add('train', 'err', LD + c.name + ' / ' + lc.name + ': sprung car-body mass is empty.'); }
+        if (r.cg_mm === null) { m.add('train', 'err', LD + c.name + ' / ' + lc.name + ': CG height is empty.'); }
+        if (lc.role === 'crush' && r.dz_mm === null) { m.add('train', 'err', LD + c.name + ' / ' + lc.name + ': body lowering from tare is needed for the crush case.'); }
+        if (lc.role === 'tare') { tare = r; } if (lc.role === 'crush') { crush = r; }
+        rows[lc.name] = r;
+      });
+      if (tare && crush && tare.mass_t !== null && crush.mass_t !== null) {
+        if (crush.mass_t <= tare.mass_t) { m.add('train', 'warn', LD + c.name + ': the crush mass is not larger than the tare mass.'); }
+        cases.forEach(function (lc) {
+          var r = rows[lc.name];
+          if (lc.role === 'other' && r && r.mass_t !== null && (r.mass_t < Math.min(tare.mass_t, crush.mass_t) || r.mass_t > Math.max(tare.mass_t, crush.mass_t))) {
+            m.add('train', 'warn', LD + c.name + ' / ' + lc.name + ': mass outside the tare – crush range; blank values are extrapolated.');
+          }
+        });
+      }
+    });
+  }
+
   function validate(p) {
     var m = new Msgs(), t = p.train, cars = t.carTypes, carNames, bogieNames = {}, rsNames = {}, keNames, i;
     // ---- train
@@ -340,6 +460,7 @@
       formationLayout(t).issues.forEach(function (x) { m.add('train', 'warn', 'Bogie arrangement – ' + x); });
     }
     if (t.L_mm && t.gauge_mm && t.L_mm < t.gauge_mm) { m.add('train', 'warn', 'G (' + t.L_mm + ' mm) is smaller than the track gauge.'); }
+    validateLoads(m, p, carNames);
 
     // ---- bogies and bodies
     if (!p.bogies.length) { m.add('bogie', 'err', 'No bogie types defined.'); }
@@ -529,7 +650,7 @@
   return {
     FORMAT: FORMAT, VERSION: VERSION,
     clean: clean, num: num, record: record, emptyProject: emptyProject, normalizeProject: normalizeProject, migrate1: migrate1,
-    syncBodies: syncBodies, fillRefs: fillRefs, applyVehicleType: applyVehicleType, formationTokens: formationTokens, formationLayout: formationLayout, fullProfile: fullProfile, extent: extent,
+    syncBodies: syncBodies, syncLoads: syncLoads, fillRefs: fillRefs, applyVehicleType: applyVehicleType, formationTokens: formationTokens, formationLayout: formationLayout, fullProfile: fullProfile, extent: extent,
     toMillimetres: toMillimetres, validate: validate, readiness: readiness, sortSegments: sortSegments, trackLength: trackLength
   };
 }));

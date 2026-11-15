@@ -92,11 +92,19 @@
     if (cs[0]) {
       ds.push(line('Static profile: ' + cs[0].profile, mirrorRight(cs[0].points.map(function (q) { return { x: q.x0, y: q.h0 }; })), colors.rs || '#059669', { w: 1.6 }));
     }
-    cs.forEach(function (k) {
-      ds.push(line('Generated KE – ' + k.load, mirrorRight(k.points.map(function (q) { return { x: q.x, y: q.h }; })), k.load === 'tare' ? (colors.tare || '#dc2626') : (colors.crush || '#d97706'), { dash: k.load === 'tare' ? [] : [5, 3] }));
+    // one generated KE per load case: tare red, crush orange (dashed), other cases from a palette (dotted)
+    var OTHER = colors.other || ['#7c3aed', '#0891b2', '#65a30d', '#db2777', '#4b5563'], no = 0;
+    var col = cs.map(function (k) {
+      var role = k.role || k.load;
+      if (role === 'tare') { return { c: colors.tare || '#dc2626', dash: [] }; }
+      if (role === 'crush') { return { c: colors.crush || '#d97706', dash: [5, 3] }; }
+      return { c: OTHER[(no++) % OTHER.length], dash: [2, 3] };
     });
-    cs.forEach(function (k) {
-      if (k.min) { ds.push({ label: 'Governing point – ' + k.load + ' (' + k.min.pt + ', ' + k.min.c.toFixed(1) + ' mm)', data: [{ x: k.min.x, y: k.min.h }], showLine: false, pointRadius: 6, pointStyle: 'rectRot', borderColor: k.load === 'tare' ? '#dc2626' : '#d97706', backgroundColor: 'transparent', borderWidth: 2 }); }
+    cs.forEach(function (k, i) {
+      ds.push(line('Generated KE – ' + k.load, mirrorRight(k.points.map(function (q) { return { x: q.x, y: q.h }; })), col[i].c, { dash: col[i].dash }));
+    });
+    cs.forEach(function (k, i) {
+      if (k.min) { ds.push({ label: 'Governing point – ' + k.load + ' (' + k.min.pt + ', ' + k.min.c.toFixed(1) + ' mm)', data: [{ x: k.min.x, y: k.min.h }], showLine: false, pointRadius: 6, pointStyle: 'rectRot', borderColor: col[i].c, backgroundColor: 'transparent', borderWidth: 2 }); }
     });
     return ds;
   }

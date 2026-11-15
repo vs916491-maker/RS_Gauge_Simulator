@@ -65,13 +65,11 @@ Static Simulation (options, Run) → Static Results → (Dynamic Simulation → 
 ### 4.1 Train configuration
 
 Vehicle type (LRV / Metro / High-speed; *Apply typical values* loads `samples/vehicle-types.json`), design speed
-`Vd`, nominal track gauge `l`, distance between rail centres `G` (cant base, 1500 mm for 1435 mm gauge), load
-labels (tare AW0, crush AW4).
+`Vd`, nominal track gauge `l`, distance between rail centres `G` (cant base, 1500 mm for 1435 mm gauge).
 
 Per **car type**: body length `Lb`, overhang pivot → free end `n`, overhang at a shared end `nj`, end 1 / end 2
 free or shared (entered in the *Load definition* card: *Own bogie* or *Shared bogie*), interior section position `ni` (blank = a/2), exterior section position `na`, body width, floor
-height `hf`, door-sill half-width `bs`, sprung body mass tare `m0` / crush `m4`, CG height tare `hG0` / crush
-`hG4`, body lowering tare → crush `Δz`, bogie type at each end, RS profile of the interior, exterior and
+height `hf`, door-sill half-width `bs`, bogie type at each end, RS profile of the interior, exterior and
 car-end sections.
 
 **Formation layout (bogie arrangement check, no physics).** Each car of the formation is placed with end 1 to the
@@ -81,6 +79,25 @@ car is reversed (cab end outwards). Two facing shared ends form one shared bogie
 joint with a shared end on one side and an own bogie on the other, a shared end at the front or rear of the train, a
 single car with a shared end, and two cars naming different bogie types for the bogie they share. The calculation
 itself is per car type (§5); the layout only checks that the car types fit together.
+
+### 4.1a Load definition (load cases and masses)
+
+**Load cases** (Train Configuration → Load definition): any number, each with a name (AW0, AW2, AW3, AW4 …) and a
+role. Exactly one case is the **tare** (empty car: reference body height, the largest wind roll) and one the
+**crush** (fully loaded: the lowest body, used by the vertical and underframe checks of §7.2, §8.3 and the
+shared-bogie / axle-load check of §5.5); every other case has the role *other*.
+
+**Per car type and load case** (masses entered directly):
+
+| Input | Symbol | Rule |
+|---|---|---|
+| Sprung car-body mass | `m` [t] | required for every case |
+| CG height of the body above rail | `hG` [mm] | required for every case |
+| Body lowering from tare | `Δz` [mm] | tare: 0; crush: required; other: blank = interpolated |
+| Flexibility coefficient, roll-centre height | `s`, `hc` | other cases only; blank = interpolated (tare and crush values come from the car body, §4.2, or the theory, §5.4) |
+
+Interpolation of a blank value of an *other* case by its mass, between the tare (t) and crush (c) values:
+`X = X_t + (X_c − X_t)·(m − m_t)/(m_c − m_t)` (X_t when m_c = m_t).
 
 ### 4.2 Car body
 
@@ -151,7 +168,8 @@ Platform / Depot), wind Y/N, structure distance at h2, platform edge distance an
 ### 5.2 Wind as equivalent cant
 
 * `Aw = Lw·(zt − zb)`, `F = ½·ρ·Cf·Aw·(V/3.6)²` [N].
-* `Cw = ½·ρ·Cf·Aw·Beq / (m·g) / 3.6²` [mm/(km/h)²] for tare (m0) and crush (m4), so that `D = Cw·V²` [mm].
+* `Cw = ½·ρ·Cf·Aw·Beq / (m·g) / 3.6²` [mm/(km/h)²] for the sprung mass m of each load case (tare `Cw0`,
+  crush `Cw4`), so that `D = Cw·V²` [mm].
 * `g = 9.81 m/s²`.
 
 ### 5.3 Vertical travels
@@ -167,21 +185,25 @@ Roll-stiffness share per body end: ψ = 1 for an own bogie, ½ for a shared bogi
 
 * Primary roll stiffness: `Kφ1 = Σ ψ·np·kz1·b1²`
 * Secondary roll stiffness: `Kφ2 = Σ ψ·(na·kz2·b2² + kφr)` with kz2 = tare / crush air-spring stiffness or the
-  emergency-spring stiffness when deflated.
+  emergency-spring stiffness when deflated; an *other* load case uses kz2 interpolated by its mass between the tare
+  and crush stiffness (§4.1a). The deflated state uses the tare mass and CG.
 * In series: `Kφ = 1/(1/Kφ1 + 1/Kφ2)`; lateral: `Ky = 1/(1/Σψ·np·ky1 + 1/Σψ·na·ky2)` (ky2d when deflated;
   crush uses the tare lateral stiffness).
 * Weights: `w1 = (hG − zp)/Kφ1`, `w2 = (hG − zs)/Kφ2` (zs deflated when deflated).
 * Roll centre: `hc,0 = (w1·zp + w2·zs)/(w1 + w2)`; `hc = hc,0 − (1/Ky)/(w1 + w2)` if the lateral term is selected.
 * Flexibility: `s = m·g·(hG − hc) / (Kφ − m·g·(hG − hc))` (from Kφ·η = m·g·h′·(δ + η), s = η/δ).
 * Plausibility: s < 0 or s > 0.6 → "REVIEW – very soft in roll"; hc < 0.1 m → "REVIEW – low hc".
-* States: tare (m0, hG0, kz2 tare), crush (m4, hG4, kz2 crush), deflated (m0, hG0, emergency spring).
+* States: tare (m0, hG0, kz2 tare), crush (m4, hG4, kz2 crush), each other load case (m, hG, kz2 interpolated),
+  deflated (m0, hG0, emergency spring).
 
-Values used: lateral state deflated → the deflated s and hc for tare and crush; otherwise tare / crush of the
-chosen source.
+Values used: lateral state deflated → the deflated s and hc for every load case; otherwise, per load case, the
+chosen source (specified: car body tare / crush values, an *other* case its own or interpolated values, §4.1a;
+theoretical: the state of that load case).
 
-### 5.5 Shared-bogie comparison and axle load (crush)
+### 5.5 Shared-bogie comparison and axle load (heaviest load case)
 
-* Pivot reactions: `R2 = m4·(Lb/2 − n1)/a`, `R1 = m4 − R2` (body CG at mid-length).
+* Pivot reactions: `R2 = m4·(Lb/2 − n1)/a`, `R1 = m4 − R2` (body CG at mid-length), with `m4` the largest sprung
+  mass of the load cases (normally the crush case).
 * Bogie loads: `Q1 = (2·R1 if end 1 shared, else R1) + mb1`, `Q2` likewise (identical neighbour assumed).
 * Axle load: `P = max(Q1/axles1, Q2/axles2)`, checked against the limit.
 * Throws at `Rmin`: mid `(a² + p²)/(8R)`, end `(a·nE + nE² − p²/4)/(2R)`; the same for the non-shared reference
@@ -196,8 +218,9 @@ chosen source.
 
 ### 6.1 Cases
 
-Six cases per car type: interior (between pivots, at `ni`), exterior (beyond the pivot, at `na`) and car end
-(at `nE`), each tare and crush. Interior = **train stopped** on maximum cant (cant excess `Ie`); exterior and car
+Three sections per car type: interior (between pivots, at `ni`), exterior (beyond the pivot, at `na`) and car end
+(at `nE`), each with every load case (§4.1a, in the order of the load-case table; with AW0 and AW4 the six cases of
+the reference workbook). Interior = **train stopped** on maximum cant (cant excess `Ie`); exterior and car
 end = **train at speed** (cant deficiency `I`).
 
 Case parameters:
@@ -216,7 +239,7 @@ Case parameters:
 | Roll angle cross-level (random) | `θr = s·CL/G` |
 | Rigid tilt (random) | `θt = CL/G` if selected |
 | Total angle for vertical shift | `θ = θq + θr + θt` |
-| Body lowering | `Δz` for crush, 0 for tare |
+| Body lowering | `Δz` of the load case (0 for tare, §4.1a) |
 | Upward movement with roll | `Σu` if selected, else 0 |
 
 ### 6.2 Lateral movement at height h (mm)
@@ -238,8 +261,8 @@ For each point (x, h) of the section profile:
 * Both ≥ 0: `c = ΔX·ΔH / √(ΔX² + ΔH²)` (0 if either is 0); both < 0: `c = −ΔX·ΔH / √(ΔX² + ΔH²)`;
   otherwise `c = min(ΔX, ΔH)`.
 * `c ≥ 0` → OK (inside); `c < 0` → INFRINGES. Exact for a straight KE segment, conservative near corners.
-* Case result: the minimum c over the points (first point if equal). Car result: the minimum over the six
-  cases; run result: the minimum over the car types checked (governing car and case).
+* Case result: the minimum c over the points (first point if equal). Car result: the minimum over all
+  cases (3 sections × the load cases); run result: the minimum over the car types checked (governing car and case).
 
 ## 7. Method A (define) and vertical checks
 
@@ -248,7 +271,7 @@ For each point (x, h) of the section profile:
 At each height h of the Method A grid (default 900 mm to the KE top in 100 mm steps, last height clipped to
 the KE top):
 
-* `x_max,int(h) = W_KE(h) − max(E_int,tare(h), E_int,crush(h))`, likewise exterior and car end.
+* `x_max,int(h) = W_KE(h) − max over the load cases of E_int,load(h)`, likewise exterior and car end.
 * Margin to the section profile: `x_max − W_P(h)`; blank above the profile top (W_P = 0).
 * Vertical shift is ignored (horizontal margins only); near the roof shoulder Method B governs.
 
@@ -276,8 +299,8 @@ the KE top):
 
 ### 8.2 Constants per car type
 
-* Load case for the dynamic calculation (option, tare default): `s`, `hc`, `Cw` of that load (§5.4 rules for the
-  suspension state).
+* Load case for the dynamic calculation (option, any load case; the tare case by default): `s`, `hc`, `Cw` of that
+  load (§4.1a, §5.4 rules for the suspension state).
 * `dT_in = (l−d)/2 + q + w* + fw`, `dT_out = A_end·dT_in`.
 * Random terms at height h: interior `Δl + al* + θr·(h − hc) + θt·h` (or K·√Σ²), exterior with `Δl·A_end`
   only if gauge tolerance in the exterior is selected; `θr = s·CL/G`, `θt = CL/G` if selected.
@@ -425,7 +448,7 @@ reference profile reduced by `Ei` (sections between the bogie centres) or `Ea` (
   lateral state is deflated), `w(250)` and `w(150)` (blank = constant), and, for variable stops, the radius `Rv` where
   they start with `w(Rv)`. `d` = BB + 2·ef worn (smaller of the two bogies: largest play), `q` larger of the two.
 * Sections: interior at `n = ni` (between the bogie centres), exterior at `n = na` and car end at `n = n_end` (beyond),
-  with the profiles of §6. `s`, `hc` of tare and crush (§5.4 source and suspension state); `E` is the larger of the two.
+  with the profiles of §6. `s`, `hc` of every load case (§4.1a, §5.4 source and suspension state); `E` is the largest of them.
   For a section beyond a pivot the bogie at that end (`a`, weight `(n + a)/a`) and the far bogie (`i`, weight `n/a`) can
   be either bogie of the car: both orientations are evaluated and the larger `E` is used.
 * `η0`: body dissymmetry (car body input, default 0).
@@ -566,8 +589,8 @@ The reference profile is a profile on the Customer KE & SOD tab (option; blank =
 a KE (upper envelope to `n_up`). Rules (Customer KE & SOD tab, G1 values): allowance `0,075 m`, minimum `Δ = 7,5 m²`,
 `s_max = 0,2` (§5.1.3: 0,3 for GA, GB, GC), lower parts up to `0,43 m`; `l_max`, `R1`, `R2`, `Xi`, `Xa` as §10.1.
 
-* A.2.3.1: the static gauge may be used only when the flexibility coefficient does not exceed `s_max`; `s` = larger of
-  the tare and crush values used (§5.4 source and lateral state). Otherwise the car type fails the static-gauge check
+* A.2.3.1: the static gauge may be used only when the flexibility coefficient does not exceed `s_max`; `s` = largest of
+  the values used for the load cases (§5.4 source and lateral state). Otherwise the car type fails the static-gauge check
   ("use the kinematic or dynamic method").
 * Reductions, `P = (l_max − d)/2`, `w` = secondary lateral play used (§5.2), `q` primary, `k1 = 1/(2·R1)`,
   `kx = 1/(2·R2) − 1/(2·R1)`:
@@ -643,7 +666,7 @@ insulating distance. Everything in m in the formulae; the numbers are those of G
 The pantograph is inside the gauge when `Po ≤ 0` (upper collecting point, 6,5 m) and `Pu ≤ 0` (lower, 5,0 m). Cases
 (A.3.12.3): straight track (`R = ∞`, geometric term 0), `R = R2` (150 m) and, for a bogie with variable stops, the
 radius `Rv` where they begin. `w_R` of each bogie at `R`: `w∞`, `w(Rv)` at `Rv`, otherwise linear in `1/R` through
-`w∞`, `w(250)`, `w(150)`. `s`, `hc` of tare and crush (§10.2), both bogie orientations, larger `p` between and smaller
+`w∞`, `w(250)`, `w(150)`. `s`, `hc` of every load case (§10.2), both bogie orientations, larger `p` between and smaller
 beyond; the worst case is reported, every case is exported.
 
 Lowered pantograph (A.3.12.7), when its top is given: `b_w + insulating distance ≤ W_KE(h) − E(h)` at the pantograph's
@@ -742,7 +765,8 @@ inputs on the Car body tab or the theoretical values, §5.4).
 
 ### 13.2 Kinematic gauge test plan
 
-For each car type and static case (§6, needs a static run), the case is reproduced on straight test track, and every
+For each car type and static case of the tare and crush load cases (§6, needs a static run; cases of the role
+*other* are not tested), the case is reproduced on straight test track, and every
 term of the static displacement is either **reproduced** on the test stand or **taken off the KE** to form the test
 template (owner's choice: plays and shims are reproduced):
 
