@@ -108,6 +108,13 @@
       <h3 class="gap">Wheel–rail play calculator <span class="muted">(information; the play used is the input above)</span></h3>
       <div id="calc-play" class="tablewrap"></div>
     </div>
+    <div class="card">
+      <div class="row"><h3>Bogie parts – EN 15273-2 A.3.11</h3><span class="muted">Used when the EN check is selected on the Static Simulation tab</span></div>
+      <p class="hint">Parts carried by the bogie that come close to the gauge laterally: sanders, life guards, bogie frame ends, brake units, current-collector shoe gear.
+        One row per part and bogie type; n from the nearer end axle. Checked against the customer KE with the reduction formulae of independent-axle vehicles (A.56–A.59, w = 0).
+        Heights of bogie-mounted parts are checked in the lower-parts table above.</p>
+      <div id="t-bogie-parts" class="tablewrap"></div>
+    </div>
   </section>
 
   <!-- ======================= CUSTOMER KE & SOD ======================= -->
@@ -231,6 +238,10 @@
           <div id="sres-en-vinfo" class="tablewrap"></div>
           <h4 class="gap">Lower parts – minimum heights (A.3.4.1) <span class="muted">(mm)</span></h4><div id="sres-en-lower" class="tablewrap"></div>
           <h4 class="gap">Maximum heights (A.3.4.2) <span class="muted">(mm)</span></h4><div id="sres-en-upper" class="tablewrap"></div></div>
+        <div id="sres-en-bogie" class="card" hidden><h3>EN bogie parts (A.3.11) <span class="muted">(all bogie types, mm)</span></h3>
+          <p class="hint">Formulae of independent-axle vehicles A.56–A.59 with w = 0 and a = distance between the end axles. KE half-width = smallest over the part's height range
+            (lowered by wheel wear and, on the frame, the primary travel; raised by the primary rebound).</p>
+          <div id="sres-en-bogie-table" class="tablewrap"></div></div>
       </div>
     </div>
   </section>

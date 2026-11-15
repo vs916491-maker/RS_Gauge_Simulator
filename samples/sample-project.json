@@ -136,6 +136,8 @@
       "ky_prim": 6000000,
       "ky_sec": 1700000,
       "ky2_d": 4000000,
+      "en_s_frame": 0.05,
+      "en_hc_frame_mm": 400,
       "bb_mm": 1360,
       "ef_new_mm": 32.5,
       "ef_worn_mm": 26
@@ -178,6 +180,8 @@
       "ky_prim": 6000000,
       "ky_sec": 1700000,
       "ky2_d": 4000000,
+      "en_s_frame": 0.05,
+      "en_hc_frame_mm": 400,
       "bb_mm": 1360,
       "ef_new_mm": 32.5,
       "ef_worn_mm": 26
@@ -272,6 +276,38 @@
       "h_mm": 140,
       "hlim_mm": 80,
       "note": "Fictional; limit from the customer lower profile at b"
+    }
+  ],
+  "bogieParts": [
+    {
+      "bogie": "M",
+      "name": "Brake unit",
+      "mount": "frame",
+      "pos": "between",
+      "n_m": 0.6,
+      "y_mm": 1350,
+      "h_mm": 420,
+      "note": "Fictional"
+    },
+    {
+      "bogie": "M",
+      "name": "Life-guard bracket",
+      "mount": "frame",
+      "pos": "beyond",
+      "n_m": 0.4,
+      "y_mm": 1050,
+      "h_mm": 330,
+      "note": "Fictional"
+    },
+    {
+      "bogie": "T",
+      "name": "Sander nozzle",
+      "mount": "axle",
+      "pos": "beyond",
+      "n_m": 0.25,
+      "y_mm": 700,
+      "h_mm": 90,
+      "note": "Fictional"
     }
   ],
   "ke": {

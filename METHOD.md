@@ -372,6 +372,7 @@ polygon edges (not the horizontal / vertical split of §6.4).
 5. **EN 15273-2** (`tests/en15273.test.js`): reductions and z_kin against the standard's formulae A.24, A.27–A.31
    and A.46–A.50 typed in literally, 40 000 random vehicles, both branches; a hand check. Heights of A.3.4
    (`tests/en15273-vertical.test.js`): Table A.1 zones and A.16–A.19 typed in literally, hand checks of the sample.
+   Bogie parts (`tests/en15273-bogie.test.js`): A.56–A.59 typed in literally, hand check of the sample.
 6. Inputs are never mutated; results are deterministic.
 
 ## 10. EN 15273-2:2009 kinematic method (static option)
@@ -512,7 +513,36 @@ Not applied: the hump-shunting terms `dg` of A.3.4.1.5.1 (gravity-shunted vehicl
 (side-bearer clearance `J·b/bG`, body sag `Flc`), contact ramps (A.3.5), ferries (A.3.7). The GIC1 / GIC2 outlines are
 not encoded: enter the limit at the part's position.
 
-### 10.8 Results
+### 10.8 Bogie parts (A.3.11)
+
+A.3.11: bogies and their parts use the reduction formulae of vehicles with independent axles (A.3.10.1, w = 0), the
+bogie being the vehicle and its end axles the "pivots". One row per part on the Car body & Bogie tab (*Bogie parts –
+EN 15273-2 A.3.11*): bogie type, mounting (bogie frame / axle or axlebox), position (between / beyond the end axles),
+distance `n` from the nearer end axle (blank: between `p/2`, beyond 0), half-width `y` and height `h` (tare, new wheels).
+
+With `a = p` (distance between the end axles), `P = (l_max − d)/2` (`d` = BB + 2·ef worn of that bogie type),
+`q` primary lateral play, `k1 = 1/(2·R1)`, `Ck` of the lower parts for `h ≤ h_low`, else of the upper parts:
+
+| | condition for the straight branch | straight branch | curve branch |
+|---|---|---|---|
+| Between, A.56 / A.57 | `Δi = a·n − n² ≤ 2Ck` | `P + q + z − e0` | `Δi·k1 + P + q + z − e0 − Ck/R1` |
+| Beyond, A.58 / A.59 | `Δa = a·n + n² ≤ 2Ck` | `(P + q)·A + z − e0` | `Δa·k1 + (P + q)·A + z − e0 − Ck/R1` |
+
+`A = (2n + a)/a`. In A.56 the printed condition `a·n_a + n_a²` is read as `a·n_i − n_i²` (as in A.57). With the G1
+values (`2Ck` = 5 | 7,5, `e0` = 0,015, `e0 + Ck/R1` = 0,025 | 0,030) these are the standard's formulae; for bogies
+`Δ` is small and the straight branches (= A.27 / A.30 with w = 0) apply, as the standard notes.
+
+* `z` (A.24 with `C0 = I0` between, `D0` beyond): frame-mounted parts roll on the primary suspension with the bogie
+  input `s` and `hc` of the frame (default 0 = no roll); axle-mounted parts are unsprung, `z = 0` (A.3.8.1.1). No
+  dissymmetry term.
+* Reference: the customer KE over its whole outline (lower notch included). The part moves vertically between
+  `h − Δw − dp` and `h + up` (frame) or `h − Δw` and `h` (axle), `Δw` = wheel radial wear limited by `Δr`; the KE
+  half-width used is the smallest over that range (at its ends and at every KE vertex inside).
+* Margin = KE half-width − E − y; every bogie part must have margin ≥ 0 (in the EN verdict and the overall static
+  verdict). The heights of bogie-mounted parts are checked in §10.7 (lower parts table, mounting *bogie frame*).
+* Not applied: the 5 mm reduction of z for two-axle wagons (A.3.10.1, wagons only).
+
+### 10.9 Results
 
 * Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
   Method A for comparison.
@@ -520,7 +550,8 @@ not encoded: enter the limit at the part's position.
   margin = `W_KE(h) − E(h) − x_prof(h)` (KE half-width at `max(h, bottom of the upper envelope)`, as §6). The car type
   passes when every margin ≥ 0; when the option is selected, the EN result is part of the car's verdict.
 * Heights (§10.7): one row per lower part and per section, in the EN verdict.
-* Not covered yet: the GIC1/GIC2 outlines as data (limits are entered), bogie parts (A.3.11), the static gauge method (A.2), pantograph gauge (A.3.12), doors and steps open
+* Bogie parts (§10.8): one row per part and bogie type.
+* Not covered yet: the GIC1/GIC2 outlines as data (limits are entered), the static gauge method (A.2), pantograph gauge (A.3.12), doors and steps open
   (A.3.14), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
   and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.

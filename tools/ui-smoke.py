@@ -43,6 +43,7 @@ with sync_playwright() as pw:
     page.click('#tabbtn-bogie'); page.wait_for_timeout(200)
     ok('REVIEW' not in page.locator('#calc-body').text_content(), 'theoretical s plausible on the sample')
     ok(page.locator('#t-lower tbody tr').count() == 3, 'EN lower-parts table shows the 3 sample rows')
+    ok(page.locator('#t-bogie-parts tbody tr').count() == 3, 'EN bogie-parts table shows the 3 sample rows')
     page.click('#tabbtn-method'); page.wait_for_timeout(200)
     ok(page.locator('#method-toc button').count() > 15, 'method table of contents built')
 
@@ -88,6 +89,7 @@ with sync_playwright() as pw:
     ok(page.locator('#sres-en-check tbody tr.selrow').count() == 1, 'EN check table marks the governing point')
     ok(page.locator('#sres-en-lower tbody tr').count() == 3 and 'Obstacle deflector' in page.locator('#sres-en-lower').text_content(), 'EN lower parts of DMC listed (A.3.4)')
     ok(page.locator('#sres-en-upper tbody tr').count() == 3, 'EN maximum heights per section listed')
+    ok(page.locator('#sres-en-bogie').is_visible() and page.locator('#sres-en-bogie-table tbody tr').count() == 3, 'EN bogie parts (A.3.11) listed')
     page.locator('#sres-en').screenshot(path=os.path.join(out, '20b-static-en.png'))
     with page.expect_download() as d:
         page.click('#btn-export-static')
