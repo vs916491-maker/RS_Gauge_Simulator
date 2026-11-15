@@ -125,6 +125,7 @@
     out.bodies = (p.bodies || []).map(function (b) { return record(b, S.body); });
     out.lowerParts = (p.lowerParts || []).map(function (r) { return record(r, S.lowerPart); });
     out.bogieParts = (p.bogieParts || []).map(function (r) { return record(r, S.bogiePart); });
+    out.doorSteps = (p.doorSteps || []).map(function (r) { return record(r, S.doorStep); });
     var ke = p.ke || {}, sod = p.sod || {}, rs = p.rs || {}, tr = p.track || {};
     out.ke = { limits: record(ke.limits, S.customerLimits), en: record(ke.en, S.enParams), profiles: profiles(ke.profiles, S.keProfile) };
     var so = record(sod, S.sodSettings);
@@ -338,6 +339,13 @@
       var id = 'Bogie part ' + (r.name || k + 1);
       rangeChecks(m, 'bogie', id, r, S.bogiePart);
       if (!r.bogie || bogieNames.indexOf(r.bogie) < 0) { m.add('bogie', 'err', id + ': bogie type "' + (r.bogie || '') + '" is not on the Car body & Bogie tab.'); }
+    });
+
+    (p.doorSteps || []).forEach(function (r, k) {
+      var id = 'Door / step ' + (r.name || k + 1);
+      rangeChecks(m, 'rs', id, r, S.doorStep);
+      if (!r.car || carNames.indexOf(r.car) < 0) { m.add('rs', 'err', id + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
+      if (r.h_lo_mm !== null && r.h_hi_mm !== null && r.h_hi_mm < r.h_lo_mm) { m.add('rs', 'err', id + ': the highest point is below the lowest point.'); }
     });
 
     // ---- Tests (sway test rows)

@@ -157,6 +157,12 @@
         <div class="chartbox square"><canvas id="chart-rs" aria-label="RS profiles and customer KE"></canvas></div>
         <p class="hint">The gap between the profile and the KE is what the movements use up; the check itself is the Static Simulation.</p></div>
     </div>
+    <div class="card">
+      <div class="row"><h3>Open doors and deployed steps – EN 15273-2 A.3.14 / A.3.15</h3><span class="muted">Used when the EN check is selected on the Static Simulation tab</span></div>
+      <p class="hint">One row per element at speed ≤ 5 km/h: half-width when open / deployed and its lowest and highest point with the car tare and new wheels (the tool lowers it by the
+        total downward movement to the lowest position of the stationary vehicle). n from the nearer pivot. The step-position check (A.3.15.2) needs the platform data on the Customer KE &amp; SOD tab.</p>
+      <div id="t-doors" class="tablewrap"></div>
+    </div>
   </section>
 
   <!-- ======================= TRACK DATA ======================= -->
@@ -238,6 +244,10 @@
           <div id="sres-en-vinfo" class="tablewrap"></div>
           <h4 class="gap">Lower parts – minimum heights (A.3.4.1) <span class="muted">(mm)</span></h4><div id="sres-en-lower" class="tablewrap"></div>
           <h4 class="gap">Maximum heights (A.3.4.2) <span class="muted">(mm)</span></h4><div id="sres-en-upper" class="tablewrap"></div></div>
+        <div id="sres-en-doors" class="card" hidden><h3>EN open doors and deployed steps (A.3.14 / A.3.15) <span class="muted">(mm)</span></h3>
+          <p class="hint">Allowed half-width = KE half-width − E (at the element's n) + allowance: doors above 1,05 m 0,2 m (a); below it, and steps, w<sub>i</sub> ≤ 0,035 m between the pivots,
+            A.105 / A.106 beyond. Heights in the lowest position of the stationary vehicle. Step position: the platform gap from straight track to the verification radius ≤ the PRM gap.</p>
+          <div id="sres-en-doors-table" class="tablewrap"></div></div>
         <div id="sres-en-bogie" class="card" hidden><h3>EN bogie parts (A.3.11) <span class="muted">(all bogie types, mm)</span></h3>
           <p class="hint">Formulae of independent-axle vehicles A.56–A.59 with w = 0 and a = distance between the end axles. KE half-width = smallest over the part's height range
             (lowered by wheel wear and, on the frame, the primary travel; raised by the primary rebound).</p>

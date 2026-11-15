@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '4.4.0';
+  var VERSION = '4.5.0';
   var G_ACC = 9.81;
   var CASES = [
     { id: 'int_t', section: 'int', load: 'tare', label: 'Interior – Tare' },
@@ -345,7 +345,9 @@
       Ck_low: v('Ck_m2', 2.5), Ck_up: v('Ck_up_m2', 3.75), Xi: v('Xi_m2', 100), Xa: v('Xa_m2', 120), h_low: v('h_low_mm', 400) / 1000,
       s0: v('s0', 0.4), hc0: v('hc0_mm', 500) / 1000, I0: v('I0_mm', 50) / 1000, D0: v('D0_mm', 50) / 1000, Dlim: v('Dlim_mm', 200) / 1000,
       Lref: v('Lref_mm', 1500) / 1000, eta_lim: v('eta_lim_deg', 1) * Math.PI / 180,
-      st_allow: v('st_allow_mm', 75) / 1000, st_Dmin: v('st_Dmin_m2', 7.5), st_smax: v('st_smax', 0.2), st_h_low: v('st_h_low_mm', 430) / 1000
+      st_allow: v('st_allow_mm', 75) / 1000, st_Dmin: v('st_Dmin_m2', 7.5), st_smax: v('st_smax', 0.2), st_h_low: v('st_h_low_mm', 430) / 1000,
+      dr_h: v('dr_h_mm', 1050) / 1000, dr_above: v('dr_above_mm', 200) / 1000, dr_wmax: v('dr_wmax_mm', 35) / 1000, dr_X: v('dr_X_mm', 20) / 1000,
+      gap_bq0i: blankOr(e.gap_bq0i_mm, null), gap_bq0a: blankOr(e.gap_bq0a_mm, null), gap_R: blankOr(e.gap_R_m, null)
     };
   }
   function pos(v) { return v > 0 ? v : 0; }
@@ -493,6 +495,8 @@
       out.checks[sec] = { profile: pr.name, points: pts, min: min, ok: min ? min.margin >= 0 : true };
       if (min && min.margin < 0) { out.ok = false; }
     });
+    out.doors = enDoors(p, d, r, en, ke);
+    if (!out.doors.ok) { out.ok = false; }
     return out;
   }
 
@@ -659,6 +663,65 @@
     });
     if (!out.sOk) { out.ok = false; }
     return out;
+  }
+
+  /*
+   * EN 15273-2:2009 A.3.14 open doors / deployed steps and A.3.15.2 step position (METHOD §10.10). Uses the kinematic
+   * reductions of enRun (en) at the element's own n. Allowed half-width = KE half-width − E + allowance; m inside, mm out.
+   */
+  function enDoorAllowance(r, kind, pos, h, n, a, wi, wa) {
+    if (kind === 'door' && h >= r.dr_h - 1e-12) { return { v: r.dr_above, rule: 'a) above ' + Math.round(r.dr_h * 1000) }; }
+    if (pos === 'between') { return { v: Math.min(wi, r.dr_wmax), rule: kind === 'door' ? 'b) between' : 'step between' }; }
+    if (kind === 'door') { return { v: wi * n / a + pos0(wa - r.dr_X) * (n + a) / a, rule: 'b) beyond A.105' }; }
+    return { v: wi * n / a + wa * (n + a) / a, rule: 'step beyond A.106' };
+  }
+  function pos0(v) { return v > 0 ? v : 0; }
+  // Step position A.3.15.2: gap to the platform from straight track to the verification radius (both ends checked).
+  function enStepGap(r, pos, b, dg, bgap) {
+    var out = [];
+    [['inside', r.gap_bq0i], ['outside', r.gap_bq0a]].forEach(function (sd) {
+      if (sd[1] === null) { return; }
+      var bq = sd[1] / 1000, toward = (sd[0] === 'inside') === (pos === 'between');   // mid-car moves inwards, car ends outwards
+      var g0 = bq - b, gR = toward ? bq - b - dg : bq - b + dg;
+      var dgmax = toward ? bq - b - bgap : b + bgap - bq;                                   // the formulae of A.3.15.2
+      var row = { side: sd[0], bq0: bq * 1000, toward: toward, dg: dg * 1000, dgmax: dgmax * 1000, gap0: g0 * 1000, gapR: gR * 1000, gapMax: Math.max(g0, gR) * 1000, bgap: bgap * 1000 };
+      row.ok = row.gapMax <= row.bgap + 1e-9; out.push(row);
+    });
+    return out;
+  }
+  function enDoors(p, d, r, en, ke) {
+    var g = d.geo, rows = [], ok = true, L = p.ke.limits || {}, bgap = n0(L.prm_gap_mm) / 1000;
+    var pMax = Math.max(en.bogies[0].p, en.bogies[1].p), pMin = Math.min(en.bogies[0].p, en.bogies[1].p);
+    (p.doorSteps || []).filter(function (x) { return x.car === d.car; }).forEach(function (it) {
+      var beyond = it.pos === 'beyond', n = blankOr(it.n_m, beyond ? g.n_end : g.a / 2), sec = beyond ? 'end' : 'int', y = n0(it.y_mm) / 1000;
+      var en2 = {}, k; for (k in en) { if (Object.prototype.hasOwnProperty.call(en, k)) { en2[k] = en[k]; } }
+      en2.n = { int: n, ext: n, end: n };
+      var drop = d.dn_total / 1000, lo = n0(it.h_lo_mm) / 1000 - drop, hi = n0(it.h_hi_mm) / 1000 - drop, hs = [lo, hi], seen = {}, pts = [], min = null;
+      if (it.kind === 'door' && r.dr_h > lo && r.dr_h < hi) { hs.push(r.dr_h - 1e-9, r.dr_h); }
+      ke.pts.forEach(function (q) { if (q.h > lo && q.h < hi) { hs.push(q.h); } });
+      hs.sort(function (u, v) { return u - v; });
+      var B = en.bogies, pairs = [[B[0], B[1]], [B[1], B[0]]];
+      hs.forEach(function (h) {
+        var key = Math.round(h * 1e9); if (seen[key]) { return; } seen[key] = 1;
+        var e = enSectionE(r, en2, sec, h), W = keWidth(ke, Math.max(h, ke.hUpBottom)), al = null;
+        pairs.forEach(function (pr) {   // far bogie i, near bogie a; both orientations, the smaller allowance
+          var x = enDoorAllowance(r, it.kind, it.pos, h, n, en.a, pr[0].winf, pr[1].winf);
+          if (!al || x.v < al.v) { al = x; }
+        });
+        var row = { h: h * 1000, W: W * 1000, E: e.E * 1000, max: (W - e.E) * 1000, extra: al.v * 1000, rule: al.rule, allowed: (W - e.E + al.v) * 1000, y: y * 1000 };
+        row.margin = row.allowed - row.y; row.ok = row.margin >= 0;
+        pts.push(row); if (!min || row.margin < min.margin) { min = row; }
+      });
+      var res = { name: it.name, kind: it.kind, pos: it.pos, n: n, y: y * 1000, drop: drop * 1000, lo: lo * 1000, hi: hi * 1000, points: pts, min: min, ok: min ? min.ok : true, gap: [] };
+      if (it.kind === 'step' && r.gap_R) {
+        var dg = (beyond ? en.a * n + n * n - pMin * pMin / 4 : en.a * n - n * n + pMax * pMax / 4) / (2 * r.gap_R);
+        res.gap = enStepGap(r, it.pos, y, dg, bgap);
+        res.gap.forEach(function (gp) { if (!gp.ok) { res.ok = false; } });
+      }
+      if (!res.ok) { ok = false; }
+      rows.push(res);
+    });
+    return { rows: rows, ok: ok };
   }
 
   // ================================================================ TEST CALCULATIONS (METHOD §13)
@@ -1128,6 +1191,6 @@
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
-    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
+    enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan
   };
 }));
