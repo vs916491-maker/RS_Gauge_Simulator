@@ -522,21 +522,50 @@
             "type": "third_rail",
             "y": 1720,
             "z": 190,
-            "min_clear_mm": 50
+            "min_clear_mm": 50,
+            "side": "R",
+            "ch_from_m": null,
+            "ch_to_m": 4200
           },
           {
-            "name": "Platform edge",
+            "name": "Platform A edge",
             "type": "platform",
-            "y": 1640,
+            "y": 1560,
             "z": 1080,
-            "min_clear_mm": 20
+            "min_clear_mm": 20,
+            "side": "L",
+            "ch_from_m": 0,
+            "ch_to_m": 135
+          },
+          {
+            "name": "Platform B edge",
+            "type": "platform",
+            "y": 1560,
+            "z": 1080,
+            "min_clear_mm": 20,
+            "side": "R",
+            "ch_from_m": 1500,
+            "ch_to_m": 1635
+          },
+          {
+            "name": "Platform C edge",
+            "type": "platform",
+            "y": 1560,
+            "z": 1080,
+            "min_clear_mm": 20,
+            "side": "L",
+            "ch_from_m": 2900,
+            "ch_to_m": 3035
           },
           {
             "name": "Signal head (tunnel)",
             "type": "equipment",
             "y": 2050,
             "z": 3200,
-            "min_clear_mm": 100
+            "min_clear_mm": 100,
+            "side": "L",
+            "ch_from_m": 1635,
+            "ch_to_m": 2900
           }
         ]
       },
@@ -747,7 +776,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": ""
           },
           {
@@ -767,7 +796,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": "Curve 1 R500"
           },
           {
@@ -787,7 +816,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": "Curve 1 R500"
           },
           {
@@ -807,7 +836,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": "Curve 1 R500"
           },
           {
@@ -827,7 +856,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": "Sag VC R2500"
           },
           {
@@ -847,7 +876,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": ""
           },
           {
@@ -887,7 +916,7 @@
             "struct_mm": 2250,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Tunnel",
             "remarks": "Crest VC R3000"
           },
           {
@@ -907,7 +936,7 @@
             "struct_mm": 2250,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Tunnel",
             "remarks": "Curve 2 R300"
           },
           {
@@ -927,7 +956,7 @@
             "struct_mm": 2250,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Tunnel",
             "remarks": "Curve 2 R300"
           },
           {
@@ -947,7 +976,7 @@
             "struct_mm": 2250,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Tunnel",
             "remarks": "Curve 2 R300"
           },
           {
@@ -967,7 +996,7 @@
             "struct_mm": 2200,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Tunnel",
             "remarks": ""
           },
           {
@@ -1007,7 +1036,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": ""
           },
           {
@@ -1027,7 +1056,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": "Curve 3 R800"
           },
           {
@@ -1047,7 +1076,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": "Curve 3 R800"
           },
           {
@@ -1067,7 +1096,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": "Curve 3 R800"
           },
           {
@@ -1087,7 +1116,7 @@
             "struct_mm": 0,
             "platform_mm": 0,
             "platform_side": "",
-            "sod": "",
+            "sod": "Elevated",
             "remarks": ""
           },
           {

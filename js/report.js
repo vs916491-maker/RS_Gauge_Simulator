@@ -103,6 +103,8 @@
       rows.push(['Dynamic – smallest underframe height (limit ' + fmt(q.uf_lim) + ' mm)', fmt(q.uf.v, 1) + ' mm', q.uf.car + ' at ' + fmt(q.uf.ch) + ' m', status(q.uf_ok)]);
       if (q.gm) { rows.push(['Dynamic – platform gap, smallest / largest nominal', fmt(q.gm.v, 1) + ' / ' + fmt(q.gn.v, 1) + ' mm', q.gm.car + ' at ' + fmt(q.gm.ch) + ' m', status(q.gm_ok) + (q.gn_info ? ' (gap > ' + fmt(q.prm) + ' mm PRM: information)' : '')]); }
       rows.push(['Dynamic – largest cant deficiency (limit ' + fmt(q.def_lim) + ' mm)', fmt(q.def.v, 1) + ' mm', 'at ' + fmt(q.def.ch) + ' m', status(q.def_ok)]);
+      if (q.sodc) { rows.push(['Dynamic – smallest clearance to the SOD outline (required ' + fmt(q.sodc_req) + ' mm)', fmt(q.sodc.v, 1) + ' mm', q.sodc.car + ' at ' + fmt(q.sodc.ch) + ' m', status(q.sodo_n === 0)]); }
+      if (q.itm) { rows.push(['Dynamic – smallest point-item margin over its required clearance', fmt(q.itm.v, 1) + ' mm', q.itm.car + ' at ' + fmt(q.itm.ch) + ' m', status(q.it_n === 0)]); }
     }
     table(['Check', 'Result', 'Where', 'Status'], rows, [0.42, 0.18, 0.26, 0.14]);
     var allOk = (!s || s.ok) && (!d || d.ok);
@@ -129,6 +131,12 @@
     h2('3.5 Customer KE, SOD and limits');
     table(['Profile', 'Type', 'Points', 'Height range [mm]', 'Largest half-width [mm]'], p.ke.profiles.map(function (k) { return prof(k, 'Customer KE'); }).concat(p.sod.profiles.map(function (k) { return prof(k, 'SOD'); })));
     table(['Limit', 'Value'], S.customerLimits.map(function (fd) { return [fd.l + unit(fd), fieldVal(fd, p.ke.limits[fd.k])]; }), [0.6, 0.4]);
+    para('SOD frame: ' + (p.sod.frame === 'vertical' ? 'vertical (KE rotated by cant)' : 'track plane (same as the KE)') + '; required clearance of the vehicle envelope to the SOD outline: ' + fmt(p.sod.margin_mm) + ' mm.');
+    if (p.sod.items.length) {
+      table(['Point item', 'Type', 'Y [mm]', 'Z [mm]', 'Required [mm]', 'Side', 'Chainage [m]'], p.sod.items.map(function (it) {
+        return [it.name || '', fieldVal(fd('type'), it.type), fmt(it.y), fmt(it.z), fmt(it.min_clear_mm), fieldVal(fd('side'), it.side), (it.ch_from_m === null ? 'start' : fmt(it.ch_from_m)) + ' – ' + (it.ch_to_m === null ? 'end' : fmt(it.ch_to_m))];
+      }), [0.26, 0.12, 0.09, 0.09, 0.12, 0.1, 0.22]);
+    }
     if (en) { para('EN 15273-2:2009 associated rules used with the customer KE as reference profile:'); table(['Rule', 'Value'], S.enParams.map(function (fd) { return [fd.l + unit(fd), fieldVal(fd, p.ke.en[fd.k])]; }), [0.6, 0.4]); }
     image('profiles', 'Customer KE and RS profiles (half-widths mirrored, mm).');
     h2('3.6 RS profiles');
@@ -149,7 +157,8 @@
     para('Static check (Method B): each RS profile point is displaced by the lateral and vertical movements of the case (geometric overthrow at the static radius, ' +
       'wheel–rail and suspension plays with the yaw factor, quasi-static roll from cant and wind, random terms) and its clearance to the customer KE is measured. ' +
       'Six cases per car type: interior, exterior and car end, each in tare and crush. Method A gives the largest static half-width the KE allows at each height. ' +
-      'The dynamic check sweeps every car type along the track data and keeps the worst car type at each chainage.');
+      'The dynamic check sweeps every car type along the track data and keeps the worst car type at each chainage; it also checks the whole displaced profile against ' +
+      'the SOD outline of each track element (tangent SOD widened by the curve allowance) and against the point items.');
     if (st) { h2('4.1 Static options'); table(['Option', 'Value'], S.staticOptions.map(function (fd) { return [fd.l, fieldVal(fd, st[fd.k])]; }), [0.65, 0.35]); }
     if (d) { h2('4.2 Dynamic options'); table(['Option', 'Value'], S.dynamicOptions.map(function (fd) { return [fd.l + unit(fd), fieldVal(fd, dy[fd.k])]; }), [0.65, 0.35]); }
 
@@ -213,19 +222,21 @@
       para('Line ' + fmt(q2.length) + ' m, ' + q2.points + ' points every ' + fmt(q2.step) + ' m; customer KE as given per track element; worst car type per chainage. ' +
         (d.ok ? 'All points satisfy the checks.' : q2.check_n + ' point(s) need checking.'));
       h2('7.1 Per car type');
-      table(['Car type', 'Max OUT excess', 'Max IN excess', 'Points > SOD', 'Min structure', 'Min underframe', 'Min gap', 'Status'], d.cars.map(function (c) {
+      table(['Car type', 'Max OUT excess', 'Max IN excess', 'Points > SOD', 'Min structure', 'Min underframe', 'Min gap', 'Min SOD outline', 'Min item margin', 'Status'], d.cars.map(function (c) {
         var x = c.summary;
-        return [c.car, fmt(x.xo.v, 1) + ' @ ' + fmt(x.xo.ch), fmt(x.xi.v, 1) + ' @ ' + fmt(x.xi.ch), String(x.sod_n), x.sc ? fmt(x.sc.v, 1) : '–', fmt(x.uf.v, 1), x.gm ? fmt(x.gm.v, 1) : '–', status(x.ok)];
+        return [c.car, fmt(x.xo.v, 1) + ' @ ' + fmt(x.xo.ch), fmt(x.xi.v, 1) + ' @ ' + fmt(x.xi.ch), String(x.sod_n), x.sc ? fmt(x.sc.v, 1) : '–', fmt(x.uf.v, 1), x.gm ? fmt(x.gm.v, 1) : '–',
+          x.sodc ? fmt(x.sodc.v, 1) : '–', x.itm ? fmt(x.itm.v, 1) : '–', status(x.ok)];
       }));
       note('Values in mm, chainage in m after @.');
       image('dyn-excess', 'Excess of the required half-widths over the customer KE, against the SOD allowance (governing car type ' + q2.xo.car + ').');
       image('dyn-struct', 'Structure clearance at h2 along the line (car type ' + (q2.sc ? q2.sc.car : q2.xo.car) + ').');
+      image('dyn-sodo', 'Clearance of the whole dynamic envelope to the SOD outline (widened by the curve allowance) and smallest point-item margin along the line.');
       image('dyn-xs', 'Cross-section at the largest outside excess (' + q2.xo.car + ', ' + fmt(q2.xo.ch) + ' m), in the vertical frame.');
       h2('7.2 Per track element (worst car type)');
-      table(['No', 'From–to [m]', 'Element', 'R [m]', 'V', 'Max def', 'Excess OUT', 'Excess IN', 'Min struct', 'Min uf', 'Status'], d.elements.map(function (e) {
+      table(['No', 'From–to [m]', 'Element', 'R [m]', 'V', 'Max def', 'Excess OUT', 'Excess IN', 'Min struct', 'Min uf', 'SOD', 'Min outline', 'Min item', 'Status'], d.elements.map(function (e) {
         return [String(e.no), fmt(e.s0) + '–' + fmt(e.s1), e.type + (e.side ? ' ' + e.side : ''), e.R0 || e.R1 ? fmt(e.R0) + (e.R1 !== e.R0 ? '→' + fmt(e.R1) : '') : '–', fmt(e.V),
-          fmt(e.def, 1), fmt(e.xo, 1), fmt(e.xi, 1), e.sc === null ? '–' : fmt(e.sc, 1), fmt(e.uf, 1), e.status];
-      }));
+          fmt(e.def, 1), fmt(e.xo, 1), fmt(e.xi, 1), e.sc === null ? '–' : fmt(e.sc, 1), fmt(e.uf, 1), e.sodn || '–', e.sodc === null ? '–' : fmt(e.sodc, 1), e.itm === null ? '–' : fmt(e.itm, 1), e.status];
+      }), null, 7);
       var gcar = d.cars.filter(function (c) { return c.car === q2.xo.car; })[0] || d.cars[0], ss = gcar.speedStep;
       h2('7.3 Speed-step study (' + gcar.car + ', R ' + fmt(ss.R) + ' m, cant ' + fmt(ss.cant) + ' mm, wind ' + fmt(ss.wind) + ' km/h, ' + ss.ke + ')');
       table(['V [km/h]', 'I def(+)/exc(−)', 'OUT h1', 'OUT h2', 'IN h1', 'IN h2', 'KE h2', 'Max excess', 'Remark'], ss.rows.map(function (x) {
@@ -263,6 +274,7 @@
     }
     return out;
   }
+  function fd(k) { return S.sodItem.filter(function (x) { return x.k === k; })[0]; }
   function prof(k, type) {
     var pts = k.points || [], lo = null, hi = null, w = null;
     pts.forEach(function (q) { var y = q.y, z = q.z; if (z !== null && z !== undefined) { lo = lo === null ? z : Math.min(lo, z); hi = hi === null ? z : Math.max(hi, z); } if (y !== null && y !== undefined) { w = w === null ? Math.abs(y) : Math.max(w, Math.abs(y)); } });

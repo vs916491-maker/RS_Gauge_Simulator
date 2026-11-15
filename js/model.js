@@ -309,7 +309,11 @@
     p.sod.profiles.forEach(function (pr) { profileChecks(m, 'ke', 'SOD profile', pr, true); });
     p.sod.items.forEach(function (it, k) {
       if (it.y === null || it.z === null) { m.add('ke', 'err', 'SOD item ' + (it.name || k + 1) + ': Y and Z are needed.'); }
+      if (it.ch_from_m !== null && it.ch_to_m !== null && !(it.ch_to_m > it.ch_from_m)) { m.add('ke', 'err', 'SOD item ' + (it.name || k + 1) + ': the "to" chainage must be after the "from" chainage.'); }
     });
+    if (p.sod.items.length || p.track.segments.some(function (sg) { return sg.sod; })) {
+      if (!(p.sod.margin_mm >= 0)) { m.add('ke', 'warn', 'SOD: no minimum clearance KE to SOD given; 50 mm is used.'); }
+    }
 
     // ---- RS profile
     if (!p.rs.profiles.length) { m.add('rs', 'err', 'No rolling stock profile.'); }

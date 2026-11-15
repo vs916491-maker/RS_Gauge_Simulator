@@ -428,7 +428,7 @@
         return { no: i + 1, s0: s.from_m, s1: s.to_m, type: s.element, side: s.side,
           ks: n0(s.R_start_m) > 0 ? sg / n0(s.R_start_m) : 0, ke: n0(s.R_end_m) > 0 ? sg / n0(s.R_end_m) : 0,
           cs: n0(s.cant_start_mm), ce: n0(s.cant_end_mm), V: n0(s.speed_kmh), Rv: n0(s.Rv_m), keName: s.ke, loc: s.location,
-          wind: s.wind, str: n0(s.struct_mm), pe: n0(s.platform_mm), ps: s.platform_side, remarks: s.remarks, seg: s };
+          wind: s.wind, str: n0(s.struct_mm), pe: n0(s.platform_mm), ps: s.platform_side, sodName: s.sod || '', remarks: s.remarks, seg: s };
       });
     var start = el.length ? el[0].s0 : 0, end = -Infinity;
     el.forEach(function (e) { end = Math.max(end, e.s1); });
@@ -519,10 +519,88 @@
       gs = gm < 0 ? 'CONTACT' : (gn > n0(L.prm_gap_mm) ? 'OK (gap > PRM value: info)' : 'OK');
     }
     var ok = (sod === 'CHECK' || ss === 'INFRINGES' || ufs === 'BELOW MIN' || gs === 'CONTACT') ? 'CHECK' : 'OK';
-    return { ch: ch, el: e.no, t: t, type: e.type, k: kk, ka: ka, Rl: ka === 0 ? 0 : 1 / ka, cant: cant, V: e.V, Rv: e.Rv, ke: ke.name, loc: e.loc, wind: e.wind,
+    return { ch: ch, el: e.no, t: t, type: e.type, k: kk, ka: ka, Rl: ka === 0 ? 0 : 1 / ka, cant: cant, V: e.V, Rv: e.Rv, ke: ke.name, sodn: e.sodName, loc: e.loc, wind: e.wind,
       str: e.str, pe: e.pe, ps: e.ps, kg: kg, Rg: Rg, Eeq: Eeq, Iq: Iq, def: def, exc: exc, Vw: Vw, Dw: Dw, wd: wd, dgi: dgi, dga: dga,
       o1: o1, o2: o2, i1: i1, i2: i2, kw1: kw1, kw2: kw2, xo: xo, xi: xi, To: To, Ti: Ti, sod: sod, lean: lean, ho: ho, hi: hi, sc: sc, ss: ss,
       vc: vc, uf: uf, ufs: ufs, pl: pl, gn: gn, gm: gm, gs: gs, ok: ok };
+  }
+
+  // ---------------------------------------------------------------- SOD outline and point items (METHOD §8.7)
+  // Displaced dynamic-gauge profile in the curve frame (right = OUTSIDE), track plane, m.
+  function envelopeTP(r, k, g) {
+    var G = k.G, tho = k.s * (r.def + r.Dw) / G + k.thr + k.tht, thi = k.s * (r.exc + r.Dw) / G + k.thr + k.tht;
+    function Eout(h) { return r.dga + k.dT_out + g.A_end * r.wd / 2 + k.s * (r.def + r.Dw) / G * (h - k.hc) * 1000 + k.rnd(k.gtOut, h); }
+    function Ein(h) { return r.dgi + k.dT_in + r.wd / 2 + k.s * (r.exc + r.Dw) / G * (h - k.hc) * 1000 + k.rnd(k.gt, h); }
+    var prof = k.profile.pts;
+    return {
+      tho: tho, thi: thi,
+      right: prof.map(function (q) { var E = Eout(q.h); return { pt: q.pt, x0: q.x, h0: q.h, E: E, th: tho, xt: q.x + E / 1000, zt: q.h - tho * q.x }; }),
+      left: prof.map(function (q) { var E = Ein(q.h); return { pt: q.pt, x0: q.x, h0: q.h, E: E, th: thi, xt: -(q.x + E / 1000), zt: q.h - thi * q.x }; })
+    };
+  }
+  function segDist(px, py, ax, ay, bx, by) {
+    var dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy, t = L2 === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / L2;
+    t = Math.max(0, Math.min(1, t));
+    var x = ax + t * dx - px, y = ay + t * dy - py;
+    return Math.sqrt(x * x + y * y);
+  }
+  // Signed distance of a point to a closed polygon [{x, y}] (the last point joins the first): + inside, − outside.
+  function polySigned(px, py, poly) {
+    var d = Infinity, inside = false, i, j, n = poly.length;
+    for (i = 0, j = n - 1; i < n; j = i++) {
+      var a = poly[j], b = poly[i];
+      d = Math.min(d, segDist(px, py, a.x, a.y, b.x, b.y));
+      if (((b.y > py) !== (a.y > py)) && (px < (a.x - b.x) * (py - b.y) / (a.y - b.y) + b.x)) { inside = !inside; }
+    }
+    return inside ? d : -d;
+  }
+  // Widened tangent SOD outline in the curve frame (m): right half + T_out, mirrored left half + T_in.
+  function sodPolygon(half, To, Ti) {
+    var r = half.map(function (q) { return { x: q.y + To, y: q.z }; }), l = half.slice().reverse().map(function (q) { return { x: -(q.y + Ti), y: q.z }; });
+    return r.concat(l);
+  }
+  function sodContext(p) {
+    var sods = {}, sd = p.sod || {};
+    (sd.profiles || []).forEach(function (pr) {
+      var pts = (pr.points || []).filter(function (q) { return q.y !== null && q.y !== undefined && q.z !== null && q.z !== undefined; }).map(function (q) { return { y: q.y / 1000, z: q.z / 1000 }; });
+      if (pts.length >= 2) { sods[pr.name] = pts; }
+    });
+    function lim(v, d) { return (v === null || v === undefined || v === '') ? d : Number(v); }
+    var items = (sd.items || []).filter(function (it) { return it.y !== null && it.y !== undefined && it.z !== null && it.z !== undefined; }).map(function (it) {
+      return { name: it.name, type: it.type, y: it.y / 1000, z: it.z / 1000, req: n0(it.min_clear_mm), side: it.side || 'both', from: lim(it.ch_from_m, -Infinity), to: lim(it.ch_to_m, Infinity) };
+    });
+    return { sods: sods, items: items, vertical: sd.frame === 'vertical', margin: n0(sd.margin_mm, 50) };
+  }
+  // Adds the outline and item results to a sweep row (sodc / sodp / sods, itm / itc / itn / its).
+  function sodCheck(r, k, g, sc) {
+    var en = envelopeTP(r, k, g), phi = Math.asin(Math.max(-1, Math.min(1, r.cant / k.G))), cs = Math.cos(phi), sn = Math.sin(phi);
+    function fr(x, z) { return sc.vertical ? { x: x * cs - z * sn, y: x * sn + z * cs } : { x: x, y: z }; }
+    var pts = en.right.map(function (q) { var o = fr(q.xt, q.zt); o.pt = q.pt; o.side = 'outside'; return o; })
+      .concat(en.left.slice().reverse().map(function (q) { var o = fr(q.xt, q.zt); o.pt = q.pt; o.side = 'inside'; return o; }));
+    r.sodc = null; r.sodp = ''; r.sods = '';
+    var half = r.sodn ? sc.sods[r.sodn] : null;
+    if (half) {
+      var poly = sodPolygon(half, r.To / 1000, r.Ti / 1000), best = null;
+      pts.forEach(function (q) { var c = polySigned(q.x, q.y, poly) * 1000; if (best === null || c < best.c) { best = { c: c, q: q }; } });
+      r.sodc = best.c; r.sodp = best.q.pt + ' (' + best.q.side + ')'; r.sods = best.c >= sc.margin ? 'OK' : 'CHECK';
+    }
+    r.itm = null; r.itc = null; r.itn = ''; r.its = '';
+    var act = sc.items.filter(function (it) { return r.ch >= it.from - 1e-9 && r.ch <= it.to + 1e-9; });
+    if (act.length && pts.length >= 3) {
+      var hands = r.k > 0 ? [1] : (r.k < 0 ? [-1] : [1, -1]), worst = null;
+      act.forEach(function (it) {
+        var ys = it.side === 'R' ? [it.y] : (it.side === 'L' ? [-it.y] : [it.y, -it.y]);
+        hands.forEach(function (hd) {
+          ys.forEach(function (yr) {
+            var c = -polySigned(hd * yr, it.z, pts) * 1000, m = c - it.req;
+            if (worst === null || m < worst.m) { worst = { m: m, c: c, it: it, real: yr < 0 ? 'L' : 'R' }; }
+          });
+        });
+      });
+      r.itm = worst.m; r.itc = worst.c; r.itn = worst.it.name + ' (' + worst.real + ')'; r.its = worst.m >= 0 ? 'OK' : 'CHECK';
+    }
+    if (r.sods === 'CHECK' || r.its === 'CHECK') { r.ok = 'CHECK'; }
+    return r;
   }
 
   // Speed-step study (Dynamic Calc §2) for one car.
@@ -559,12 +637,16 @@
     var def = ext('def', gt), xo = ext('xo', gt), xi = ext('xi', gt), sc = ext('sc', lt), uf = ext('uf', lt), gm = ext('gm', lt), gn = ext('gn', gt);
     var sodN = valid.filter(function (r) { return r.sod === 'CHECK'; }), chkN = valid.filter(function (r) { return r.ok === 'CHECK'; });
     var firstSod = rows.filter(function (r) { return r.sod === 'CHECK'; })[0];
+    var sodc = ext('sodc', lt), itm = ext('itm', lt);
     return {
       length: sw.end - sw.ch0, points: valid.length, step: sw.step,
       def: def, def_lim: n0(tp.cantdef_max_mm), def_ok: def ? def.v <= n0(tp.cantdef_max_mm) : true,
       xo: xo, xi: xi, sod_n: sodN.length, sod_first: firstSod ? firstSod.ch : null,
       sc: sc, sc_ok: sc ? sc.v >= 0 : null, uf: uf, uf_lim: n0(L.uf_min_body_mm), uf_ok: uf ? uf.v >= n0(L.uf_min_body_mm) : true,
       gm: gm, gm_ok: gm ? gm.v >= 0 : null, gn: gn, prm: n0(L.prm_gap_mm), gn_info: gn ? gn.v > n0(L.prm_gap_mm) : false,
+      sodc: sodc, sodc_req: n0((p.sod || {}).margin_mm, 50), sodo_n: valid.filter(function (r) { return r.sods === 'CHECK'; }).length,
+      sodo_pts: valid.filter(function (r) { return r.sodc !== null && r.sodc !== undefined; }).length,
+      itm: itm, it_n: valid.filter(function (r) { return r.its === 'CHECK'; }).length, it_pts: valid.filter(function (r) { return r.itm !== null && r.itm !== undefined; }).length,
       check_n: chkN.length, ok: chkN.length === 0
     };
   }
@@ -575,7 +657,7 @@
       function mx(k) { var v = null; rs.forEach(function (r) { if (r[k] !== null && (v === null || r[k] > v)) { v = r[k]; } }); return v; }
       function mn(k) { var v = null; rs.forEach(function (r) { if (r[k] !== null && (v === null || r[k] < v)) { v = r[k]; } }); return v; }
       return { no: e.no, s0: e.s0, s1: e.s1, type: e.type, side: e.side, R0: e.ks === 0 ? 0 : 1 / Math.abs(e.ks), R1: e.ke === 0 ? 0 : 1 / Math.abs(e.ke), V: e.V,
-        remarks: e.remarks, n: rs.length, def: mx('def'), o2: mx('o2'), i2: mx('i2'), xo: mx('xo'), xi: mx('xi'), sc: mn('sc'), uf: mn('uf'),
+        remarks: e.remarks, sodn: e.sodName, n: rs.length, def: mx('def'), o2: mx('o2'), i2: mx('i2'), xo: mx('xo'), xi: mx('xi'), sc: mn('sc'), uf: mn('uf'), sodc: mn('sodc'), itm: mn('itm'),
         status: rs.length ? (rs.some(function (r) { return r.ok === 'CHECK'; }) ? 'CHECK' : 'OK') : 'not evaluated' };
     });
   }
@@ -595,7 +677,7 @@
     var sw = sweepChainages(tm, dOpt, n0(p.track.params.dx_m, 10));
     var want = dOpt.cars && dOpt.cars !== 'all' ? String(dOpt.cars).split(',') : null;
     var cars = p.train.carTypes.filter(function (c) { return !want || want.indexOf(c.name) >= 0; });
-    var warnings = [];
+    var warnings = [], sc = sodContext(p);
     var out = cars.map(function (c) {
       var d = deriveCar(p, c, sOpt), k = dynConstants(p, d, sOpt, dOpt);
       var win = Math.ceil(k.win_m / sw.step - 1e-12);   // ROUNDUP(… / step, 0)
@@ -605,6 +687,7 @@
         if (dOpt.ov_meth !== 'local') { for (var j = Math.max(0, i - win); j <= Math.min(ka.length - 1, i + win); j++) { if (ka[j] > kg) { kg = ka[j]; } } }
         var r = sweepRow(p, d, k, tm, kes, sOpt, q.ch, kg);
         r.valid = q.valid; r.car = c.name;
+        sodCheck(r, k, d.geo, sc);
         return r;
       });
       return { car: c.name, count: c.count, derived: d, consts: { s: k.s, hc: k.hc, Cw: k.Cw, dT_in: k.dT_in, dT_out: k.dT_out, thr: k.thr, tht: k.tht,
@@ -619,13 +702,16 @@
         out.forEach(function (o) { var v = o.rows[i][key]; if (v === null || v === undefined) { return; } if (r[key] === undefined || r[key] === null || better(v, r[key])) { r[key] = v; r[key + '_car'] = o.car; } });
       }
       ['xo', 'xi', 'o2', 'i2', 'gn'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a > b; }); });
-      ['sc', 'uf', 'gm'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a < b; }); });
+      ['sc', 'uf', 'gm', 'sodc', 'itm'].forEach(function (k2) { r[k2] = null; take(k2, function (a, b) { return a < b; }); });
+      out.forEach(function (o) { var x = o.rows[i]; if (x.car === r.sodc_car) { r.sodp = x.sodp; } if (x.car === r.itm_car) { r.itn = x.itn; r.itc = x.itc; } });
+      r.sods = out.some(function (o) { return o.rows[i].sods === 'CHECK'; }) ? 'CHECK' : (r.sodc === null ? '' : 'OK');
+      r.its = out.some(function (o) { return o.rows[i].its === 'CHECK'; }) ? 'CHECK' : (r.itm === null ? '' : 'OK');
       out.forEach(function (o) { var x = o.rows[i]; if (x.sod === 'CHECK') { r.sod = 'CHECK'; } if (x.ok === 'CHECK') { r.ok = 'CHECK'; } });
       r.car = r.xo_car;
       return r;
     });
     var summary = lineSummary(p, env, sw);
-    ['def', 'xo', 'xi', 'sc', 'uf', 'gm', 'gn'].forEach(function (key) {
+    ['def', 'xo', 'xi', 'sc', 'uf', 'gm', 'gn', 'sodc', 'itm'].forEach(function (key) {
       if (summary[key]) { var row = env.filter(function (r) { return r.ch === summary[key].ch; })[0]; summary[key].car = row ? row[key + '_car'] : null; }
     });
     return { engineVersion: VERSION, sweep: { ch0: sw.ch0, end: sw.end, step: sw.step, n: sw.pts.length }, ke: kes.__default.name,
@@ -649,14 +735,9 @@
       for (i = 0; i < rows.length; i++) { if (rows[i].ch <= ch + 1e-9) { idx = i; } }
     }
     var r = rows[idx], G = k.G, phi = Math.asin(r.cant / G), cs = Math.cos(phi), sn = Math.sin(phi);
-    var tho = k.s * (r.def + r.Dw) / G + k.thr + k.tht, thi = k.s * (r.exc + r.Dw) / G + k.thr + k.tht;
     function rot(x, z) { return { x: x * cs - z * sn, y: x * sn + z * cs }; }
-    function Eout(h) { return r.dga + k.dT_out + g.A_end * r.wd / 2 + k.s * (r.def + r.Dw) / G * (h - k.hc) * 1000 + k.rnd(k.gtOut, h); }
-    function Ein(h) { return r.dgi + k.dT_in + r.wd / 2 + k.s * (r.exc + r.Dw) / G * (h - k.hc) * 1000 + k.rnd(k.gt, h); }
-    var prof = k.profile.pts, ke = null;
+    var en = envelopeTP(r, k, g), tho = en.tho, thi = en.thi, right = en.right, left = en.left, prof = k.profile.pts, ke = null;
     p.ke.profiles.forEach(function (pr) { if (pr.name === r.ke) { ke = pr; } });
-    var right = prof.map(function (q) { var E = Eout(q.h); return { pt: q.pt, x0: q.x, h0: q.h, E: E, th: tho, xt: q.x + E / 1000, zt: q.h - tho * q.x }; });
-    var left = prof.map(function (q) { var E = Ein(q.h); return { pt: q.pt, x0: q.x, h0: q.h, E: E, th: thi, xt: -(q.x + E / 1000), zt: q.h - thi * q.x }; });
     function both(fnR, fnL, list) { var a = list.map(fnR), b = list.slice().reverse().map(fnL); return a.concat(b, a.length ? [a[0]] : []); }
     var envelope = right.map(function (q) { return rot(q.xt, q.zt); }).concat(left.slice().reverse().map(function (q) { return rot(q.xt, q.zt); }));
     if (envelope.length) { envelope.push(envelope[0]); }
@@ -667,12 +748,35 @@
     var mm = function (list) { return list.map(function (q) { return { x: q.x * 1000, y: q.y * 1000 }; }); };
     return { car: cr.car, ch: r.ch, row: r, phi: phi, tho: tho, thi: thi, right: right, left: left,
       envelope: mm(envelope), staticProfile: mm(stat), ke: mm(keR), keSod: mm(keS), rails: mm([rot(-0.75, 0), rot(0.75, 0)]),
-      structure: r.str ? mm([rot(r.str / 1000, k.h2 - 0.3), rot(r.str / 1000, k.h2 + 0.3)]) : null, h2: k.h2 * 1000 };
+      structure: r.str ? mm([rot(r.str / 1000, k.h2 - 0.3), rot(r.str / 1000, k.h2 + 0.3)]) : null, h2: k.h2 * 1000,
+      sod: sodShow(p, r, rot), items: itemsShow(p, r, rot) };
   }
+  // Widened SOD outline and active items for the cross-section, in the vertical frame (mm); tangent: drawn for a left-hand curve.
+  function sodShow(p, r, rot) {
+    var sc = sodContext(p), half = r.sodn ? sc.sods[r.sodn] : null;
+    if (!half) { return null; }
+    var poly = sodPolygon(half, r.To / 1000, r.Ti / 1000);
+    poly.push(poly[0]);
+    return { name: r.sodn, frame: sc.vertical ? 'vertical' : 'track', required: sc.margin, clearance: r.sodc, point: r.sodp,
+      pts: poly.map(function (q) { var o = sc.vertical ? { x: q.x, y: q.y } : rot(q.x, q.y); return { x: o.x * 1000, y: o.y * 1000 }; }) };
+  }
+  function itemsShow(p, r, rot) {
+    var sc = sodContext(p), hd = r.k < 0 ? -1 : 1, out = [];
+    sc.items.forEach(function (it) {
+      if (r.ch < it.from - 1e-9 || r.ch > it.to + 1e-9) { return; }
+      (it.side === 'R' ? [it.y] : (it.side === 'L' ? [-it.y] : [it.y, -it.y])).forEach(function (yr) {
+        var x = hd * yr, o = sc.vertical ? { x: x, y: it.z } : rot(x, it.z);
+        out.push({ x: o.x * 1000, y: o.y * 1000, label: it.name + ' (' + (yr < 0 ? 'L' : 'R') + ')' });
+      });
+    });
+    return out;
+  }
+
 
   return {
     VERSION: VERSION, CASES: CASES, G_ACC: G_ACC, playCalc: playCalc,
     trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
+    envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
     enRules: enRules, enZ: enZ, enReduction: enReduction

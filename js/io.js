@@ -352,17 +352,19 @@
       ['Minimum underframe height, body-mounted, worst (mm)'].concat(ex(sm.uf), [sm.uf_lim, sm.uf_ok ? 'OK' : 'BELOW MIN']),
       ['Minimum platform gap, worst movement (mm)'].concat(ex(sm.gm), [0, sm.gm ? (sm.gm_ok ? 'OK' : 'CONTACT') : '']),
       ['Maximum nominal platform gap (mm)'].concat(ex(sm.gn), [sm.prm, sm.gn ? (sm.gn_info ? 'INFO: above PRM value' : 'OK') : '']),
+      ['Minimum clearance to the SOD outline, whole profile (mm)'].concat(ex(sm.sodc), [sm.sodc_req, sm.sodc ? (sm.sodo_n ? sm.sodo_n + ' points CHECK' : 'OK') : 'no SOD on the line']),
+      ['Minimum point-item margin over its required clearance (mm)'].concat(ex(sm.itm), [0, sm.itm ? (sm.it_n ? sm.it_n + ' points CHECK' : 'OK') : 'no items']),
       ['Points with any CHECK', sm.check_n, '', '', 0, sm.ok ? 'ALL OK' : 'REVIEW'], [''], ['Options']];
     S.dynamicOptions.forEach(function (fd) { sum.push([fd.l, o[fd.k] === null ? '' : o[fd.k]]); });
     sum.push(['Sweep step (m)', res.sweep.step], ['Common options (Static Simulation tab)']);
     S.staticOptions.forEach(function (fd) { if (fd.k.indexOf('ma_') !== 0) { sum.push([fd.l, so[fd.k] === null ? '' : so[fd.k]]); } });
     add('Dyn_Summary', sum, 44);
-    var cars = [['Car type', 'Profile', 's', 'hc (m)', 'Max deficiency (mm)', 'Max OUT excess (mm)', 'at (m)', 'Max IN excess (mm)', 'at (m)', 'SOD checks', 'Min structure clearance (mm)', 'Min underframe (mm)', 'Min platform gap (mm)', 'CHECK points']];
-    res.cars.forEach(function (c) { var q = c.summary; cars.push([c.car, c.consts.profile, r2(c.consts.s, 4), r2(c.consts.hc, 4), r2(q.def && q.def.v, 2), r2(q.xo && q.xo.v, 2), r2(q.xo && q.xo.ch, 2), r2(q.xi && q.xi.v, 2), r2(q.xi && q.xi.ch, 2), q.sod_n, q.sc ? r2(q.sc.v, 2) : 'n/a', r2(q.uf && q.uf.v, 2), q.gm ? r2(q.gm.v, 2) : 'n/a', q.check_n]); });
+    var cars = [['Car type', 'Profile', 's', 'hc (m)', 'Max deficiency (mm)', 'Max OUT excess (mm)', 'at (m)', 'Max IN excess (mm)', 'at (m)', 'SOD checks', 'Min structure clearance (mm)', 'Min underframe (mm)', 'Min platform gap (mm)', 'Min SOD outline clearance (mm)', 'Min item margin (mm)', 'CHECK points']];
+    res.cars.forEach(function (c) { var q = c.summary; cars.push([c.car, c.consts.profile, r2(c.consts.s, 4), r2(c.consts.hc, 4), r2(q.def && q.def.v, 2), r2(q.xo && q.xo.v, 2), r2(q.xo && q.xo.ch, 2), r2(q.xi && q.xi.v, 2), r2(q.xi && q.xi.ch, 2), q.sod_n, q.sc ? r2(q.sc.v, 2) : 'n/a', r2(q.uf && q.uf.v, 2), q.gm ? r2(q.gm.v, 2) : 'n/a', q.sodc ? r2(q.sodc.v, 2) : 'n/a', q.itm ? r2(q.itm.v, 2) : 'n/a', q.check_n]); });
     add('Dyn_CarTypes', cars, 12);
-    var eh = ['Car type', 'No', 'Ch start', 'Ch end', 'Element', 'Hand', 'R start', 'R end', 'Speed', 'Max deficiency', 'Max OUT h2', 'Max IN h2', 'Max excess OUT', 'Max excess IN', 'Min structure clearance', 'Min underframe', 'Status', 'Remarks'];
+    var eh = ['Car type', 'No', 'Ch start', 'Ch end', 'Element', 'Hand', 'R start', 'R end', 'Speed', 'Max deficiency', 'Max OUT h2', 'Max IN h2', 'Max excess OUT', 'Max excess IN', 'Min structure clearance', 'Min underframe', 'SOD profile', 'Min SOD outline clearance', 'Min item margin', 'Status', 'Remarks'];
     var el = [eh];
-    res.cars.forEach(function (c) { c.elements.forEach(function (e) { el.push([c.car, e.no, e.s0, e.s1, e.type, e.side, r2(e.R0, 1), r2(e.R1, 1), e.V, r2(e.def, 2), r2(e.o2, 1), r2(e.i2, 1), r2(e.xo, 2), r2(e.xi, 2), e.sc === null ? '' : r2(e.sc, 1), r2(e.uf, 1), e.status, e.remarks || '']); }); });
+    res.cars.forEach(function (c) { c.elements.forEach(function (e) { el.push([c.car, e.no, e.s0, e.s1, e.type, e.side, r2(e.R0, 1), r2(e.R1, 1), e.V, r2(e.def, 2), r2(e.o2, 1), r2(e.i2, 1), r2(e.xo, 2), r2(e.xi, 2), e.sc === null ? '' : r2(e.sc, 1), r2(e.uf, 1), e.sodn || '', e.sodc === null ? '' : r2(e.sodc, 1), e.itm === null ? '' : r2(e.itm, 1), e.status, e.remarks || '']); }); });
     add('Dyn_Elements', el, 10);
     var sh = ['Car type', 'V (km/h)', 'Eq. cant (mm)', 'I = Eeq − E (mm)', 'Deficiency', 'Excess', 'Wind eq. cant', 'Widening', 'dgi mid', 'dga end', 'OUT h1', 'OUT h2', 'IN h1', 'IN h2', 'KE w h1', 'KE w h2', 'Max excess over KE', 'Remark'];
     var ss = [sh];
@@ -373,7 +375,8 @@
       ['Dw', 'Wind eq. cant (mm)', 2], ['wd', 'Widening (mm)', 1], ['dgi', 'dgi mid (mm)', 2], ['dga', 'dga end (mm)', 2], ['o1', 'OUT h1 (mm)', 2], ['o2', 'OUT h2 (mm)', 2], ['i1', 'IN h1 (mm)', 2], ['i2', 'IN h2 (mm)', 2],
       ['kw1', 'KE w h1 (mm)', 2], ['kw2', 'KE w h2 (mm)', 2], ['xo', 'Excess OUT (mm)', 2], ['xi', 'Excess IN (mm)', 2], ['To', 'SOD allowance OUT (mm)', 2], ['Ti', 'SOD allowance IN (mm)', 2], ['sod', 'SOD check'],
       ['lean', 'Lean at h2 (mm)', 2], ['ho', 'Req. horizontal OUT (mm)', 2], ['hi', 'Req. horizontal IN (mm)', 2], ['sc', 'Structure clearance (mm)', 2], ['ss', 'Structure status'], ['vc', 'Vertical-curve effect (mm)', 2],
-      ['uf', 'Underframe height (mm)', 2], ['ufs', 'Underframe status'], ['pl', 'Platform position'], ['gn', 'Gap nominal (mm)', 2], ['gm', 'Gap minimum (mm)', 2], ['gs', 'Gap status'], ['ok', 'Overall'], ['valid', 'Valid row']];
+      ['uf', 'Underframe height (mm)', 2], ['ufs', 'Underframe status'], ['pl', 'Platform position'], ['gn', 'Gap nominal (mm)', 2], ['gm', 'Gap minimum (mm)', 2], ['gs', 'Gap status'], ['sodn', 'SOD profile'], ['sodc', 'SOD outline clearance (mm)', 2], ['sodp', 'Governing profile point'], ['sods', 'SOD outline status'],
+      ['itn', 'Governing item'], ['itc', 'Item clearance (mm)', 2], ['itm', 'Item margin (mm)', 2], ['its', 'Item status'], ['ok', 'Overall'], ['valid', 'Valid row']];
     var sw = [['Car type'].concat(cols.map(function (c) { return c[1]; }))];
     res.cars.forEach(function (c) { c.rows.forEach(function (q) { sw.push([c.car].concat(cols.map(function (k) { var v = q[k[0]]; return k[0] === 'valid' ? (v ? 1 : 0) : (k[2] === undefined ? (v === null ? '' : v) : r2(v, k[2])); }))); }); });
     add('Dyn_Sweep', sw, 10);
