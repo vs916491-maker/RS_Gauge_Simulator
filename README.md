@@ -56,7 +56,7 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 | 12 | EN 15273-2: static gauge method (A.2) | Done |
 | 13 | EN 15273-2: open doors and steps (A.3.14 / A.3.15) | Done |
 | 14 | EN 15273-2: pantograph gauge (A.3.12) | Done |
-| 15 | Third-rail current collector (CCD) checks | Next |
+| 15 | Third-rail current collector (CCD) checks | Done |
 | 16+ | EN 15273-2: other profiles, dynamic method | Next |
 
 ## For developers

@@ -127,6 +127,11 @@
     out.bogieParts = (p.bogieParts || []).map(function (r) { return record(r, S.bogiePart); });
     out.doorSteps = (p.doorSteps || []).map(function (r) { return record(r, S.doorStep); });
     out.pantographs = (p.pantographs || []).map(function (r) { return record(r, S.pantograph); });
+    out.ccds = (p.ccds || []).map(function (r) { return record(r, S.ccd); });
+    out.ccdPoints = (p.ccdPoints || []).map(function (r) { return record(r, S.ccdPoint); });
+    var tr = p.thirdRail || {}, trr = record(tr, S.thirdRail);
+    trr.parts = (tr.parts || []).map(function (r) { return record(r, S.trPart); });
+    out.thirdRail = trr;
     var ke = p.ke || {}, sod = p.sod || {}, rs = p.rs || {}, tr = p.track || {};
     out.ke = { limits: record(ke.limits, S.customerLimits), en: record(ke.en, S.enParams), profiles: profiles(ke.profiles, S.keProfile) };
     var so = record(sod, S.sodSettings);
@@ -355,6 +360,27 @@
       if (!r.car || carNames.indexOf(r.car) < 0) { m.add('rs', 'err', id + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
     });
     if ((p.pantographs || []).length && p.train.power_supply !== 'ohe') { m.add('rs', 'warn', 'Pantographs are given but the power supply on the Train Configuration tab is not overhead.'); }
+
+    // ---- Third-rail CCD (METHOD §14)
+    var ccdNames = (p.ccds || []).map(function (c) { return c.name; });
+    if ((p.ccds || []).length) {
+      uniqueNames(m, 'bogie', 'CCD', p.ccds);
+      rangeChecks(m, 'ke', 'Third rail', p.thirdRail, S.thirdRail);
+      if (p.thirdRail.tr_ke && !p.ke.profiles.some(function (x) { return x.name === p.thirdRail.tr_ke; })) { m.add('ke', 'err', 'Third rail: envelope "' + p.thirdRail.tr_ke + '" is not a profile on this tab.'); }
+      if (p.train.power_supply !== 'third_rail') { m.add('bogie', 'warn', 'CCDs are given but the power supply on the Train Configuration tab is not third rail.'); }
+    }
+    (p.ccds || []).forEach(function (c) {
+      rangeChecks(m, 'bogie', 'CCD ' + c.name, c, S.ccd);
+      if (!c.bogie || bogieNames.indexOf(c.bogie) < 0) { m.add('bogie', 'err', 'CCD ' + c.name + ': bogie type "' + (c.bogie || '') + '" is not on this tab.'); }
+      if (c.c_max_mm !== null && c.c_min_mm !== null && !(c.c_max_mm > c.c_min_mm)) { m.add('bogie', 'err', 'CCD ' + c.name + ': the working range must go from a lower to a higher value.'); }
+      if (c.o_max_mm !== null && c.o_min_mm !== null && !(c.o_max_mm > c.o_min_mm)) { m.add('bogie', 'err', 'CCD ' + c.name + ': the shoe face must go from a lower to a higher value.'); }
+      if (!(p.ccdPoints || []).some(function (q) { return q.ccd === c.name; })) { m.add('bogie', 'warn', 'CCD ' + c.name + ': no outline points; only the shoe–rail contact is checked.'); }
+    });
+    (p.ccdPoints || []).forEach(function (q, k) {
+      rangeChecks(m, 'bogie', 'CCD point ' + (q.pt || k + 1), q, S.ccdPoint);
+      if (ccdNames.indexOf(q.ccd) < 0) { m.add('bogie', 'err', 'CCD point ' + (q.pt || k + 1) + ': CCD "' + (q.ccd || '') + '" is not in the CCD table.'); }
+    });
+    ((p.thirdRail || {}).parts || []).forEach(function (q, k) { rangeChecks(m, 'ke', 'Third-rail part ' + (q.name || k + 1), q, S.trPart); });
 
     // ---- Tests (sway test rows)
     ((p.tests || {}).sway || []).forEach(function (r, k) {

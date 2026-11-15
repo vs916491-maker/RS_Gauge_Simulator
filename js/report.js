@@ -95,6 +95,11 @@
       s.cars.forEach(function (c) { c.vertical.forEach(function (v) { if (!v.info && (!lowV || v.margin < lowV.margin)) { lowV = { margin: v.margin, car: c.car, label: v.label }; } }); });
       rows.push(['Vertical checks – smallest margin', lowV ? fmt(lowV.margin, 1) + ' mm' : '–', lowV ? lowV.car + ', ' + lowV.label : '', status(s.cars.every(function (c) { return c.vertical.every(function (v) { return v.info || v.ok; }); }))]);
       if (enSt) { var sg = s.enStatic.governing; rows.push(['EN 15273-2:2009 static gauge (A.2) – smallest margin', sg ? fmt(sg.margin, 1) + ' mm' : '–', sg ? sg.car + ', ' + SEC[sg.section] + ', h ' + fmt(sg.h) + ' mm' : '', status(s.enStatic.ok)]); }
+      if (s.ccd) {
+        var sm2 = []; s.ccd.ccds.forEach(function (c) { ['ke', 'reach', 'overlap', 'clear'].forEach(function (k) { if (c[k]) { sm2.push({ v: c[k].v, c: c.name, w: c[k].case }); } }); });
+        var w2 = sm2.sort(function (a, b) { return a.v - b.v; })[0];
+        rows.push(['Third-rail CCD (static) – smallest margin', w2 ? fmt(w2.v, 1) + ' mm' : '–', w2 ? w2.c + ', ' + w2.w : '', status(s.ccd.ok)]);
+      }
       if (en) { var eg = s.en.governing; rows.push(['EN 15273-2:2009 – smallest margin to the maximum construction gauge', eg ? fmt(eg.margin, 1) + ' mm' : '–', eg ? eg.car + ', ' + SEC[eg.section] + ', h ' + fmt(eg.h) + ' mm' : '', status(s.en.ok)]); }
     }
     if (d) {
@@ -107,6 +112,10 @@
       rows.push(['Dynamic – largest cant deficiency (limit ' + fmt(q.def_lim) + ' mm)', fmt(q.def.v, 1) + ' mm', 'at ' + fmt(q.def.ch) + ' m', status(q.def_ok)]);
       if (q.sodc) { rows.push(['Dynamic – smallest clearance to the SOD outline (required ' + fmt(q.sodc_req) + ' mm)', fmt(q.sodc.v, 1) + ' mm', q.sodc.car + ' at ' + fmt(q.sodc.ch) + ' m', status(q.sodo_n === 0)]); }
       if (q.itm) { rows.push(['Dynamic – smallest point-item margin over its required clearance', fmt(q.itm.v, 1) + ' mm', q.itm.car + ' at ' + fmt(q.itm.ch) + ' m', status(q.it_n === 0)]); }
+      if (q.ccd) {
+        var cm = [q.ccd.ke, q.ccd.reach, q.ccd.overlap, q.ccd.clear].filter(function (x) { return x; }).sort(function (a, b) { return a.v - b.v; })[0];
+        rows.push(['Dynamic – third-rail CCD, smallest margin (envelope, reach, overlap, clearance)', cm ? fmt(cm.v, 1) + ' mm' : '–', cm ? cm.ccd + ' (' + cm.side + ') at ' + fmt(cm.ch) + ' m' : '', status(q.ccd.check_n === 0)]);
+      }
     }
     table(['Check', 'Result', 'Where', 'Status'], rows, [0.42, 0.18, 0.26, 0.14]);
     var allOk = (!s || s.ok) && (!d || d.ok);
@@ -203,6 +212,15 @@
         ['Wind equivalent cant tare / crush [mm]'].concat(s.cars.map(function (c) { return fmt(c.derived.wind.Dw_t, 1) + ' / ' + fmt(c.derived.wind.Dw_c, 1); })),
         ['Axle load [t]'].concat(s.cars.map(function (c) { return fmt(c.derived.shared.axle_t, 2); }))
       ]);
+      if (s.ccd) {
+        h2('5.' + (s.cars.length + 3) + ' Third-rail current collector (CCD)');
+        var tr = p.thirdRail || {};
+        para('Conductor rail: ' + tr.tr_contact + ' contact, contact surface ' + fmt(tr.tr_c_mm) + ' mm, face ' + fmt(tr.tr_o_min_mm) + '–' + fmt(tr.tr_o_max_mm) + ' mm, tolerances ±' + fmt(tr.tr_tol_y_mm) + ' / ±' + fmt(tr.tr_tol_z_mm) +
+          ' mm, wear ' + fmt(tr.tr_wear_mm) + ' mm, minimum overlap ' + fmt(tr.tr_overlap_mm) + ' mm; envelope ' + (s.ccd.ke || '–') + '. Situations: tangent and the minimum radius with the rail outside and inside the curve, vertical curve both ways (METHOD §14).');
+        var crs = [];
+        s.ccd.ccds.forEach(function (c) { c.cases.forEach(function (k) { crs.push([c.name, k.situation, k.ke ? fmt(k.ke.margin, 1) : '–', fmt(k.contact.reach, 1), fmt(k.contact.mOv, 1), k.clear ? fmt(k.clear.margin, 1) : '–', status(k.ok)]); }); });
+        table(['CCD', 'Situation', 'Envelope [mm]', 'Reach [mm]', 'Overlap [mm]', 'Clearance [mm]', 'Status'], crs);
+      }
       if (s.warnings.length) { para('Warnings of the static run:'); add({ type: 'list', items: s.warnings }); }
 
       // ---- 6 EN
@@ -281,6 +299,12 @@
       image('dyn-struct', 'Structure clearance at h2 along the line (car type ' + (q2.sc ? q2.sc.car : q2.xo.car) + ').');
       image('dyn-sodo', 'Clearance of the whole dynamic envelope to the SOD outline (widened by the curve allowance) and smallest point-item margin along the line.');
       image('dyn-xs', 'Cross-section at the largest outside excess (' + q2.xo.car + ', ' + fmt(q2.xo.ch) + ' m), in the vertical frame.');
+      if (d.ccd) {
+        var dc = d.ccd;
+        para('Third-rail CCD along the line (' + dc.n + ' chainages with a conductor rail): smallest envelope margin ' + (dc.ke ? fmt(dc.ke.v, 1) + ' mm at ' + fmt(dc.ke.ch) + ' m' : '–') +
+          ', reach ' + (dc.reach ? fmt(dc.reach.v, 1) + ' mm at ' + fmt(dc.reach.ch) + ' m' : '–') + ', overlap ' + (dc.overlap ? fmt(dc.overlap.v, 1) + ' mm' : '–') +
+          ', clearance to the rail parts ' + (dc.clear ? fmt(dc.clear.v, 1) + ' mm at ' + fmt(dc.clear.ch) + ' m' : '–') + '; ' + (dc.check_n ? dc.check_n + ' chainages to check.' : 'all OK.'));
+      }
       h2('7.2 Per track element (worst car type)');
       table(['No', 'From–to [m]', 'Element', 'R [m]', 'V', 'Max def', 'Excess OUT', 'Excess IN', 'Min struct', 'Min uf', 'SOD', 'Min outline', 'Min item', 'Status'], d.elements.map(function (e) {
         return [String(e.no), fmt(e.s0) + '–' + fmt(e.s1), e.type + (e.side ? ' ' + e.side : ''), e.R0 || e.R1 ? fmt(e.R0) + (e.R1 !== e.R0 ? '→' + fmt(e.R1) : '') : '–', fmt(e.V),

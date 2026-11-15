@@ -345,6 +345,144 @@
       "note": "Fictional"
     }
   ],
+  "ccds": [
+    {
+      "name": "CCD-1",
+      "bogie": "M",
+      "mount": "frame",
+      "x_m": 1.45,
+      "c_min_mm": 120,
+      "c_max_mm": 250,
+      "o_min_mm": 1650,
+      "o_max_mm": 1790,
+      "note": "Fictional bottom-contact collector shoe"
+    }
+  ],
+  "ccdPoints": [
+    {
+      "ccd": "CCD-1",
+      "state": "working",
+      "part": "shoe",
+      "pt": "S1",
+      "y_mm": 1650,
+      "z_mm": 160
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "working",
+      "part": "shoe",
+      "pt": "S2",
+      "y_mm": 1790,
+      "z_mm": 160
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "working",
+      "part": "shoe",
+      "pt": "S3",
+      "y_mm": 1790,
+      "z_mm": 135
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "working",
+      "part": "shoe",
+      "pt": "S4",
+      "y_mm": 1650,
+      "z_mm": 135
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "working",
+      "part": "gear",
+      "pt": "G1",
+      "y_mm": 1560,
+      "z_mm": 230
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "working",
+      "part": "gear",
+      "pt": "G2",
+      "y_mm": 1450,
+      "z_mm": 260
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "retracted",
+      "part": "gear",
+      "pt": "R1",
+      "y_mm": 1650,
+      "z_mm": 125
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "retracted",
+      "part": "gear",
+      "pt": "R2",
+      "y_mm": 1790,
+      "z_mm": 125
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "retracted",
+      "part": "gear",
+      "pt": "R3",
+      "y_mm": 1790,
+      "z_mm": 100
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "retracted",
+      "part": "gear",
+      "pt": "R4",
+      "y_mm": 1650,
+      "z_mm": 100
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "retracted",
+      "part": "gear",
+      "pt": "G1r",
+      "y_mm": 1560,
+      "z_mm": 230
+    },
+    {
+      "ccd": "CCD-1",
+      "state": "retracted",
+      "part": "gear",
+      "pt": "G2r",
+      "y_mm": 1450,
+      "z_mm": 260
+    }
+  ],
+  "thirdRail": {
+    "tr_ke": "KE CCD zone",
+    "tr_contact": "bottom",
+    "tr_c_mm": 160,
+    "tr_o_min_mm": 1690,
+    "tr_o_max_mm": 1750,
+    "tr_tol_y_mm": 10,
+    "tr_tol_z_mm": 10,
+    "tr_wear_mm": 5,
+    "tr_overlap_mm": 20,
+    "parts": [
+      {
+        "name": "Shroud inner edge",
+        "kind": "shroud",
+        "y_mm": 1665,
+        "z_mm": 235,
+        "clear_mm": 30
+      },
+      {
+        "name": "Rail bracket",
+        "kind": "bracket",
+        "y_mm": 1760,
+        "z_mm": 300,
+        "clear_mm": 50
+      }
+    ]
+  },
   "ke": {
     "limits": {
       "uf_min_body_mm": 100,
@@ -544,6 +682,43 @@
             "pt": "B15",
             "y": 1160,
             "z": 65
+          }
+        ]
+      },
+      {
+        "name": "KE CCD zone",
+        "note": "Fictional lower envelope for the third-rail collector shoes",
+        "n_up": null,
+        "points": [
+          {
+            "pt": "C1",
+            "y": 0,
+            "z": 500
+          },
+          {
+            "pt": "C2",
+            "y": 1630,
+            "z": 500
+          },
+          {
+            "pt": "C3",
+            "y": 1630,
+            "z": 150
+          },
+          {
+            "pt": "C4",
+            "y": 1880,
+            "z": 150
+          },
+          {
+            "pt": "C5",
+            "y": 1880,
+            "z": 20
+          },
+          {
+            "pt": "C6",
+            "y": 0,
+            "z": 20
           }
         ]
       }

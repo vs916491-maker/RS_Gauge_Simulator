@@ -368,12 +368,23 @@
         kz_prim: '3. Suspension stiffness (theoretical s and hc)', en_s_frame: 'EN 15273-2 bogie parts (A.3.11)', bb_mm: '4. Play calculator inputs (information)' },
       addLabel: 'Add bogie type',
       newItem: function () { var b = M.record(S.defaults(S.bogie), S.bogie); b.name = uniqueName('B', state.p.bogies); return b; },
-      onChange: function (it, k, old) { if (k === 'name') { renameRefs(state.p.train.carTypes, ['bogie1', 'bogie2'], old, it.name); renameRefs(state.p.bogieParts, ['bogie'], old, it.name); } }
+      onChange: function (it, k, old) { if (k === 'name') { renameRefs(state.p.train.carTypes, ['bogie1', 'bogie2'], old, it.name); renameRefs(state.p.bogieParts, ['bogie'], old, it.name); renameRefs(state.p.ccds, ['bogie'], old, it.name); } }
     });
     table($('t-bogie-parts'), state.p.bogieParts, S.bogiePart, {
       addLabel: 'Add bogie part',
       refs: { bogie: function () { return state.p.bogies.map(function (b) { return b.name; }); } },
       newRow: function () { var t = state.p.bogieParts, last = t[t.length - 1], r = S.defaults(S.bogiePart); r.bogie = last ? last.bogie : ((state.p.bogies[0] || {}).name || ''); return r; }
+    });
+    var ccdNames = function () { return state.p.ccds.map(function (c) { return c.name; }); };
+    table($('t-ccd'), state.p.ccds, S.ccd, {
+      addLabel: 'Add CCD',
+      refs: { bogie: function () { return state.p.bogies.map(function (b) { return b.name; }); } },
+      newRow: function () { var r = S.defaults(S.ccd); r.name = uniqueName('CCD-', state.p.ccds); r.bogie = (state.p.bogies[0] || {}).name || ''; return r; },
+      onChange: function (it, k, old) { if (k === 'name') { renameRefs(state.p.ccdPoints, ['ccd'], old, it.name); } }
+    });
+    table($('t-ccd-pts'), state.p.ccdPoints, S.ccdPoint, {
+      addLabel: 'Add point', refs: { ccd: ccdNames },
+      newRow: function () { var t = state.p.ccdPoints, last = t[t.length - 1], r = S.defaults(S.ccdPoint); if (last) { r.ccd = last.ccd; r.state = last.state; r.part = last.part; } else { r.ccd = ccdNames()[0] || ''; } return r; }
     });
     calcBody(); calcPlay();
   }
@@ -433,6 +444,8 @@
     table($('t-sod-items'), state.p.sod.items, S.sodItem, { addLabel: 'Add item' });
     form($('f-sod'), S.sodSettings, state.p.sod);
     form($('f-en'), S.enParams, state.p.ke.en);
+    form($('f-third'), S.thirdRail, state.p.thirdRail, null, { tr_ke: function () { return [''].concat(keNames()); } });
+    table($('t-tr-parts'), state.p.thirdRail.parts, S.trPart, { addLabel: 'Add part' });
     previewSel('pv-ke-sel', 'ke', 'chart-ke');
     profileChart('chart-ke', 'ke');
   }
@@ -569,6 +582,7 @@
     roTable($('sres-methodA'), ['h', 'KE width', 'Max static Int', 'Max static Ext', 'Max static End', 'Margin Int', 'Margin Ext', 'Margin End'],
       c.methodA.map(function (x) { return [fmt(x.h, 0), fmt(x.W, 1), fmt(x.max_int, 1), fmt(x.max_ext, 1), fmt(x.max_end, 1), mcell(x.margin_int), mcell(x.margin_ext), mcell(x.margin_end)]; }));
     renderSresEn(r, c);
+    renderSresCcd(r);
     renderSresEnStatic(r, c);
     // vertical
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {
@@ -633,6 +647,27 @@
     roTable($('sres-en-bogie-table'), ['Bogie', 'Part', 'Mounted', 'Position', 'n (m)', 'Height range', 'Half-width', 'z_kin', 'Branch', 'E', 'KE half-width', 'EN max', 'Margin', 'Status'],
       bp.map(function (q) { return [q.bogie, q.name, q.mount === 'axle' ? 'Axle' : 'Frame', q.pos === 'beyond' ? 'Beyond' : 'Between', fmt(q.n, 2), fmt(q.h_lo, 0) + ' – ' + fmt(q.h_hi, 0), fmt(q.y, 0),
         fmt(q.z, 2), q.branch, fmt(q.E, 2), fmt(q.W, 1), fmt(q.max, 1), cCell(q.margin), q.ok ? 'OK' : 'EXCEEDS']; }));
+  }
+  function renderSresCcd(r) {
+    var cc = r.ccd;
+    $('sres-ccd').hidden = !cc;
+    if (!cc) { return; }
+    var rows = [];
+    cc.ccds.forEach(function (c) {
+      c.cases.forEach(function (k, i) {
+        rows.push([i ? '' : c.name + ' (' + c.bogie + ', x ' + fmt(c.x, 2) + ' m)', k.situation, k.ke ? cCell(k.ke.margin) : 'n/a', k.ke ? k.ke.pt + ' (' + k.ke.state + ')' : '',
+          fmt(k.contact.relLo, 1) + ' – ' + fmt(k.contact.relHi, 1), fmt(k.contact.cmin, 0) + ' – ' + fmt(k.contact.cmax, 0), cCell(k.contact.reach), cCell(k.contact.mOv),
+          k.clear ? cCell(k.clear.margin) : 'n/a', k.clear ? k.clear.pt + ' – ' + k.clear.part : '', k.ok ? 'OK' : 'CHECK']);
+      });
+    });
+    roTable($('sres-ccd-table'), ['CCD', 'Situation', 'Envelope', 'At', 'Rail relative to shoe', 'Working range', 'Reach', 'Overlap', 'Clearance', 'To', 'Status'], rows);
+    var ds = P.ccdDatasets(state.p, cc.ke, { ke: cssVar('--muted', '#6b7280'), work: cssVar('--c1', '#2563eb'), ret: cssVar('--c5', '#7c3aed'), rail: cssVar('--c4', '#dc2626'), part: cssVar('--c2', '#d97706') });
+    var xs = [], ys = [];
+    ds.forEach(function (d) { d.data.forEach(function (q) { if (q.x !== null && q.y !== null && q.x > 900) { xs.push(q.x); ys.push(q.y); } }); });
+    if (xs.length) {
+      var x0 = Math.floor((Math.min.apply(null, xs) - 100) / 100) * 100, x1 = Math.ceil((Math.max.apply(null, xs) + 100) / 100) * 100, y0 = Math.min(0, Math.floor((Math.min.apply(null, ys) - 50) / 100) * 100), y1 = Math.ceil((Math.max.apply(null, ys) + 50) / 100) * 100;
+      scatterChart('chart-ccd', ds, { xmin: x0, xmax: x1, ymin: y0, ymax: y1, step: 100, stepY: 50, aspect: (x1 - x0) / Math.max(1, y1 - y0) });
+    }
   }
   function renderSresEnStatic(r, c) {
     var st = c.enStatic, SEC = { int: 'Interior', ext: 'Exterior', end: 'Car end' }, ks = ['int', 'ext', 'end'];
@@ -745,7 +780,7 @@
     var sl = $('dres-slider'); sl.min = r.sweep.ch0; sl.max = r.sweep.end; sl.step = r.sweep.step;
     if (state.dCh === null) { var xs0 = E.crossSection(state.p, r, c.car, null, staticOpts()); state.dCh = xs0 ? xs0.ch : r.sweep.ch0; }
     $('dres-ch').value = fmt(state.dCh, 1); sl.value = state.dCh;
-    dynCharts(c); renderXs();
+    dynCharts(c); renderXs(); renderDresCcd(r);
     // elements
     roTable($('dres-elements'), ['No', 'Ch start', 'Ch end', 'Element', 'Hand', 'R start', 'R end', 'Speed', 'Max deficiency', 'Max OUT h2', 'Max IN h2', 'Max excess OUT', 'Max excess IN', 'Min structure', 'Min underframe', 'SOD', 'Min SOD outline', 'Min item margin', 'Status', 'Remarks'],
       c.elements.map(function (e) { return { cls: (state.dCh >= e.s0 && state.dCh < e.s1) ? 'selrow' : '', cells: [e.no, fmt(e.s0, 1), fmt(e.s1, 1), e.type, e.side || '–', e.R0 ? fmt(e.R0) : '∞', e.R1 ? fmt(e.R1) : '∞', fmt(e.V), fmt(e.def, 1), fmt(e.o2, 0), fmt(e.i2, 0), fmt(e.xo, 1), fmt(e.xi, 1), e.sc === null ? '' : fmt(e.sc, 0), fmt(e.uf, 0),
@@ -759,6 +794,23 @@
     chLine('chart-d-ss', [lineDs('Required OUT at h2', ss.rows.map(function (q) { return { x: q.V, y: q.o2 }; }), cssVar('--c4', '#dc2626')),
       lineDs('Required IN at h2', ss.rows.map(function (q) { return { x: q.V, y: q.i2 }; }), cssVar('--c5', '#7c3aed'), [5, 3]),
       lineDs('Customer KE half-width at h2', ss.rows.map(function (q) { return { x: q.V, y: q.kw2 }; }), cssVar('--c1', '#2563eb'))], 'Speed [km/h]', 'Half-width [mm]', true);
+  }
+  function renderDresCcd(r) {
+    var cc = r.ccd;
+    $('dres-ccd').hidden = !cc;
+    if (!cc) { return; }
+    function rw(lbl, x) { return [lbl, x ? cCell(x.v) : 'n/a', x ? fmt(x.ch, 1) : '', x ? x.ccd + ' (' + x.side + ')' : '']; }
+    roTable($('dres-ccd-sum'), ['Check', 'Minimum margin', 'At chainage (m)', 'CCD (rail side)'], [
+      rw('Envelope (gear and retracted shoe inside the envelope)', cc.ke), rw('Reach (rail within the shoe working range)', cc.reach),
+      rw('Overlap of shoe and rail faces', cc.overlap), rw('Clearance to the rail parts', cc.clear),
+      ['Chainages with a conductor rail / with CHECK', String(cc.n), cc.check_n ? cc.check_n + ' CHECK' : 'OK', '']]);
+    var s = P.chainageSeries;
+    chLine('chart-d-ccd', [lineDs('Envelope margin', s(cc.rows, 'ke'), cssVar('--c1', '#2563eb')), lineDs('Reach margin', s(cc.rows, 'reach'), cssVar('--c4', '#dc2626')),
+      lineDs('Overlap margin', s(cc.rows, 'overlap'), cssVar('--c3', '#059669'), [5, 3]), lineDs('Clearance margin', s(cc.rows, 'clear'), cssVar('--c2', '#d97706'), [2, 2])], 'Chainage [m]', 'Margin [mm]');
+    var low = cc.rows.slice().sort(function (a, b) { return a.m - b.m; }).slice(0, 20);
+    roTable($('dres-ccd-table'), ['Chainage', 'R (m)', 'Rail', 'Deficiency / excess', 'CCD', 'Envelope', 'Reach', 'Overlap', 'Clearance', 'Status'], low.map(function (q) {
+      return [fmt(q.ch, 1), q.R ? fmt(q.R) : '∞', q.side + ', ' + q.pos, fmt(q.def, 0) + ' / ' + fmt(q.exc, 0), q.ccd, q.ke === null ? 'n/a' : cCell(q.ke), cCell(q.reach), cCell(q.overlap), q.clear === null ? 'n/a' : cCell(q.clear), q.ok ? 'OK' : 'CHECK'];
+    }));
   }
   function lineDs(label, data, color, dash, w) { return { label: label, data: data, borderColor: color, backgroundColor: color, borderWidth: w || 1.6, borderDash: dash || [], pointRadius: 0, spanGaps: false, tension: 0 }; }
   function markerDs(rows, keys) {
