@@ -181,6 +181,13 @@ with sync_playwright() as pw:
     page.click('#btn-run-static'); page.wait_for_timeout(800)
     ok('Motor coach – A.3.9.2' in page.locator('#sres-en-info').text_content(), 'EN motor-coach formulae selectable (DMC uses A.3.9.2)')
     page.evaluate("RSGAUGE.app.state.p.settings.static.en_mc = 'traction'")
+    # EN static gauge method (A.2): sample s = 0,3 is above s_max = 0,2
+    page.click('#tabbtn-ssim'); page.wait_for_timeout(200)
+    page.evaluate("RSGAUGE.app.state.p.settings.static.en_static = 'yes'")
+    page.click('#btn-run-static'); page.wait_for_timeout(800)
+    ok(page.locator('#sres-enst').is_visible() and 'NOT ALLOWED' in page.locator('#sres-enst-info').text_content() and page.locator('#sres-enst-check tbody tr.selrow').count() == 3, 'EN static gauge shown; s above s_max flagged')
+    page.locator('#sres-enst').screenshot(path=os.path.join(out, '20c-static-gauge.png'))
+    page.evaluate("RSGAUGE.app.state.p.settings.static.en_static = 'no'")
     page.click('#tabbtn-ssim'); page.wait_for_timeout(200); page.click('#btn-run-static'); page.wait_for_timeout(800)
 
     # preset
