@@ -69,10 +69,18 @@ Vehicle type (LRV / Metro / High-speed; *Apply typical values* loads `samples/ve
 labels (tare AW0, crush AW4).
 
 Per **car type**: body length `Lb`, overhang pivot → free end `n`, overhang at a shared end `nj`, end 1 / end 2
-free or shared, interior section position `ni` (blank = a/2), exterior section position `na`, body width, floor
+free or shared (entered in the *Load definition* card: *Own bogie* or *Shared bogie*), interior section position `ni` (blank = a/2), exterior section position `na`, body width, floor
 height `hf`, door-sill half-width `bs`, sprung body mass tare `m0` / crush `m4`, CG height tare `hG0` / crush
 `hG4`, body lowering tare → crush `Δz`, bogie type at each end, RS profile of the interior, exterior and
 car-end sections.
+
+**Formation layout (bogie arrangement check, no physics).** Each car of the formation is placed with end 1 to the
+left unless it is reversed. The orientation is chosen so that its left end matches the right end of the car in front
+(shared with shared, own bogie with own bogie) and no shared end is at a train end; with symmetric ends only the last
+car is reversed (cab end outwards). Two facing shared ends form one shared bogie (articulated joint). Warnings: a
+joint with a shared end on one side and an own bogie on the other, a shared end at the front or rear of the train, a
+single car with a shared end, and two cars naming different bogie types for the bogie they share. The calculation
+itself is per car type (§5); the layout only checks that the car types fit together.
 
 ### 4.2 Car body
 

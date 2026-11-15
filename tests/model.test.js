@@ -22,11 +22,12 @@ test('normalizeProject never mutates its input and drops prototype keys', functi
 });
 
 test('Defaults fill missing fields, numbers from text are converted, unknown select values fall back', function () {
-  var p = M.normalizeProject({ train: { n_cars: '4', bogie_arrangement: 'weird', carTypes: [{ name: 'A', ni_m: '' }] }, bogies: [{ name: 'X', p_m: '2,5' }],
+  var p = M.normalizeProject({ train: { n_cars: '4', vehicle_type: 'weird', bogie_arrangement: 'shared_one', carTypes: [{ name: 'A', ni_m: '' }] }, bogies: [{ name: 'X', p_m: '2,5' }],
     track: { segments: [{ from_m: 0, to_m: 10, element: 'Circular', location: 'PLATFORM', wind: 'n' }] } });
   assert.strictEqual(p.train.n_cars, 4);
   assert.strictEqual(p.train.gauge_mm, 1435);
-  assert.strictEqual(p.train.bogie_arrangement, 'non_shared');
+  assert.strictEqual(p.train.vehicle_type, 'metro', 'unknown select value falls back to the default');
+  assert.strictEqual(p.train.bogie_arrangement, undefined, 'retired train-level bogie arrangement is dropped');
   assert.strictEqual(p.bogies[0].p_m, 2.5);
   assert.strictEqual(p.train.carTypes[0].ni_m, null, 'optional blank stays blank (= a/2)');
   var s = p.track.segments[0];
@@ -129,3 +130,26 @@ test('Every schema field has a unique key within its list and a label', function
 });
 
 module.exports = tests;
+
+test('Formation layout orients each car to its neighbours and flags mismatched joints (Load definition)', function () {
+  var D = { name: 'D', end1: 'free', end2: 'free', bogie1: 'M', bogie2: 'T' }, A = { name: 'A', end1: 'free', end2: 'shared', bogie1: 'T', bogie2: 'J' };
+  var B = { name: 'B', end1: 'shared', end2: 'free', bogie1: 'J', bogie2: 'T' }, C = { name: 'C', end1: 'shared', end2: 'shared', bogie1: 'J', bogie2: 'J' };
+  function lay(f, ct) { return M.formationLayout({ formation: f, carTypes: ct }); }
+  var l = lay('D-D-D', [D]);
+  assert.deepStrictEqual(l.cars.map(function (c) { return c.rev; }), [false, false, true], 'last car reversed, cab end outwards');
+  assert.deepStrictEqual([l.joints.length, l.issues.length], [2, 0]);
+  l = lay('A-A', [A]);   // semi-articulated pair of one car type: the second car is turned round
+  assert.deepStrictEqual(l.cars.map(function (c) { return c.rev; }), [false, true]);
+  assert.deepStrictEqual([l.joints[0].shared, l.issues.length], [true, 0]);
+  l = lay('D-A-C-B-D', [D, A, B, C]);
+  assert.deepStrictEqual(l.joints.map(function (j) { return j.shared; }), [false, true, true, false]);
+  assert.strictEqual(l.issues.length, 0);
+  l = lay('A-D', [A, D]);
+  assert.ok(!l.joints[0].ok && /one side of the joint is a shared bogie/.test(l.issues[0]));
+  l = lay('A-B', [A, { name: 'B', end1: 'shared', end2: 'free', bogie1: 'X', bogie2: 'T' }]);
+  assert.ok(l.joints[0].shared && !l.joints[0].bogieOk && /different bogie types/.test(l.issues[0]));
+  assert.ok(/single car cannot have a shared end/.test(lay('C', [C]).issues[0]));
+  var raw = JSON.parse(JSON.stringify(sample)); raw.train.carTypes[0].end2 = 'shared';
+  var v = M.validate(M.normalizeProject(raw));
+  assert.ok(has(v, 'train', 'warn', /Bogie arrangement – Cars 1 \(DMC\) and 2 \(TC\): one side of the joint is a shared bogie/));
+});

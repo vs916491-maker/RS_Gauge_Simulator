@@ -50,7 +50,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
 
 ```
 { format, version: 2, name, notes, fictional,
-  train:  { name, customer, line, formation, n_cars, vehicle_type: lrv|metro|hs, bogie_arrangement, vmax_kmh, gauge_mm, L_mm (G),
+  train:  { name, customer, line, formation, n_cars, vehicle_type: lrv|metro|hs, vmax_kmh, gauge_mm, L_mm (G),
             primary_type, secondary_type, power_supply, tare_label, laden_label, rho_air, Beq_mm,
             carTypes: [{ name, count, length_m, n_free_m, n_art_m, end1/end2: free|shared, ni_m (blank = a/2), na_m, width_mm, floor_mm,
                          sill_hw_mm, mass_tare_t, mass_crush_t, cg_tare_mm, cg_crush_mm, drop_crush_mm, bogie1, bogie2,
@@ -144,5 +144,7 @@ reads every known sheet.
 | 15 | Third-rail current collector (CCD): shoe gear vs envelope, shoe–rail reach and overlap (bottom / top / side contact), clearance to rail parts, along the line (METHOD §14) | Done |
 | 16 | EN 15273-2: rules of the other reference gauges GA, GB, GC, GB1, GB2, G2, DE1–DE3 (height law k, roll band) | Done |
 | 17 | EN 15273-2: dynamic method (§5.2, Annex O): simulation results import (O.6), displacements O.4–O.18, rigid-body swept envelope (tangent and along the line), model validation O.2 | Done |
-| 18 | Applicable-rules framework (Customer KE / EN 15273-2 / EBO / BOStrab) with per-check override; BOStrab §34 public limits | **This pull request** |
-| 19 | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |
+| 18 | Applicable-rules framework (Customer KE / EN 15273-2 / EBO / BOStrab) with per-check override; BOStrab §34 public limits | Done |
+| 19 | Load definition (1): bogie ends per car type, formation drawing with shared bogies and joint checks | **This pull request** |
+| 20 | Load definition (2): any number of load cases (AW0, AW2, AW3, AW4 …) with masses per car type, every case calculated | Next |
+| 21 | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |

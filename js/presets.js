@@ -17,7 +17,6 @@
         "formation": "DMC-TC-MC-MC-TC-DMC",
         "n_cars": 6,
         "vehicle_type": "metro",
-        "bogie_arrangement": "non_shared",
         "vmax_kmh": 90,
         "gauge_mm": 1435,
         "L_mm": 1500,

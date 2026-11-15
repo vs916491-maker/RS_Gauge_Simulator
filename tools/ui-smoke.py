@@ -30,8 +30,20 @@ with sync_playwright() as pw:
     page.reload()
     page.wait_for_timeout(400)
     ok('Fictional example' in page.locator('#data-banner').text_content(), 'fictional banner shown')
-    ok(page.locator('#g-cartypes input, #g-cartypes select').count() >= 60, 'car type grid rendered')
+    ok(page.locator('#g-cartypes input, #g-cartypes select').count() >= 50, 'car type grid rendered')
     ok(page.locator('#train-drawing svg rect.car-body').count() == 6, 'train drawing has 6 cars')
+    # Load definition: bogie ends per car type, joints in the drawing
+    ok(page.locator('#t-ends tbody tr').count() == 3 and 'Two own bogies' in page.locator('#t-ends').text_content(), 'bogie ends table: one row per car type')
+    ends = page.locator('#t-ends tbody tr')
+    ends.nth(1).locator('select').nth(2).select_option('shared'); page.wait_for_timeout(300)     # TC end 2
+    ok(page.locator('#train-drawing .joint-bad').count() >= 1 and 'one side of the joint is a shared bogie' in page.locator('#train-drawing').text_content(), 'mismatched joint marked')
+    page.locator('#t-ends tbody tr').nth(2).locator('select').nth(0).select_option('shared'); page.wait_for_timeout(300)   # MC end 1
+    ok(page.locator('#train-drawing .joint-shared').count() == 2 and 'different bogie types' in page.locator('#train-drawing').text_content(), 'TC + MC semi-articulated: two shared bogies; T and M named for one shared bogie flagged')
+    ok('One shared end (semi-articulated)' in page.locator('#t-ends').text_content(), 'arrangement named in the table')
+    page.locator('#load-def').screenshot(path=os.path.join(out, '01b-load-definition.png'))
+    page.locator('#t-ends tbody tr').nth(1).locator('select').nth(2).select_option('free')
+    page.locator('#t-ends tbody tr').nth(2).locator('select').nth(0).select_option('free'); page.wait_for_timeout(300)
+    ok(page.locator('#train-drawing .joint-shared').count() == 0, 'ends set back to own bogies')
     ok('14.8' in page.locator('#calc-geometry').text_content(), 'calculated pivot distance shown')
 
     tabs = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'endyn', 'tests', 'summary', 'calc', 'method']
