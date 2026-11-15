@@ -39,6 +39,9 @@
   var PRIMARY = { train: 'Train', bogie: 'Bogies', ke: 'KE', rs: 'RSProfile', track: 'Track', tests: 'Sway_Test', endyn: 'Sim_Transient' };
   var ALL_SHEETS = [].concat(TAB_SHEETS.train, TAB_SHEETS.bogie, TAB_SHEETS.ke, TAB_SHEETS.rs, TAB_SHEETS.track, TAB_SHEETS.tests, TAB_SHEETS.endyn);
 
+  // parameters of older versions, skipped without a warning when an older file is imported
+  var RETIRED = { bogie_arrangement: true };
+
   function head(fd) { return fd.l + (fd.u ? ' [' + fd.u + ']' : '') + ' (' + fd.k + ')'; }
   function keyOf(cell) {
     var s = String(cell === undefined || cell === null ? '' : cell).trim(), m = /\(([A-Za-z][A-Za-z0-9_]*)\)\s*$/.exec(s);
@@ -188,7 +191,11 @@
     rows.forEach(function (r, i) {
       if (i === 0 && String(r[0]).toLowerCase() === 'parameter') { return; }
       var k = r[3] ? matchKey(r[3], fields) : matchKey(r[0], fields);
-      if (!k) { if (r[0]) { msgs.push({ level: 'warn', text: sheet + ' row ' + (i + 1) + ': "' + r[0] + '" is not a known parameter (ignored).' }); } return; }
+      if (!k) {
+        if (RETIRED[keyOf(r[3] || r[0])]) { return; }   // parameter of an older version, no longer used
+        if (r[0]) { msgs.push({ level: 'warn', text: sheet + ' row ' + (i + 1) + ': "' + r[0] + '" is not a known parameter (ignored).' }); }
+        return;
+      }
       out[k] = r[1]; n++;
     });
     if (!n) { msgs.push({ level: 'err', text: sheet + ': no parameters found.' }); }

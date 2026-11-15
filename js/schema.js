@@ -30,7 +30,6 @@
   ];
   var trainConfig = [
     f('vehicle_type', 'Vehicle type', 'sel', '', { o: [['lrv', 'LRV / tram'], ['metro', 'Metro'], ['hs', 'High-speed']], d: 'metro', h: 'Use "Apply typical values" to load the preset values of this type' }),
-    f('bogie_arrangement', 'Bogie arrangement', 'sel', '', { o: [['non_shared', 'Non-shared (2 own bogies per car)'], ['shared_one', 'Shared bogie at one end (semi-articulated pair)'], ['shared_both', 'Shared bogies at both ends (articulated)']], d: 'non_shared', h: 'Default for new car types; each car type sets its own ends below' }),
     f('vmax_kmh', 'Design speed Vd', 'num', 'km/h', { min: 1, max: 400, d: 90 }),
     f('gauge_mm', 'Nominal track gauge l', 'num', 'mm', { min: 600, max: 1800, d: 1435 }),
     f('L_mm', 'Distance between rail centres G (cant base)', 'num', 'mm', { min: 600, max: 1900, d: 1500, h: 'Converts cant to an angle; 1500 mm for 1435 mm gauge' }),
@@ -49,15 +48,15 @@
     f('rho_air', 'Air density ρ', 'num', 'kg/m³', { min: 0.5, max: 2, d: 1.2 }),
     f('Beq_mm', 'Base for equivalent cant Beq', 'num', 'mm', { min: 500, max: 2500, d: 1510, h: 'D = (F/W) × Beq' })
   ];
-  var END = [['free', 'Free (own bogie)'], ['shared', 'Shared bogie']];
+  var END = [['free', 'Own bogie'], ['shared', 'Shared bogie']];
   var carType = [
     f('name', 'Car type name', 'text', '', { d: 'CAR' }),
     f('count', 'Number in the train', 'int', '', { min: 0, max: 20, d: 1 }),
     f('length_m', 'Body length Lb (over body ends)', 'num', 'm', { min: 2, max: 40, d: 21 }),
     f('n_free_m', 'Overhang pivot to free body end n', 'num', 'm', { min: 0, max: 10, d: 3.4 }),
     f('n_art_m', 'Overhang at a shared end nj', 'num', 'm', { min: -2, max: 10, d: 0, h: '0 = body end over the shared pivot; negative if it stops short' }),
-    f('end1', 'End 1', 'sel', '', { o: END, d: 'free' }),
-    f('end2', 'End 2', 'sel', '', { o: END, d: 'free' }),
+    f('end1', 'End 1', 'sel', '', { o: END, d: 'free', h: 'Own bogie: the car rests on its own bogie here (pivot at n from the body end). Shared: this end sits on a bogie shared with the next car (pivot at nj).' }),
+    f('end2', 'End 2', 'sel', '', { o: END, d: 'free', h: 'As end 1, for the other end of the car' }),
     f('ni_m', 'Interior section from pivot ni', 'num', 'm', { min: 0, max: 20, opt: true, h: 'Blank = a/2 (mid-car, largest inward throw)' }),
     f('na_m', 'Exterior section beyond pivot na', 'num', 'm', { min: 0, max: 10, d: 2.2, h: 'e.g. HVAC unit position' }),
     f('width_mm', 'Maximum body width', 'num', 'mm', { min: 1000, max: 4000, d: 2880 }),

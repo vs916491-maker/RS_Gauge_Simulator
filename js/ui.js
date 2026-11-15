@@ -292,14 +292,14 @@
       changed(false);
     });
     form($('f-train-load'), S.trainLoad, t);
-    grid($('g-cartypes'), t.carTypes, S.carType, {
-      refs: { bogie1: bogieNames, bogie2: bogieNames, prof_int: rsNames, prof_ext: rsNames, prof_end: rsNames },
-      groups: { name: 'Identification', length_m: 'Body geometry and pivots', ni_m: 'Sections checked', width_mm: 'Body and door sill', mass_tare_t: 'Masses and centre of gravity', bogie1: 'Bogies and section profiles' },
+    endsTable();
+    grid($('g-cartypes'), t.carTypes, S.carType.filter(function (fd) { return !END_KEYS[fd.k]; }), {
+      refs: { prof_int: rsNames, prof_ext: rsNames, prof_end: rsNames },
+      groups: { name: 'Identification', length_m: 'Body geometry and pivots (bogie ends: Load definition above)', ni_m: 'Sections checked', width_mm: 'Body and door sill', mass_tare_t: 'Masses and centre of gravity', prof_int: 'Section profiles' },
       addLabel: 'Add car type',
       newItem: function () {
-        var c = M.record(S.defaults(S.carType), S.carType), arr = t.bogie_arrangement;
+        var c = M.record(S.defaults(S.carType), S.carType);
         c.name = uniqueName('CAR', t.carTypes);
-        if (arr === 'shared_one') { c.end2 = 'shared'; } else if (arr === 'shared_both') { c.end1 = 'shared'; c.end2 = 'shared'; }
         if (state.p.bogies[0]) { c.bogie1 = c.bogie2 = state.p.bogies[0].name; }
         return c;
       },
@@ -309,6 +309,32 @@
       }
     });
     drawTrain(); calcGeometry();
+  }
+  // Bogie ends of every car type (Load definition card): one row per car type, the ends and their bogie types.
+  var END_KEYS = { end1: true, bogie1: true, end2: true, bogie2: true };
+  function endsTable() {
+    var box = $('t-ends'), t = state.p.train, tok = M.formationTokens(t.formation);
+    clear(box);
+    if (!t.carTypes.length) { box.appendChild(el('p', { class: 'muted', text: 'Add a car type below first.' })); return; }
+    var fd = {}; S.carType.forEach(function (f) { fd[f.k] = f; });
+    var head = ['Car type', 'In formation', 'End 1', 'Bogie type at end 1', 'End 2', 'Bogie type at end 2', 'Arrangement', 'Overhang n1 (m)', 'Overhang n2 (m)', 'Pivot distance a (m)'];
+    var tbl = el('table', { class: 'rows ends' });
+    tbl.appendChild(el('thead', {}, [el('tr', {}, head.map(function (h, i) { return el('th', { class: i < 7 ? 'l' : '', text: h }); }))]));
+    var tb = el('tbody');
+    t.carTypes.forEach(function (c) {
+      var g = E.carGeometry(c), k = tok.filter(function (n) { return n === c.name; }).length;
+      var ns = (c.end1 === 'shared' ? 1 : 0) + (c.end2 === 'shared' ? 1 : 0);
+      var kind = ns === 0 ? 'Two own bogies (non-articulated)' : ns === 1 ? 'One shared end (semi-articulated)' : 'Two shared ends (articulated)';
+      function ctl(key, refs) { return el('td', {}, [control(fd[key], c, function () { changed(true); }, refs)]); }
+      tb.appendChild(el('tr', {}, [
+        el('td', { class: 'l', text: c.name || '—' }), el('td', { class: 'l', text: k ? k + ' ×' : 'not used' }),
+        ctl('end1'), ctl('bogie1', { bogie1: bogieNames }), ctl('end2'), ctl('bogie2', { bogie2: bogieNames }),
+        el('td', { class: 'l', text: kind }),
+        el('td', { text: fmt(g.n1, 3) }), el('td', { text: fmt(g.n2, 3) }), el('td', { class: g.a > 0 ? '' : 'badcell', text: fmt(g.a, 3) })
+      ]));
+    });
+    tbl.appendChild(tb);
+    box.appendChild(tbl);
   }
   function calcGeometry() {
     var rows = state.p.train.carTypes.map(function (c) {
@@ -321,36 +347,57 @@
   function drawTrain() {
     var box = $('train-drawing'), t = state.p.train, ns = 'http://www.w3.org/2000/svg';
     clear(box);
-    var tok = M.formationTokens(t.formation), types = {};
-    t.carTypes.forEach(function (c) { types[c.name] = c; });
-    if (!tok.length) { box.appendChild(el('p', { class: 'muted', text: 'Enter the train formation to see the drawing.' })); return; }
-    var lens = tok.map(function (n) { return types[n] && types[n].length_m ? types[n].length_m : 20; }), total = lens.reduce(function (a, b) { return a + b; }, 0);
-    var gap = 0.6, W = Math.max(640, Math.min(1300, (total + gap * tok.length) * 9)), k = (W - 20) / (total + gap * tok.length);
+    var lay = M.formationLayout(t), cars = lay.cars;
+    if (!cars.length) { box.appendChild(el('p', { class: 'muted', text: 'Enter the train formation to see the drawing.' })); return; }
+    var lens = cars.map(function (k) { return k.car && k.car.length_m ? k.car.length_m : 20; }), total = lens.reduce(function (a, b) { return a + b; }, 0);
+    var gap = 0.6, W = Math.max(640, Math.min(1300, (total + gap * cars.length) * 9)), k = (W - 20) / (total + gap * cars.length);
     var svg = doc.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 ' + W + ' 96'); svg.setAttribute('width', W); svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', 'Train formation ' + tok.join(' - '));
+    svg.setAttribute('viewBox', '0 0 ' + W + ' 104'); svg.setAttribute('width', W); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Train formation ' + cars.map(function (q) { return q.name; }).join(' - '));
     function s(tag, a, txt) { var e = doc.createElementNS(ns, tag), q; for (q in a) { e.setAttribute(q, a[q]); } if (txt) { e.textContent = txt; } svg.appendChild(e); return e; }
-    var x = 10;
-    tok.forEach(function (n, i) {
-      var c = types[n], L = lens[i], w = L * k, flip = (i === tok.length - 1);
-      s('rect', { x: x, y: 18, width: w, height: 34, rx: (i === 0 || flip) ? 8 : 3, class: c ? 'car-body' : 'car-body missing' });
-      s('text', { x: x + w / 2, y: 40, 'text-anchor': 'middle', class: 'car-name' }, n + (c ? '' : ' ?'));
-      s('text', { x: x + w / 2, y: 13, 'text-anchor': 'middle', class: 'car-no' }, 'Car ' + (i + 1) + ' · ' + fmt(L, 1) + ' m');
+    function bogie(bx, name, title) {
+      var isM = /^M/i.test(name || ''), g = s('rect', { x: bx - 14, y: 54, width: 28, height: 9, rx: 3, class: isM ? 'bg-m' : 'bg-t' });
+      if (title) { g.appendChild(doc.createElementNS(ns, 'title')).textContent = title; }
+      s('circle', { cx: bx - 8, cy: 68, r: 5, class: 'wheel' }); s('circle', { cx: bx + 8, cy: 68, r: 5, class: 'wheel' });
+      s('text', { x: bx, y: 88, 'text-anchor': 'middle', class: 'car-no' }, name || '?');
+    }
+    var x = 10, starts = [];
+    cars.forEach(function (q, i) {
+      var c = q.car, L = lens[i], w = L * k;
+      starts.push(x);
+      s('rect', { x: x, y: 18, width: w, height: 34, rx: (i === 0 || i === cars.length - 1) ? 8 : 3, class: c ? 'car-body' : 'car-body missing' });
+      s('text', { x: x + w / 2, y: 40, 'text-anchor': 'middle', class: 'car-name' }, q.name + (c ? '' : ' ?'));
+      s('text', { x: x + w / 2, y: 13, 'text-anchor': 'middle', class: 'car-no' }, 'Car ' + q.pos + ' · ' + fmt(L, 1) + ' m' + (q.rev ? ' · reversed' : ''));
       if (c) {
-        var g = E.carGeometry(c);
-        var e1 = flip ? g.n2 : g.n1, e2 = flip ? g.n1 : g.n2, b1 = flip ? c.bogie2 : c.bogie1, b2 = flip ? c.bogie1 : c.bogie2;
-        [[e1, b1], [L - e2, b2]].forEach(function (bp) {
-          var bx = x + bp[0] * k, isM = /^M/i.test(bp[1] || '');
-          s('rect', { x: bx - 14, y: 54, width: 28, height: 9, rx: 3, class: isM ? 'bg-m' : 'bg-t' });
-          s('circle', { cx: bx - 8, cy: 68, r: 5, class: 'wheel' }); s('circle', { cx: bx + 8, cy: 68, r: 5, class: 'wheel' });
-          s('text', { x: bx, y: 88, 'text-anchor': 'middle', class: 'car-no' }, bp[1] || '?');
-        });
+        s('text', { x: x + 3, y: 49, class: 'end-tag' }, q.rev ? '2' : '1');
+        s('text', { x: x + w - 3, y: 49, 'text-anchor': 'end', class: 'end-tag' }, q.rev ? '1' : '2');
+        var g = E.carGeometry(c), eL = q.rev ? g.n2 : g.n1, eR = q.rev ? g.n1 : g.n2;
+        var jl = lay.joints[i - 1], jr = lay.joints[i];
+        // a shared joint is drawn once, under the joint (by the joint itself, below)
+        if (!(q.left === 'shared' && jl && jl.shared)) { bogie(x + eL * k, q.bogieLeft, q.left === 'shared' ? 'Shared end without a matching neighbour' : 'Own bogie'); }
+        if (!(q.right === 'shared' && jr && jr.shared)) { bogie(x + (L - eR) * k, q.bogieRight, q.right === 'shared' ? 'Shared end without a matching neighbour' : 'Own bogie'); }
       }
       x += w + gap * k;
     });
+    lay.joints.forEach(function (j, i) {
+      var jx = starts[i + 1] - gap * k / 2;
+      if (j.shared) {
+        s('rect', { x: jx - 18, y: 15, width: 36, height: 78, rx: 6, class: 'joint-shared' });
+        bogie(jx, cars[i].bogieRight || cars[i + 1].bogieLeft, 'Shared bogie (articulated joint)');
+        s('text', { x: jx, y: 101, 'text-anchor': 'middle', class: 'car-no' }, 'shared');
+      }
+      if (!j.ok || !j.bogieOk) {
+        var m = s('circle', { cx: jx, cy: 35, r: 8, class: 'joint-bad' });
+        m.appendChild(doc.createElementNS(ns, 'title')).textContent = j.text;
+        s('text', { x: jx, y: 39, 'text-anchor': 'middle', class: 'joint-bad-text' }, '!');
+      }
+    });
     s('line', { x1: 6, y1: 73, x2: W - 6, y2: 73, class: 'rail' });
     box.appendChild(svg);
-    box.appendChild(el('p', { class: 'muted', text: tok.length + ' cars · train length over bodies ' + fmt(total, 2) + ' m · filled bogie = motor (name starting with M)' }));
+    var nsh = lay.joints.filter(function (j) { return j.shared; }).length;
+    box.appendChild(el('p', { class: 'muted', text: cars.length + ' cars · train length over bodies ' + fmt(total, 2) + ' m · ' + nsh + ' shared bogie' + (nsh === 1 ? '' : 's') +
+      ' · small numbers 1 / 2 = car ends · filled bogie = motor (name starting with M)' }));
+    if (lay.issues.length) { box.appendChild(el('ul', { class: 'err' }, lay.issues.map(function (x) { return el('li', { text: x }); }))); }
   }
 
   // ---------------------------------------------------------------- Car body & Bogie

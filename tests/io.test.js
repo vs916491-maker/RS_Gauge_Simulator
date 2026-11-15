@@ -116,3 +116,11 @@ test('Project file: save/parse round trip, wrong format and newer version are re
 });
 
 module.exports = tests;
+
+test('A retired Train parameter (bogie_arrangement of older files) is skipped without a warning', function () {
+  var rows = IO.sheetRows('Train', P); rows.push(['Bogie arrangement', 'Shared bogie at one end (semi-articulated pair)', '', 'bogie_arrangement']);
+  var wb = XL.utils.book_new(); XL.utils.book_append_sheet(wb, XL.utils.aoa_to_sheet(rows), 'Train');
+  var r = IO.importWorkbook(reread(wb), P, { tab: 'train' });
+  assert.deepStrictEqual(r.messages.filter(function (m) { return m.level !== 'ok'; }), []);
+  assert.strictEqual(r.project.train.bogie_arrangement, undefined);
+});

@@ -119,6 +119,7 @@
     out.notes = p.notes ? String(p.notes) : '';
     out.fictional = !!p.fictional;
     var t = record(p.train, S.trainFields);
+    delete t.bogie_arrangement;   // retired: bogie ends are set per car type (Load definition)
     t.carTypes = ((p.train && p.train.carTypes) || []).map(function (c) { return record(c, S.carType); });
     out.train = t;
     out.bogies = (p.bogies || []).map(function (b) { return record(b, S.bogie); });
@@ -188,6 +189,51 @@
 
   function formationTokens(s) {
     return String(s || '').split(/[-+,;\s]+/).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  }
+
+  // Formation layout (topology only, no physics): each car is drawn with end 1 on the left unless it is reversed.
+  // The orientation of each car is chosen so that its left end matches the right end of the car before it
+  // (shared with shared, own bogie with own bogie) and a train end is never a shared end; with a tie the car
+  // keeps end 1 on the left, except the last car, which is reversed (end 1 = cab end facing outwards).
+  // Returns { cars: [{ pos, name, car, rev, left, right, bogieLeft, bogieRight }],
+  //           joints: [{ pos, shared, ok, bogieOk, text }], issues: [text] }.
+  function formationLayout(train) {
+    var tok = formationTokens(train && train.formation), types = {}, cars = [], joints = [], issues = [];
+    ((train && train.carTypes) || []).forEach(function (c) { types[c.name] = c; });
+    tok.forEach(function (n, i) {
+      var c = types[n] || null, e1 = c && c.end1 === 'shared' ? 'shared' : 'free', e2 = c && c.end2 === 'shared' ? 'shared' : 'free';
+      var prev = cars[i - 1], last = i === tok.length - 1;
+      function score(rev) {
+        var l = rev ? e2 : e1, r = rev ? e1 : e2, k = 0;
+        if (prev ? l !== prev.right : l === 'shared') { k += 1; }
+        if (last && r === 'shared') { k += 1; }
+        return k;
+      }
+      var s0 = score(false), s1 = score(true), rev;
+      if (e1 === e2) { rev = last; }            // symmetric ends: only the drawing changes
+      else { rev = s1 < s0; }                   // otherwise the orientation that fits its neighbours
+      cars.push({ pos: i + 1, name: n, car: c, rev: rev, left: rev ? e2 : e1, right: rev ? e1 : e2,
+        bogieLeft: c ? (rev ? c.bogie2 : c.bogie1) : '', bogieRight: c ? (rev ? c.bogie1 : c.bogie2) : '' });
+    });
+    cars.forEach(function (k, i) {
+      var who = 'Car ' + k.pos + ' (' + k.name + ')';
+      if (cars.length === 1) { if (k.left === 'shared' || k.right === 'shared') { issues.push(who + ': a single car cannot have a shared end.'); } return; }
+      if (i === 0 && k.left === 'shared') { issues.push(who + ': the end at the front of the train is a shared end, but there is no car in front of it.'); }
+      if (i === cars.length - 1 && k.right === 'shared') { issues.push(who + ': the end at the rear of the train is a shared end, but there is no car behind it.'); }
+      var nx = cars[i + 1];
+      if (!nx) { return; }
+      var shared = k.right === 'shared' && nx.left === 'shared', ok = k.right === nx.left;
+      var bogieOk = !shared || !k.bogieRight || !nx.bogieLeft || k.bogieRight === nx.bogieLeft, text;
+      if (!ok) {
+        text = 'Cars ' + k.pos + ' (' + k.name + ') and ' + nx.pos + ' (' + nx.name + '): one side of the joint is a shared bogie, the other an own bogie. Set both ends to "Shared" (articulated joint) or both to "Own bogie".';
+        issues.push(text);
+      } else if (!bogieOk) {
+        text = 'Cars ' + k.pos + ' (' + k.name + ') and ' + nx.pos + ' (' + nx.name + ') share one bogie but name different bogie types ("' + k.bogieRight + '" and "' + nx.bogieLeft + '").';
+        issues.push(text);
+      }
+      joints.push({ pos: k.pos, shared: shared, ok: ok, bogieOk: bogieOk, text: text || '' });
+    });
+    return { cars: cars, joints: joints, issues: issues };
   }
 
   // ---------------------------------------------------------------- profile helpers
@@ -291,6 +337,7 @@
         var k = tok.filter(function (n) { return n === c.name; }).length;
         if (c.name && k !== c.count) { m.add('train', 'warn', 'Car type ' + c.name + ': count is ' + c.count + ' but it appears ' + k + ' times in the formation.'); }
       });
+      formationLayout(t).issues.forEach(function (x) { m.add('train', 'warn', 'Bogie arrangement – ' + x); });
     }
     if (t.L_mm && t.gauge_mm && t.L_mm < t.gauge_mm) { m.add('train', 'warn', 'G (' + t.L_mm + ' mm) is smaller than the track gauge.'); }
 
@@ -482,7 +529,7 @@
   return {
     FORMAT: FORMAT, VERSION: VERSION,
     clean: clean, num: num, record: record, emptyProject: emptyProject, normalizeProject: normalizeProject, migrate1: migrate1,
-    syncBodies: syncBodies, fillRefs: fillRefs, applyVehicleType: applyVehicleType, formationTokens: formationTokens, fullProfile: fullProfile, extent: extent,
+    syncBodies: syncBodies, fillRefs: fillRefs, applyVehicleType: applyVehicleType, formationTokens: formationTokens, formationLayout: formationLayout, fullProfile: fullProfile, extent: extent,
     toMillimetres: toMillimetres, validate: validate, readiness: readiness, sortSegments: sortSegments, trackLength: trackLength
   };
 }));
