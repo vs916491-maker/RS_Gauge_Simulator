@@ -54,7 +54,7 @@
     function note(x) { add({ type: 'note', text: x }); }
     function table(head, rows, widths) { add({ type: 'table', head: head, rows: rows, widths: widths }); }
     function image(id, caption) { if (img[id]) { add({ type: 'image', id: id, caption: caption }); } }
-    var st = s ? p.settings['static'] : null, dy = p.settings.dynamic, en = !!(s && s.en);
+    var st = s ? p.settings['static'] : null, dy = p.settings.dynamic, en = !!(s && s.en), enSt = !!(s && s.enStatic);
 
     // ---- cover
     add({ type: 'title', text: o.title || 'Vehicle gauging report' });
@@ -80,6 +80,7 @@
     var scope = ['the static check of the RS profiles with all vehicle movements against the customer KE (Method B, six cases per car type);',
       'the maximum static half-width allowed by the customer KE (Method A) and the vertical checks;'];
     if (en) { scope.push('the check by the EN 15273-2:2009 kinematic method, with the customer KE as reference profile;'); }
+    if (enSt) { scope.push('the check by the EN 15273-2:2009 static gauge method (A.2), with ' + s.enStatic.ref + ' as reference profile;'); }
     if (d) { scope.push('the dynamic check along ' + (t.line || 'the line') + ' (' + fmt(len) + ' m, every ' + fmt(d.summary.step) + ' m): required half-widths against the KE and the SOD allowance, structures, underframe height and platform gaps.'); }
     add({ type: 'list', items: scope });
     para('The equations, symbols and assumptions are those of the Method & Assumptions tab of the tool (chapter 8 lists the assumptions).');
@@ -93,6 +94,7 @@
       var lowV = null;
       s.cars.forEach(function (c) { c.vertical.forEach(function (v) { if (!v.info && (!lowV || v.margin < lowV.margin)) { lowV = { margin: v.margin, car: c.car, label: v.label }; } }); });
       rows.push(['Vertical checks – smallest margin', lowV ? fmt(lowV.margin, 1) + ' mm' : '–', lowV ? lowV.car + ', ' + lowV.label : '', status(s.cars.every(function (c) { return c.vertical.every(function (v) { return v.info || v.ok; }); }))]);
+      if (enSt) { var sg = s.enStatic.governing; rows.push(['EN 15273-2:2009 static gauge (A.2) – smallest margin', sg ? fmt(sg.margin, 1) + ' mm' : '–', sg ? sg.car + ', ' + SEC[sg.section] + ', h ' + fmt(sg.h) + ' mm' : '', status(s.enStatic.ok)]); }
       if (en) { var eg = s.en.governing; rows.push(['EN 15273-2:2009 – smallest margin to the maximum construction gauge', eg ? fmt(eg.margin, 1) + ' mm' : '–', eg ? eg.car + ', ' + SEC[eg.section] + ', h ' + fmt(eg.h) + ' mm' : '', status(s.en.ok)]); }
     }
     if (d) {
@@ -229,6 +231,17 @@
             return [q.bogie, q.name, q.pos === 'beyond' ? 'Beyond, n ' + fmt(q.n, 2) + ' m' : 'Between, n ' + fmt(q.n, 2) + ' m', fmt(q.h), fmt(q.y), fmt(q.E, 1), fmt(q.max, 1), fmt(q.margin, 1), status(q.ok)];
           }));
         }
+      }
+      if (enSt) {
+        if (en) { h2('EN 15273-2:2009 static gauge method (A.2)'); } else { h1('6. EN 15273-2:2009 static gauge method (A.2)'); }
+        para('Reference profile: ' + s.enStatic.ref + '. Reductions A.2 (between the bogie centres) and A.4 (beyond), Δ not below ' + fmt(p.ke.en.st_Dmin_m2, 1) + ' m², allowance ' +
+          fmt(p.ke.en.st_allow_mm) + ' mm, no roll term; the static gauge may be used only when the flexibility coefficient does not exceed ' + fmt(p.ke.en.st_smax, 2) + ' (A.2.3.1). ' +
+          'Lower parts up to ' + fmt(p.ke.en.st_h_low_mm) + ' mm: wheel wear and total suspension displacement (A.2.3.2).');
+        table(['Car type', 's / s_max', 'E Int / Ext / End [mm]', 'Margin Int [mm]', 'Margin Ext [mm]', 'Margin End [mm]', 'Lower parts', 'Status'], s.cars.filter(function (c) { return c.enStatic; }).map(function (c) {
+          var q = c.enStatic, low = q.lower.every(function (x) { return x.ok; });
+          return [c.car, fmt(q.s, 3) + ' / ' + fmt(q.smax, 2) + (q.sOk ? '' : ' (not allowed)'), ['int', 'ext', 'end'].map(function (k) { return fmt(q.sections[k].E, 1); }).join(' / ')].concat(
+            ['int', 'ext', 'end'].map(function (k) { var m = q.checks[k].min; return m ? fmt(m.margin, 1) + ' at h ' + fmt(m.h) : '–'; }), [low ? 'OK' : 'BELOW MIN', status(q.ok)]);
+        }));
       }
     }
 

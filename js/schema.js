@@ -195,7 +195,11 @@
     f('I0_mm', 'Cant excess in the profile I0 (inside)', 'num', 'mm', { min: 0, max: 300, d: 50 }),
     f('Dlim_mm', 'Cant excess / deficiency limit (0,2 m)', 'num', 'mm', { min: 0, max: 400, d: 200 }),
     f('Lref_mm', 'Distance between rail centres in the rules L (1,5 m)', 'num', 'mm', { min: 600, max: 1900, d: 1500 }),
-    f('eta_lim_deg', 'Dissymmetry included in the profile (1°)', 'num', '°', { min: 0, max: 5, d: 1 })
+    f('eta_lim_deg', 'Dissymmetry included in the profile (1°)', 'num', '°', { min: 0, max: 5, d: 1 }),
+    f('st_allow_mm', 'Static gauge: allowance in the formulae (0,075 m, A.2.4)', 'num', 'mm', { min: 0, max: 300, d: 75 }),
+    f('st_Dmin_m2', 'Static gauge: minimum Δ (7,5 m²)', 'num', 'm²', { min: 0, max: 50, d: 7.5 }),
+    f('st_smax', 'Static gauge: maximum flexibility coefficient (0,2 for G1)', 'num', '', { min: 0, max: 1, d: 0.2, h: '§5.1.3: 0,3 for GA, GB, GC' }),
+    f('st_h_low_mm', 'Static gauge: lower parts up to height (0,43 m)', 'num', 'mm', { min: 0, max: 2000, d: 430 })
   ];
   var sodSettings = [
     f('frame', 'SOD reference frame', 'sel', '', { o: [['track', 'Track plane (same as KE)'], ['vertical', 'Vertical (rotate KE by cant)']], d: 'track' }),
@@ -287,7 +291,9 @@
     f('ma_to_mm', 'Method A: last height', 'num', 'mm', { min: 0, max: 8000, opt: true, h: 'Blank = top of the KE' }),
     f('ma_step_mm', 'Method A: height step', 'num', 'mm', { min: 10, max: 1000, d: 100 }),
     f('en_check', 'Also check EN 15273-2:2009 kinematic (customer KE as reference profile)', 'sel', '', { o: YN, d: 'no', h: 'Reductions Ei / Ea with the rules on the Customer KE & SOD tab; in the verdict when Yes' }),
-    f('en_mc', 'EN: car with one motor bogie uses', 'sel', '', { o: [['traction', 'Traction-unit formulae (Table A.4 note a)'], ['motor', 'Motor-coach formulae A.3.9.2']], d: 'traction' })
+    f('en_mc', 'EN: car with one motor bogie uses', 'sel', '', { o: [['traction', 'Traction-unit formulae (Table A.4 note a)'], ['motor', 'Motor-coach formulae A.3.9.2']], d: 'traction' }),
+    f('en_static', 'Also check EN 15273-2:2009 static gauge method (A.2)', 'sel', '', { o: YN, d: 'no', h: 'Reductions A.2–A.5, no roll term; allowed only for s ≤ s_max; in the verdict when Yes' }),
+    f('en_static_ref', 'EN static: reference profile (Customer KE & SOD tab)', 'text', '', { d: '', h: 'Blank = the KE of the static check' })
   ];
 
   // ---------------------------------------------------------------- Dynamic Simulation tab (options)

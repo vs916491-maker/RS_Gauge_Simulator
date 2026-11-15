@@ -97,6 +97,12 @@ test('Static results workbook has the summary, build-up, points, Method A, EN (w
   var o = JSON.parse(JSON.stringify(P.settings['static'])); o.en_check = 'no';
   var wb2 = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(E.staticRun(P, o), P, { stale: false }))));
   assert.deepStrictEqual(wb2.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Vertical_Checks', 'Derived_Values']);
+  // static gauge method only: its own sheet, one row per point, top and lower part
+  o.en_static = 'yes';
+  var r3 = E.staticRun(P, o), wb3 = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(r3, P, { stale: false }))));
+  assert.ok(wb3.SheetNames.indexOf('EN15273_Static') > 0);
+  var sc = XL.utils.sheet_to_json(wb3.Sheets.EN15273_Static, { header: 1 });
+  assert.strictEqual(sc.length - 1, r3.cars.reduce(function (n, c) { var q = c.enStatic; return n + q.checks.int.points.length + q.checks.ext.points.length + q.checks.end.points.length + 3 + q.lower.length; }, 0));
 });
 
 test('Project file: save/parse round trip, wrong format and newer version are refused', function () {
