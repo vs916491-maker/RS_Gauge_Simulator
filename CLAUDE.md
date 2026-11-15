@@ -5,7 +5,8 @@ Offline **rolling stock gauging simulator**: from the customer kinematic envelop
 check our RS profile + movements against the customer KE (static), and check our KE against the structure gauge / SOD
 chainage by chainage along the line (dynamic). The method is the owner's gauging workbook ("Vehicle Gauging Calculation
 Tool"): Method B (generated KE, point clearance) and Method A (maximum static half-width); optional static check by the
-EN 15273-2:2009 kinematic method (customer KE as reference profile, G1 rules as editable defaults, METHOD §10). The engine
+EN 15273-2:2009 kinematic method (customer KE as reference profile, G1 rules as editable defaults; traction units,
+motor coaches and coaches, w varying with the radius and variable stops; METHOD §10). The engine
 reproduces the workbook exactly (`tests/workbook.test.js`, `tests/workbook-dynamic.test.js`); `tests/en15273.test.js` checks the
 EN formulae against the standard typed in literally.
 

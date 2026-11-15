@@ -142,9 +142,9 @@
 
     var en = c && c.en, eq = en ? en.checks[k.section].min : null;
     add({ part: 'B. Static check', id: 'en', title: 'B9. EN 15273-2 kinematic reductions Ei / Ea',
-      refs: [ref('en2', 'Annex A.3.8 (z), A.3.9.1.1 traction units, A.3.9.3.1 coaches, Table A.4'), ref('uic1'), ref('uic5')],
+      refs: [ref('en2', 'Annex A.3.8 (z), A.3.9.1 traction units, A.3.9.2 motor coaches, A.3.9.3 coaches, Table A.4'), ref('uic1'), ref('uic5')],
       text: [
-        'In a kinematic gauge the reference profile already contains a reference roll (flexibility s0, roll centre hc0, cant D0 / I0), an overthrow allowance k = Ck/R and some lateral play. The vehicle\'s reductions are only the **excess** of its own movements over these: Ei between the bogie centres, Ea beyond them. The formula set depends on the running gear (Table A.4: a car with a motor bogie uses the traction-unit formulae, otherwise the coach formulae).',
+        'In a kinematic gauge the reference profile already contains a reference roll (flexibility s0, roll centre hc0, cant D0 / I0), an overthrow allowance k = Ck/R and some lateral play. The vehicle\'s reductions are only the **excess** of its own movements over these: Ei between the bogie centres, Ea beyond them. The formula set depends on the running gear (Table A.4): coach formulae without a motor bogie, traction-unit formulae with two, and for one motor bogie the traction-unit formulae (note a) or the motor-coach formulae A.3.9.2 (option). When the secondary clearance w changes on curves (w at 250 m and 150 m, or variable stops starting at a given radius), the formulae of A.3.9.1.2 / A.3.9.3.2 are added.',
         'The quasi-static term z counts only the roll above the reference values and only above hc0. Maximum construction gauge = reference profile half-width − E. The tool uses the customer KE as the reference profile with the G1 rules as editable defaults.'
       ],
       formulas: ['Δi = a·n − n² + p²/4,  Δa = a·n + n² − p²/4', 'traction unit, curve branch:  Ei = Δi/(2·R1) + (l_max − d)/2 + q + w + z + x − e0 − Ck/R1', 'z = s·D0/L·(h − hc) + [ s·(Dlim − D0)/L·(h − hc) − s0·(Dlim − D0)/L·(h − hc0) ]>0'],

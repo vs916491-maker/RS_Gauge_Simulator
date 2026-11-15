@@ -109,7 +109,8 @@ reads every known sheet.
   plan equal to the static run (linear and RSS), measured-s positions, input checks, tests export. `sod-outline.test.js`: closed-form SOD outline and point-item cases
   (rectangular outline, widening, cant rotation, item sides, ranges and curve hand) and the sample line. `report.test.js`: report chapters with and without the dynamic run and
   EN, well-formed .docx XML parts, escaping, image relations, figure numbering. `en15273.test.js`: the EN 15273-2 reductions and z_kin against the
-  standard's formulae typed in literally (random vehicles, both branches), a hand check and the sample run.
+  standard's formulae typed in literally (random vehicles, both branches), a hand check and the sample run;
+  `en15273-mc.test.js`: w varying with the radius, motor coaches A.37–A.45 and variable stops, typed in literally.
   `workbook-dynamic.test.js`: the dynamic run against the workbook's
   Dynamic Calc for four option sets (every sweep column, summaries, speed steps, cross-section).
   `workbook.test.js`: the engine against the reference gauging workbook
@@ -133,4 +134,6 @@ reads every known sheet.
 | 5 | Word gauging report (Overall Summary tab) | Done (PR #5) |
 | 6 | Dynamic: whole-profile check against the SOD outline (widened on curves) and point items | Done (PR #6) |
 | 7 | Tests tab: sway-test evaluation and kinematic gauge test plan | Done (PR #7) |
-| 8 | Calculation Method tab: step-by-step explanation with standard references and live examples | **This pull request** |
+| 8 | Calculation Method tab: step-by-step explanation with standard references and live examples | Done (PR #8) |
+| 9 | EN 15273-2: motor-coach formulae A.3.9.2, w varying with the radius, variable stops | **This pull request** |
+| 10+ | EN 15273-2: lower parts / vertical, bogie parts, static gauge, doors and steps, pantograph, other profiles, dynamic method | Next, one PR each |

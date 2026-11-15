@@ -399,13 +399,16 @@ reference profile reduced by `Ei` (sections between the bogie centres) or `Ea` (
 
 ### 10.2 Vehicle data
 
-* Formula set (Table A.4 and its note a): a car type with a motor bogie (bogie input *Motor bogie*, adhesion μ ≥ 0,2)
-  uses the traction-unit formulae A.3.9.1.1; a car type without one uses the coach formulae A.3.9.3.1.
-* `a` pivot distance, `p` bogie wheelbase (larger of the two bogies), `d` = BB + 2·ef worn (smaller of the two bogies:
-  largest play), `q`, `w` of the bogies (larger; deflated `w` when the lateral state is deflated). `w` is constant with
-  the radius (w∞ = w(250) = w(150)), so the non-linear clearance formulae A.3.9.1.2 / A.3.9.3.2 reduce to these.
+* Formula set (Table A.4): no motor bogie → coach formulae A.3.9.3; two motor bogies (bogie input *Motor bogie*,
+  adhesion μ ≥ 0,2) → traction-unit formulae A.3.9.1; one motor bogie → traction-unit formulae by default (note a of
+  Table A.4) or the motor-coach formulae A.3.9.2 (Static Simulation option).
+* `a` pivot distance; per bogie: wheelbase `p`, secondary lateral clearance `w∞` (straight track; deflated `w` when the
+  lateral state is deflated), `w(250)` and `w(150)` (blank = constant), and, for variable stops, the radius `Rv` where
+  they start with `w(Rv)`. `d` = BB + 2·ef worn (smaller of the two bogies: largest play), `q` larger of the two.
 * Sections: interior at `n = ni` (between the bogie centres), exterior at `n = na` and car end at `n = n_end` (beyond),
   with the profiles of §6. `s`, `hc` of tare and crush (§5.4 source and suspension state); `E` is the larger of the two.
+  For a section beyond a pivot the bogie at that end (`a`, weight `(n + a)/a`) and the far bogie (`i`, weight `n/a`) can
+  be either bogie of the car: both orientations are evaluated and the larger `E` is used.
 * `η0`: body dissymmetry (car body input, default 0).
 
 ### 10.3 Quasi-static term z_kin (A.3.8.1, A.24)
@@ -418,34 +421,64 @@ Special cases (η0 ≤ η_lim): `z = 0` for `h < hc0`; `z = s·C0/L·(h − hc)>
 `s/30·(h − hc) + [s/10·(h − hc) − 0,04·(h − 0,5)]` of A.24. Unsprung parts (z = 0) are not distinguished: every
 profile point is treated as part of the body.
 
-### 10.4 Reductions (A.3.9.1.1 and A.3.9.3.1, w constant)
+### 10.4 Reductions – traction units and coaches (A.3.9.1.1, A.3.9.3.1)
 
-`Δi = a·n − n² + p²/4`, `Δa = a·n + n² − p²/4`, `A = (2n + a)/a`, `P = (l_max − d)/2`,
-`x = [(Δ − X)·(1/(2R2) − 1/(2R1))]>0` with `X = Xi` or `Xa`; `Ck` of the lower parts for `h ≤ h_low`, else of the upper parts.
+`Δi = a·n − n² + p²/4`, `Δa = a·n + n² − p²/4` (p of the bogie at the section's end), `A = (2n + a)/a`, `P = (l_max − d)/2`,
+`fa = (n + a)/a`, `fi = n/a`; `Ck` of the lower parts for `h ≤ h_low`, else of the upper parts; `k1 = 1/(2·R1)`,
+`kx = 1/(2·R2) − 1/(2·R1)`. Between the pivots `w` is that of one bogie (both bogies are evaluated); beyond them
+`w_i` (far bogie) and `w_a` (bogie at the end):
 
-| | straight branch | curve branch |
-|---|---|---|
-| Traction unit, Ei (A.27 / A.28) | `P + q + w + z − e0` | `Δi/2R1 + P + q + w + z + x − e0 − Ck/R1` |
-| Traction unit, Ea (A.30 / A.31) | `(P + q + w)·A + z − e0` | `Δa/2R1 + (P + q + w)·A + z + x − e0 − Ck/R1` |
-| Coach, Ei (A.46 / A.47) | `P + q + w + z − e0` | `Δi/2R1 + q + w + z + x − Ck/R1` |
-| Coach, Ea (A.49 / A.50) | `(P + q + w)·A + z − e0` | `Δa/2R1 + P·(n + a)/a + (q + w)·A + z + x − e0 − Ck/R1` |
+| | condition for the straight branch | straight branch | curve branch |
+|---|---|---|---|
+| Traction Ei (A.27–A.29) | `Δi − 2R1·(w∞ − w(250)) ≤ 2Ck` | `P + q + w∞ + z − e0` | `Δi·k1 + P + q + w(250) + z + [x]>0 − e0 − Ck/R1` |
+| Traction Ea (A.30–A.32) | `Δa − 2R1·W ≤ 2Ck` | `(P + q)·A + w∞i·fi + w∞a·fa + z − e0` | `Δa·k1 + (P + q)·A + w_i(250)·fi + w_a(250)·fa + z + [x]>0 − e0 − Ck/R1` |
+| Coach Ei (A.46–A.48) | `Δi − 2R1·(w∞ − w(250)) ≤ R1·(l_max − d) − 2·(Ck_up − Ck)` | `P + q + w∞ + z − e0` | `Δi·k1 + q + w(250) + z + [x]>0 − Ck/R1` |
+| Coach Ea (A.49–A.51) | `Δa − 2R1·W ≤ R1·(l_max − d)·fi + 2Ck` | `(P + q)·A + w∞i·fi + w∞a·fa + z − e0` | `Δa·k1 + P·fa + q·A + w_i(250)·fi + w_a(250)·fa + z + [x]>0 − e0 − Ck/R1` |
 
-`E = max(straight, curve)`. With the G1 values the two branches are equal exactly at the switching conditions of the
-standard (Δ ≤ 5 | 7,5 for traction units; Δi ≤ 250·(1,465 − d) − 2,5 | 0 and Δa ≤ 250·(1,465 − d)·n/a + 5 | 7,5 for
-coaches), and `e0 + Ck/R1` = 0,025 | 0,030 and `Ck/R1` = 0,010 | 0,015, so the maximum is the formula of the standard;
-with other rules values it is the larger (conservative) branch. `tests/en15273.test.js` compares the engine with the
-standard's formulae typed in literally.
+with `W = (w∞i − w_i(250))·fi + (w∞a − w_a(250))·fa`; `x = (Δi − Xi)·kx + w(150) − w(250)` between the pivots and
+`x = (Δa − Xa)·kx + (w_i(150) − w_i(250))·fi + (w_a(150) − w_a(250))·fa` beyond. With the G1 values (`2Ck` = 5 | 7,5,
+`2R1` = 500, `kx` = 1/750, `e0 + Ck/R1` = 0,025 | 0,030, `Ck/R1` = 0,010 | 0,015, `Xi`, `Xa` = 100, 120) these are the
+standard's formulae; the switching conditions are applied as written.
 
-### 10.5 Results
+### 10.5 Motor coaches (A.3.9.2, A.37–A.45)
+
+Unprimed: the motor bogie; primed: the carrying bogie. Each pair gives the larger of its two formulae (NOTE of A.3.9.2).
+
+* Between the pivots, `n_μ` = distance from the motor bogie centre (both `n_μ = ni` and `a − ni` are evaluated),
+  `fm = (a − n_μ)/a`, `fc = n_μ/a`, `Δ = a·n_μ − n_μ² + p²/4·fm + p'²/4·fc`:
+  `Ei = max( P + q + w∞·fm + w'∞·fc + z − e0 ;  Δ·k1 + P·fm + q + w(250)·fm + w'(250)·fc + z + [x]>0 − Ck/R1 − e0·fm )`,
+  `x = (Δ − Xi)·kx + (w(150) − w(250))·fm + (w'(150) − w'(250))·fc`.
+* Beyond the pivots, motor bogie at the section's end (A.40–A.42): `Δ = a·n + n² − p²/4·fa + p'²/4·fi`,
+  `Ea = max( (P + q)·A + w∞·fa + w'∞·fi + z − e0 ;  Δ·k1 + P·fa + q·A + w'(250)·fi + w(250)·fa + z + [x]>0 − e0 − Ck/R1 )`.
+* Beyond the pivots, carrying bogie at the section's end (A.43–A.45): `Δ = a·n + n² + p²/4·fi − p'²/4·fa`,
+  `Ea = max( (P + q)·A + w∞·fi + w'∞·fa + z − e0 ;  Δ·k1 + (P + q)·A + w(250)·fi + w'(250)·fa + z + [x]>0 − e0 − Ck/R1 )`.
+* The section's `Ea` is the larger of the two ends. In A.41 the printed `w_i(250)` is read as `w'_i(250)` (the far,
+  carrying bogie), as in A.40 and A.42.
+
+### 10.6 Clearance w varying non-linearly – variable stops (A.3.9.1.2, A.3.9.3.2)
+
+When a bogie has variable stops starting at radius `Rv` (with `w(Rv)`), the bracket formulae A.33 / A.35 (traction
+units) and A.52 / A.54 (coaches) are also evaluated at `R = Rv`:
+`Ei(Rv) = [(Δi − 2Ck)/(2Rv) + w(Rv)] + P + q + z − e0` (coach: `+ q + z`),
+`Ea(Rv) = [(Δa − 2Ck)/(2Rv) + w_i(Rv)·fi + w_a(Rv)·fa] + (P + q)·A + z − e0` (coach: `+ P·fa + q·A + z − e0`),
+and the reduction is the larger of these and §10.4. The 150 m variants (A.34, A.36, A.53, A.55) are not applied: by
+footnotes 6 and 7 of the standard they do not apply in practice (variable stops act above 250 m); a warning is given
+for `Rv` below 250 m. Not defined for motor coaches.
+
+`tests/en15273.test.js` and `tests/en15273-mc.test.js` compare the engine with the standard's formulae typed in literally
+(w constant and varying, motor coaches, variable stops).
+
+### 10.7 Results
 
 * Maximum construction gauge on the Method A heights (§7): `W_KE(h) − E(h)` per section, shown with the workbook
   Method A for comparison.
 * Check of the RS profiles: at every profile vertex height and every KE vertex height within the profile height range,
   margin = `W_KE(h) − E(h) − x_prof(h)` (KE half-width at `max(h, bottom of the upper envelope)`, as §6). The car type
   passes when every margin ≥ 0; when the option is selected, the EN result is part of the car's verdict.
-* Not covered: the lower-part reference profiles GIC1/GIC2 and vertical reductions of A.3.4 (the vertical checks of §7
-  apply), pantograph gauge (A.3.12), doors and steps open (A.3.14), tilting vehicles (A.3.16), motor-coach formulae
-  A.3.9.2 (note a of Table A.4: the traction-unit formulae are used), wagons. Articulated units use the Figure 1
+* Not covered yet: the lower-part reference profiles GIC1/GIC2 and vertical reductions of A.3.4 (the vertical checks of
+  §7 apply), bogie parts (A.3.11), the static gauge method (A.2), pantograph gauge (A.3.12), doors and steps open
+  (A.3.14), other reference profiles (Annexes B–N) and the dynamic method (§5.2, Annex O); tilting vehicles (A.3.16)
+  and wagons (A.3.10) are out of scope. Articulated units use the Figure 1
   equivalence; the formulae assume two-axle bogies (§5.1.2) – warnings are given otherwise.
 
 ## 11. Assumptions and limitations
