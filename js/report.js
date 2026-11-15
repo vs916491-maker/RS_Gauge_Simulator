@@ -112,6 +112,7 @@
       rows.push(['Dynamic – largest cant deficiency (limit ' + fmt(q.def_lim) + ' mm)', fmt(q.def.v, 1) + ' mm', 'at ' + fmt(q.def.ch) + ' m', status(q.def_ok)]);
       if (q.sodc) { rows.push(['Dynamic – smallest clearance to the SOD outline (required ' + fmt(q.sodc_req) + ' mm)', fmt(q.sodc.v, 1) + ' mm', q.sodc.car + ' at ' + fmt(q.sodc.ch) + ' m', status(q.sodo_n === 0)]); }
       if (q.itm) { rows.push(['Dynamic – smallest point-item margin over its required clearance', fmt(q.itm.v, 1) + ' mm', q.itm.car + ' at ' + fmt(q.itm.ch) + ' m', status(q.it_n === 0)]); }
+      if (q.simc) { rows.push(['Dynamic – EN dynamic method, swept envelope to the SOD (required ' + fmt(q.sodc_req) + ' mm)', fmt(q.simc.v, 1) + ' mm', q.simc.car + ' at ' + fmt(q.simc.ch) + ' m', status(q.sim_n === 0)]); }
       if (q.ccd) {
         var cm = [q.ccd.ke, q.ccd.reach, q.ccd.overlap, q.ccd.clear].filter(function (x) { return x; }).sort(function (a, b) { return a.v - b.v; })[0];
         rows.push(['Dynamic – third-rail CCD, smallest margin (envelope, reach, overlap, clearance)', cm ? fmt(cm.v, 1) + ' mm' : '–', cm ? cm.ccd + ' (' + cm.side + ') at ' + fmt(cm.ch) + ' m' : '', status(q.ccd.check_n === 0)]);
@@ -340,6 +341,22 @@
       }); });
       table(['Car type', 'Case', 'Shims D [mm]', 'Lateral to impose [mm]', 'Load', 'Expected min clearance [mm]', 'With measured s, hc [mm]'], trows, [0.12, 0.2, 0.12, 0.14, 0.1, 0.18, 0.14]);
       if (trows.some(function (r) { return / \*$/.test(r[2]); })) { note('* Shim height above the largest shim of the sway test of that car type and load: the roll is linear only by assumption beyond the tested range.'); }
+    }
+
+    var sm = ctx.sim;
+    if (sm && (sm.tangent || sm.validation.length)) {
+      h2('8.3 EN 15273-2 dynamic method (Annex O)');
+      para('Movements from the multibody simulation (Annex O.3): displacement = mean + 3/√2 × standard deviation at the leading, centre and trailing datums (O.11–O.18), cant-deficiency cases derived from the excess cases (O.4–O.9), quasi-static drop f_max (O.10); body sections moved as a rigid body.');
+      if (sm.validation.length) {
+        table(['Car type / condition', 'Weighbridge', 'Bogie rotation', 'Sway test', 'Ride test', 'Model status'], sm.validation.map(function (v) {
+          return [v.car + ' / ' + v.cond, v.weigh ? (v.weigh.ok ? 'matched' : 'not matched') : '–', v.rot ? (v.rot.ok ? 'matched' : 'not matched') : '–', v.sway ? (v.sway.ok ? 'matched' : 'not matched') : '–', v.ride ? 'matched' : 'not matched', v.status];
+        }), [0.2, 0.14, 0.14, 0.14, 0.12, 0.26]);
+      }
+      if (sm.tangent) {
+        table(['Car type', 'Reference', 'Min margin [mm]', 'Case', 'Section / point', 'Status'], sm.tangent.cars.map(function (c) {
+          var w = c.worst; return [c.car, sm.tangent.ref, w ? fmt(w.margin, 1) : '–', w ? w.cond + ', ' + fmt(w.v) + ' km/h, ' + (w.kind === 'def' ? 'D ' : 'I ') + fmt(w.c) + ' mm' : '–', w ? w.sec + ' / ' + w.pt : '–', status(c.ok)];
+        }));
+      }
     }
 
     // ---- 9 assumptions

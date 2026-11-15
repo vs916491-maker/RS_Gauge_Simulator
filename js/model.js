@@ -132,6 +132,11 @@
     var tr = p.thirdRail || {}, trr = record(tr, S.thirdRail);
     trr.parts = (tr.parts || []).map(function (r) { return record(r, S.trPart); });
     out.thirdRail = trr;
+    var sm = p.sim || {}, sim = { settings: record(sm.settings, S.simSettings) };
+    [['cars', S.simCar], ['transient', S.simTransient], ['curving', S.simCurving], ['weigh', S.valWeigh], ['rot', S.valRot], ['sway', S.valSway], ['ride', S.valRide]].forEach(function (x) {
+      sim[x[0]] = (sm[x[0]] || []).map(function (r) { return record(r, x[1]); });
+    });
+    out.sim = sim;
     var ke = p.ke || {}, sod = p.sod || {}, rs = p.rs || {}, tr = p.track || {};
     out.ke = { limits: record(ke.limits, S.customerLimits), en: record(ke.en, S.enParams), profiles: profiles(ke.profiles, S.keProfile) };
     var so = record(sod, S.sodSettings);
@@ -388,6 +393,19 @@
     });
     ((p.thirdRail || {}).parts || []).forEach(function (q, k) { rangeChecks(m, 'ke', 'Third-rail part ' + (q.name || k + 1), q, S.trPart); });
 
+    // ---- EN dynamic method (METHOD §15)
+    var sim = p.sim || {};
+    if (sim.settings) {
+      rangeChecks(m, 'endyn', 'Settings', sim.settings, S.simSettings);
+      if (sim.settings.ref && !p.ke.profiles.some(function (x) { return x.name === sim.settings.ref; })) { m.add('endyn', 'err', 'Reference profile "' + sim.settings.ref + '" is not on the Customer KE & SOD tab.'); }
+    }
+    [['cars', S.simCar, 'Datum row'], ['transient', S.simTransient, 'Transient row'], ['curving', S.simCurving, 'Curving row'], ['weigh', S.valWeigh, 'Weighbridge row'], ['rot', S.valRot, 'Bogie-rotation row'], ['sway', S.valSway, 'Sway-validation row'], ['ride', S.valRide, 'Ride-test row']].forEach(function (x) {
+      (sim[x[0]] || []).forEach(function (r, k) {
+        rangeChecks(m, 'endyn', x[2] + ' ' + (k + 1), r, x[1]);
+        if (!r.car || carNames.indexOf(r.car) < 0) { m.add('endyn', 'err', x[2] + ' ' + (k + 1) + ': car type "' + (r.car || '') + '" is not in the Train Configuration.'); }
+      });
+    });
+
     // ---- Tests (sway test rows)
     ((p.tests || {}).sway || []).forEach(function (r, k) {
       var id = 'Sway test row ' + (k + 1);
@@ -449,7 +467,7 @@
 
   // Errors that block a run: the static run ignores the dynamic-only checks; the dynamic run needs everything.
   function readiness(v, run) {
-    var errs = v.messages.filter(function (m) { return m.level === 'err' && (run === 'dynamic' || m.tab !== 'dsim'); });
+    var errs = v.messages.filter(function (m) { return m.level === 'err' && (run === 'dynamic' || (m.tab !== 'dsim' && m.tab !== 'endyn')); });
     return { ok: errs.length === 0, errors: errs.length, messages: errs };
   }
 

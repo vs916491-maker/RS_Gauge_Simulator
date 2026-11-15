@@ -7,7 +7,7 @@
   'use strict';
   var R = root.RSGAUGE, S = R.schema, M = R.model, IO = R.io, P = R.plot, E = R.engine, MD = R.markdown;
   var doc = root.document, STORE = 'rsgauge.last.v2';
-  var INPUT_TABS = { train: 'Train Configuration', bogie: 'Car body & Bogie', ke: 'Customer KE & SOD', rs: 'RS Profile', track: 'Track Data', ssim: 'Static Simulation', dsim: 'Dynamic Simulation', tests: 'Tests' };
+  var INPUT_TABS = { train: 'Train Configuration', bogie: 'Car body & Bogie', ke: 'Customer KE & SOD', rs: 'RS Profile', track: 'Track Data', ssim: 'Static Simulation', dsim: 'Dynamic Simulation', tests: 'Tests', endyn: 'EN Dynamic Method' };
 
   var state = {
     p: null, dirty: false, tab: 'train', restored: false, charts: {},
@@ -757,6 +757,7 @@
     stat('Min platform gap' + (sm.gm ? ' (ch ' + fmt(sm.gm.ch) + ')' : ''), sm.gm ? fmt(sm.gm.v, 1) : 'n/a', sm.gm ? 'mm' : null, false, sm.gm && !sm.gm_ok);
     stat('Min clearance to the SOD outline' + (sm.sodc ? ' (' + sm.sodc.car + ', ch ' + fmt(sm.sodc.ch) + ')' : ''), sm.sodc ? fmt(sm.sodc.v, 1) : 'n/a', sm.sodc ? 'mm' : null, false, sm.sodo_n > 0);
     stat('Min point-item margin' + (sm.itm ? ' (ch ' + fmt(sm.itm.ch) + ')' : ''), sm.itm ? fmt(sm.itm.v, 1) : 'n/a', sm.itm ? 'mm' : null, false, sm.it_n > 0);
+    if (sm.simc) { stat('EN dynamic: swept envelope to SOD (' + sm.simc.car + ', ch ' + fmt(sm.simc.ch) + ')', fmt(sm.simc.v, 1), 'mm', false, sm.sim_n > 0); }
     // line summary (workbook layout)
     function ex(x, d) { return x ? [fmt(x.v, d === undefined ? 1 : d), fmt(x.ch, 1), x.car || ''] : ['n/a', '', '']; }
     function st(ok, txt) { return { v: txt, cls: ok ? 'okcell' : (txt ? 'badcell' : '') }; }
@@ -894,6 +895,51 @@
       ['Platform', q.pl ? q.pl + ': gap ' + fmt(q.gn, 1) + ' nominal, ' + fmt(q.gm, 1) + ' mm minimum (' + q.gs + ')' : '—'],
       ['Profile / s / hc', k.profile + ' / ' + fmt(k.s, 3) + ' / ' + fmt(k.hc, 3) + ' m']
     ]);
+  }
+
+  // ---------------------------------------------------------------- EN Dynamic Method (METHOD §15)
+  function carRef() { return state.p.train.carTypes.map(function (c) { return c.name; }); }
+  function renderEndyn() {
+    var sim = state.p.sim;
+    form($('f-sim'), S.simSettings, sim.settings, null, { ref: function () { return [''].concat(keNames()); } });
+    function last(list, keys, schema) { return function () { var t = list(), l = t[t.length - 1], r = S.defaults(schema); if (l) { keys.forEach(function (k) { r[k] = l[k]; }); } else { r.car = carRef()[0] || ''; } return r; }; }
+    table($('t-sim-cars'), sim.cars, S.simCar, { addLabel: 'Add car type', refs: { car: carRef }, newRow: last(function () { return sim.cars; }, [], S.simCar) });
+    table($('t-sim-tr'), sim.transient, S.simTransient, { addLabel: 'Add row', refs: { car: carRef }, newRow: last(function () { return sim.transient; }, ['car', 'cond', 'v_kmh', 'cant_mm'], S.simTransient) });
+    table($('t-sim-cv'), sim.curving, S.simCurving, { addLabel: 'Add radius', refs: { car: carRef }, newRow: last(function () { return sim.curving; }, ['car', 'cond'], S.simCurving) });
+    table($('t-val-w'), sim.weigh, S.valWeigh, { addLabel: 'Add wheel', refs: { car: carRef }, newRow: last(function () { return sim.weigh; }, ['car', 'cond', 'axle'], S.valWeigh) });
+    table($('t-val-r'), sim.rot, S.valRot, { addLabel: 'Add row', refs: { car: carRef }, newRow: last(function () { return sim.rot; }, ['car', 'cond', 'bogie'], S.valRot) });
+    table($('t-val-s'), sim.sway, S.valSway, { addLabel: 'Add row', refs: { car: carRef }, newRow: last(function () { return sim.sway; }, ['car', 'cond', 'qty'], S.valSway) });
+    table($('t-val-ride'), sim.ride, S.valRide, { addLabel: 'Add condition', refs: { car: carRef }, newRow: last(function () { return sim.ride; }, ['car'], S.valRide) });
+    renderEndynResults();
+  }
+  function renderEndynResults() {
+    function st(ok, txt) { return { v: txt, cls: ok ? 'okcell' : 'badcell' }; }
+    var res = null;
+    try { res = E.simRun(state.p, staticOpts()); } catch (e) { res = null; }
+    state.simRes = res;
+    var t = res && res.tangent;
+    $('sim-empty').hidden = !!t;
+    roTable($('sim-tangent'), ['Car type', 'Reference', 'Datums ±x (m)', 'Datum h', 'f_max', 'Points', 'Min margin', 'Condition', 'Case', 'Section', 'Point', 'Status'], t ? t.cars.map(function (c) {
+      var w = c.worst;
+      return [c.car, t.ref, fmt(c.xd, 2), fmt(c.hd, 0), fmt(c.fmax, 1), String(c.n), w ? cCell(w.margin) : '', w ? w.cond : '', w ? fmt(w.v) + ' km/h, ' + (w.kind === 'def' ? 'deficiency ' : 'excess ') + fmt(w.c) + ' mm' : '',
+        w ? w.sec + ' at x ' + fmt(w.x, 2) + ' m' : '', w ? w.pt : '', c.ok ? 'OK' : 'EXCEEDS'];
+    }) : []);
+    var sel = $('sim-car'); clear(sel);
+    (t ? t.cars : []).forEach(function (c) { sel.appendChild(el('option', { value: c.car, text: c.car, selected: c.car === state.simCar })); });
+    var cr = t ? (t.cars.filter(function (c) { return c.car === sel.value; })[0] || t.cars[0]) : null;
+    var rows = [];
+    if (cr) { cr.conds.forEach(function (cd) { cd.disp.forEach(function (x) { rows.push([cd.cond, fmt(x.v), x.kind === 'def' ? 'Deficiency' : 'Excess', fmt(x.c), fmt(x.dplC, 1), fmt(x.dplL, 1), fmt(x.hdC, 1), fmt(x.huC, 1), fmt(x.thC, 2), fmt(x.thL, 2)]); }); }); }
+    roTable($('sim-disp'), ['Condition', 'Speed', 'Case', 'Cant', 'Dpl centre', 'Dpl lead', 'Δh down centre', 'Δh up centre', 'θ centre', 'θ lead'], rows);
+    var vr = [];
+    function line(v, lbl, x, u) { if (!x) { return; } vr.push([v.car + ' / ' + v.cond, lbl, fmt(x.max, 2) + u + ' (≤ ' + x.lmax + u + ')', x.avg !== undefined ? fmt(x.avg, 2) + u + ' (≤ ' + x.lavg + u + ')' : (x.loop === null ? 'loop error not given' : fmt(x.loop, 2) + u + ' (≤ ' + x.lavg + u + ')'), st(x.ok, x.ok ? 'matched' : 'NOT matched')]); }
+    (res ? res.validation : []).forEach(function (v) {
+      if (v.weigh) { line(v, 'Weighbridge – wheel loads', v.weigh.wheel, ' %'); line(v, 'Weighbridge – wheelset loads', v.weigh.wheelset, ' %'); line(v, 'Weighbridge – side loads', v.weigh.side, ' %'); }
+      line(v, 'Bogie rotation – max X factor', v.rot, ' %');
+      if (v.sway) { [['roll1', 'Sway – primary roll angle', ' mrad'], ['roll2', 'Sway – secondary roll angle', ' mrad'], ['sway', 'Sway – solebar sway', ' mm'], ['drop', 'Sway – solebar drop', ' mm']].forEach(function (q) { line(v, q[1], v.sway[q[0]], q[2]); }); }
+      vr.push([v.car + ' / ' + v.cond, 'Dynamic ride test', '', '', st(v.ride, v.ride ? 'matched' : 'not matched')]);
+      vr.push({ cls: 'total', cells: [v.car + ' / ' + v.cond, 'Model status (Figure O.1)', '', '', { v: v.status, cls: v.level >= 1 ? 'okcell' : 'badcell' }] });
+    });
+    roTable($('sim-val'), ['Car / condition', 'Check', 'Maximum error', 'Average error', 'Result'], vr);
   }
 
   // ---------------------------------------------------------------- Tests (METHOD §13)
@@ -1073,7 +1119,7 @@
     st.textContent = 'Writing the report…';
     var o = state.p.settings.report, date = new Date().toLocaleDateString('en-GB'), images;
     try { images = reportImages(); } catch (e) { st.textContent = 'Could not draw the charts: ' + e.message; return; }
-    var bl = R.report.blocks({ p: state.p, sres: state.run, dres: state.drun, opt: o, date: date, engineVersion: state.run.engineVersion, staleS: stale(), staleD: dstale(),
+    var bl = R.report.blocks({ p: state.p, sres: state.run, dres: state.drun, sim: (function () { try { return E.simRun(state.p, staticOpts()); } catch (e) { return null; } }()), opt: o, date: date, engineVersion: state.run.engineVersion, staleS: stale(), staleD: dstale(),
       messages: state.validation.messages, methodMd: R.methodMd, images: images, sway: swayResults(), plan: E.gaugeTestPlan(state.p, state.run, swayResults()) });
     var title = o.title || 'Vehicle gauging report';
     var parts = R.report.docxParts(bl, images, { header: title + (state.p.name ? ' – ' + state.p.name : ''), headerRight: (o.doc_no ? o.doc_no + '  ' : '') + 'Rev ' + (o.revision || '–'),
@@ -1150,7 +1196,7 @@
     methodDone = true;
   }
   var RENDER = { train: renderTrain, bogie: renderBogie, ke: renderKE, rs: renderRS, track: renderTrack, ssim: renderSsim, sres: renderSres,
-    summary: renderSummary, method: renderMethod, dsim: renderDsim, dres: renderDres, tests: renderTests, calc: renderCalc };
+    summary: renderSummary, method: renderMethod, dsim: renderDsim, dres: renderDres, tests: renderTests, calc: renderCalc, endyn: renderEndyn };
   function renderTab(tab) {
     if (!state.validation) { state.validation = M.validate(state.p); }
     RENDER[tab]();
@@ -1267,6 +1313,7 @@
     if (state.tab === 'rs') { profileChart('chart-rs', 'rs'); }
     if (state.tab === 'track') { trackChart(); }
     if (state.tab === 'summary') { renderSummary(); }
+    if (state.tab === 'endyn') { renderEndynResults(); }
     if (state.tab === 'tests') { renderTestsResults(); }
     if (state.tab === 'ssim') { readiness($('ready-ssim'), 'static'); }
     if (state.tab === 'dsim') { readiness($('ready-dsim'), 'dynamic'); }
@@ -1275,7 +1322,7 @@
   }
 
   // ---------------------------------------------------------------- tab switching
-  var TABS = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'tests', 'summary', 'calc', 'method'];
+  var TABS = ['train', 'bogie', 'ke', 'rs', 'track', 'ssim', 'sres', 'dsim', 'dres', 'endyn', 'tests', 'summary', 'calc', 'method'];
   function activate(tab) {
     state.tab = tab;
     TABS.forEach(function (t) {
@@ -1374,6 +1421,21 @@
     $('btn-export-static').addEventListener('click', function () {
       if (!state.run) { return; }
       IO.downloadWorkbook(IO.staticResultsWorkbook(state.run, state.p, { stale: stale() }), IO.fileSlug(state.p.name) + '-static-results.xlsx');
+    });
+    $('sim-car').addEventListener('change', function () { state.simCar = this.value; renderEndynResults(); });
+    $('btn-export-sim').addEventListener('click', function () {
+      var r = E.simRun(state.p, staticOpts()); if (!r) { return; }
+      IO.downloadWorkbook(IO.simResultsWorkbook(r, state.p, { stale: false }), IO.fileSlug(state.p.name) + '-en-dynamic.xlsx');
+    });
+    $('file-o6').addEventListener('change', function () {
+      var input = this, file = input.files[0]; input.value = '';
+      if (!file) { return; }
+      IO.readFile(file, function (err, wb) {
+        if (err) { showMsgs($('o6-msg'), [{ level: 'err', text: err.message }]); return; }
+        var res = IO.importO6(wb, state.p);
+        if (res.imported.length) { state.p = M.normalizeProject(res.project); changed(true); }
+        showMsgs($('o6-msg'), [{ level: 'ok', text: file.name + ':' }].concat(res.messages));
+      });
     });
   }
 
