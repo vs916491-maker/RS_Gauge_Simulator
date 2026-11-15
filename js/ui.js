@@ -302,7 +302,7 @@
       },
       onAdd: function () { M.syncBodies(state.p); M.fillRefs(state.p); },
       onChange: function (it, k, old) {
-        if (k === 'name') { renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
+        if (k === 'name') { renameRefs(state.p.bodies, ['car'], old, it.name); renameRefs(state.p.lowerParts, ['car'], old, it.name); renameRefs(state.p.doorSteps, ['car'], old, it.name); renameRefs(state.p.tests.sway, ['car'], old, it.name); }
       }
     });
     drawTrain(); calcGeometry();
@@ -442,6 +442,11 @@
     } });
     previewSel('pv-rs-sel', 'rs', 'chart-rs');
     profileChart('chart-rs', 'rs');
+    table($('t-doors'), state.p.doorSteps, S.doorStep, {
+      addLabel: 'Add door / step',
+      refs: { car: function () { return state.p.train.carTypes.map(function (c) { return c.name; }); } },
+      newRow: function () { var t = state.p.doorSteps, last = t[t.length - 1], r = S.defaults(S.doorStep); r.car = last ? last.car : ((state.p.train.carTypes[0] || {}).name || ''); return r; }
+    });
   }
 
   // ---------------------------------------------------------------- Track
@@ -595,6 +600,18 @@
     roTable($('sres-en-check'), ['h', 'Profile half-width', 'KE half-width', 'E', 'z_kin', 'Branch', 'Load', 'EN max', 'Margin', 'Status'],
       ck.points.map(function (q) { return { cls: q === ck.min ? 'selrow' : '', cells: [fmt(q.h, 0), fmt(q.x, 1), fmt(q.W, 1), fmt(q.E, 2), fmt(q.z, 2), q.branch, q.load, fmt(q.max, 1), cCell(q.margin), q.ok ? 'OK' : 'EXCEEDS'] }; }));
     renderSresEnVertical(en.vertical);
+    var ds = en.doors ? en.doors.rows : [], drows = [];
+    $('sres-en-doors').hidden = !ds.length;
+    ds.forEach(function (q) {
+      var m = q.min;
+      drows.push({ cls: '', cells: [q.name, q.kind === 'door' ? 'Door open' : 'Step deployed', q.pos === 'beyond' ? 'Beyond' : 'Between', fmt(q.n, 2), fmt(q.lo, 0) + ' – ' + fmt(q.hi, 0),
+        m ? fmt(m.h, 0) : '', m ? fmt(m.max, 1) : '', m ? m.rule : '', m ? fmt(m.extra, 1) : '', m ? fmt(m.allowed, 1) : '', fmt(q.y, 0), m ? cCell(m.margin) : '', q.ok ? 'OK' : 'CHECK'] });
+      q.gap.forEach(function (gp) {
+        drows.push(['  step position, ' + gp.side + ' of curve', 'b_q0 ' + fmt(gp.bq0, 0), gp.toward ? 'towards platform' : 'away from platform', '', '', '', 'dg ' + fmt(gp.dg, 1) + ' / dg_max ' + fmt(gp.dgmax, 1), 'gap straight / R',
+          fmt(gp.gap0, 1) + ' / ' + fmt(gp.gapR, 1), 'limit ' + fmt(gp.bgap, 0), '', cCell(gp.bgap - gp.gapMax), gp.ok ? 'OK' : 'GAP TOO LARGE']);
+      });
+    });
+    roTable($('sres-en-doors-table'), ['Door / step', 'Kind', 'Position', 'n (m)', 'Heights lowered', 'Governing h', 'Max construction', 'Rule', 'Allowance', 'Allowed', 'Half-width', 'Margin', 'Status'], drows);
     var bp = r.en && r.en.bogieParts ? r.en.bogieParts.rows : [];
     $('sres-en-bogie').hidden = !bp.length;
     roTable($('sres-en-bogie-table'), ['Bogie', 'Part', 'Mounted', 'Position', 'n (m)', 'Height range', 'Half-width', 'z_kin', 'Branch', 'E', 'KE half-width', 'EN max', 'Margin', 'Status'],

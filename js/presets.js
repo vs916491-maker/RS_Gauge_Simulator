@@ -316,6 +316,41 @@
           "note": "Fictional"
         }
       ],
+      "doorSteps": [
+        {
+          "car": "DMC",
+          "name": "Saloon door 1 (plug, open)",
+          "kind": "door",
+          "pos": "between",
+          "n_m": 1.5,
+          "y_mm": 1530,
+          "h_lo_mm": 1110,
+          "h_hi_mm": 3000,
+          "note": "Fictional"
+        },
+        {
+          "car": "DMC",
+          "name": "Cab door (open)",
+          "kind": "door",
+          "pos": "beyond",
+          "n_m": null,
+          "y_mm": 1440,
+          "h_lo_mm": 1150,
+          "h_hi_mm": 2900,
+          "note": "Fictional"
+        },
+        {
+          "car": "TC",
+          "name": "Saloon step (deployed)",
+          "kind": "step",
+          "pos": "between",
+          "n_m": 3,
+          "y_mm": 1520,
+          "h_lo_mm": 1060,
+          "h_hi_mm": 1090,
+          "note": "Fictional"
+        }
+      ],
       "ke": {
         "limits": {
           "uf_min_body_mm": 100,
@@ -345,7 +380,18 @@
           "I0_mm": 50,
           "Dlim_mm": 200,
           "Lref_mm": 1500,
-          "eta_lim_deg": 1
+          "eta_lim_deg": 1,
+          "st_allow_mm": 75,
+          "st_Dmin_m2": 7.5,
+          "st_smax": 0.2,
+          "st_h_low_mm": 430,
+          "dr_h_mm": 1050,
+          "dr_above_mm": 200,
+          "dr_wmax_mm": 35,
+          "dr_X_mm": 20,
+          "gap_bq0i_mm": 1560,
+          "gap_bq0a_mm": 1560,
+          "gap_R_m": 1000
         },
         "profiles": [
           {
