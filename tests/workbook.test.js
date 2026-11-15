@@ -24,7 +24,8 @@ function close(a, b, what) { assert.ok(Math.abs(a - b) <= TOL * Math.max(1, Math
 fx.variants.forEach(function (v) {
   tests.push({ name: 'Workbook reproduction – ' + v.name, fn: function () {
     var p = project(v), x = v.expected;
-    assert.strictEqual(M.validate(p).errors, 0, JSON.stringify(M.validate(p).messages.filter(function (m) { return m.level === 'err'; })));
+    var rd = M.readiness(M.validate(p), 'static');
+    assert.ok(rd.ok, JSON.stringify(rd.messages));
     var c = E.staticRun(p, p.settings['static']).cars[0];
     c.cases.forEach(function (k, i) {
       close(k.min.c, x.min[i], k.label + ' min clearance');

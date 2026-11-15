@@ -74,13 +74,41 @@ with sync_playwright() as pw:
     f = os.path.join(out, 'static-results.xlsx'); d.value.save_as(f)
     ok(os.path.getsize(f) > 10000, 'static results workbook exported (%d bytes)' % os.path.getsize(f))
 
+    # dynamic run
+    page.click('#tabbtn-dsim'); page.wait_for_timeout(250)
+    ok(not page.locator('#btn-run-dynamic').is_disabled(), 'dynamic run button enabled')
+    page.screenshot(path=os.path.join(out, '22-dsim.png'), full_page=True)
+    page.click('#btn-run-dynamic'); page.wait_for_timeout(1500)
+    ok(page.locator('#tab-dres').is_visible(), 'dynamic results tab opened after the run')
+    sm = page.evaluate('RSGAUGE.app.state.drun.summary')
+    ok(sm['points'] == 441 and sm['ok'], 'dynamic summary: 441 points, all OK (%s points)' % sm['points'])
+    ok(all(page.evaluate("!!Chart.getChart('%s')" % c) for c in ['chart-d-curv', 'chart-d-speed', 'chart-d-hw', 'chart-d-excess', 'chart-d-struct', 'chart-d-uf', 'chart-d-xs', 'chart-d-ss']), 'all 8 dynamic charts drawn')
+    ok(page.locator('#dres-elements tbody tr').count() == 20, 'one row per track element')
+    ok(page.locator('#dres-ss tbody tr').count() == 13, '13 speed steps')
+    page.screenshot(path=os.path.join(out, '23-dres.png'), full_page=True)
+    page.fill('#dres-ch', '1990'); page.press('#dres-ch', 'Enter'); page.wait_for_timeout(400)
+    ok('Left-hand curve' in page.locator('#dres-xs').text_content(), 'cross-section at 1990 m is in the left-hand R300 curve')
+    ok(abs(page.evaluate("Chart.getChart('chart-d-hw').data.datasets.filter(d=>d._marker)[0].data[0].x") - 1990) < 1e-6, 'chainage marker moved on the charts')
+    page.screenshot(path=os.path.join(out, '24-dres-1990.png'), full_page=True)
+    page.click('#dres-worst'); page.wait_for_timeout(300)
+    ok(float(page.input_value('#dres-ch')) > 4000, 'worst outside excess button jumps to the depot curve (%s)' % page.input_value('#dres-ch'))
+    page.select_option('#dres-car', 'MC'); page.wait_for_timeout(400)
+    ok('MC' in page.locator('#dres-ss-note').text_content(), 'car type selector switches the speed-step study')
+    with page.expect_download() as d:
+        page.click('#btn-export-dynamic')
+    f = os.path.join(out, 'dynamic-results.xlsx'); d.value.save_as(f)
+    ok(os.path.getsize(f) > 50000, 'dynamic results workbook exported (%d bytes)' % os.path.getsize(f))
+    page.click('#tabbtn-summary'); page.wait_for_timeout(300)
+    ok('ALL OK along' in page.locator('#summary-dynamic').text_content(), 'overall summary shows the dynamic result')
+
     # stale flag after an input change, and an option change
     page.click('#tabbtn-track'); page.wait_for_timeout(200)
     page.locator('#f-track-op input').nth(1).fill('110'); page.wait_for_timeout(400)
     ok('out of date' in page.locator('#data-banner').text_content(), 'results flagged out of date after an input change')
+    ok('Dynamic results are out of date' in page.locator('#data-banner').text_content(), 'dynamic results flagged out of date too')
     page.click('#tabbtn-ssim'); page.wait_for_timeout(200)
     page.click('#btn-run-static'); page.wait_for_timeout(600)
-    ok('out of date' not in page.locator('#data-banner').text_content(), 'stale flag cleared after re-run')
+    ok('Static results are out of date' not in page.locator('#data-banner').text_content(), 'static stale flag cleared after re-run')
 
     # preset
     page.click('#tabbtn-train'); page.wait_for_timeout(200)
