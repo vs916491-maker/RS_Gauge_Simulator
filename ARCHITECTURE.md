@@ -60,7 +60,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
   bogies: [{ name, p_m, play_ld_mm, q_mm, w_mm, w_defl_mm, w250_mm, w150_mm, wi250_mm, wi150_mm, wa250_mm, wa150_mm, wv_R_m, wv_mm, wv_a_mm, rs_x_m, rs_gap_mm, rs_comp_mm, rs_limit_w, rs_Rcomf_m, wheel_new_mm, wheel_worn_mm, pack_step_mm, dn_prim_mm, dn_sec_inf_mm,
              dn_sec_def_mm, up_prim_mm, up_sec_mm, up_oi_mm, mass_t, n_axle, kz_prim, n_ps, b1_mm, z_prim_mm, kz2_t, kz2_c, kz_em,
              n_as, b2_mm, k_arb, z_sec_mm, z_sec_d_mm, ky_prim, ky_sec, ky2_d, bb_mm, ef_new_mm, ef_worn_mm }],
-  bodies: [{ car, wind_len_m, wind_top_mm, wind_bot_mm, Cf, uf_h_mm, uf_hw_mm, uf_bog_h_mm, s_tare, s_crush, s_defl,
+  bodies: [{ car, wind_len_m, wind_top_mm, wind_bot_mm, Cf, uf_h_mm, uf_hw_mm, uf_bog_h_mm, cam_up_mid_mm, sag_dn_mid_mm, end_up_mm, end_dn_mm, pitch_dz_mm, s_tare, s_crush, s_defl,
              hc_tare_mm, hc_crush_mm, hc_defl_mm }],
   ke:     { limits: { uf_min_body_mm, uf_min_bog_mm, axle_lim_t, prm_gap_mm, nosing_mm, sod_C_m, sod_L_m, sod_b_m, h_ref1_mm, h_ref2_mm },
             en: { EN 15273-2:2009 rules, G1 defaults }, profiles: [{ name, note, n_up, points: [{pt, y, z}] }] },
@@ -68,7 +68,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
   tests:  { sway: [{ car, load: tare|crush|deflated, D_mm, low: L|R, h1_mm, y1_mm, h2_mm, y2_mm, h3_mm, y3_mm, note }] },   // not part of the out-of-date check
   rs:     { profiles: [{ name, note, points }] },
   track:  { params: { cant_max_mm, cantdef_max_mm, cantexc_max_mm, wind_open_kmh, wind_plat_kmh, g_tol_mm, fw_mm, align_tol_mm,
-                      cl_err_mm, widen_mm, widen_R_m, R_min_m, R_static_m, Rv_static_m, dx_m },
+                      cl_err_mm, unev_mm, railw_v_mm, widen_mm, widen_R_m, R_min_m, R_static_m, Rv_static_m, dx_m },
             segments: [{ from_m, to_m, element: tangent|transition|circular, side, R_start_m, R_end_m, cant_start_mm, cant_end_mm,
                          speed_kmh, Rv_m, ke, location: open|tunnel|platform|depot, wind: Y|N, struct_mm, platform_mm, platform_side, sod, remarks }] },
   settings: { static: { ke, flex, latflex, lat_state, vert_state, comb, K_rss, gtol_ext, align, tilt, up_roll, wind, over_infl,
@@ -152,5 +152,6 @@ reads every known sheet.
 | 21 | Additional sections per car type (distance from a body end, own profile; Method B, Method A, profile top) and car drawings with the sections | Done |
 | 22 | Study direction (backward / forward / both) and the maximum construction gauge outline (METHOD §7.3): per section and whole car, used as the profiles and on the route in a backward study, RS margins in a both study | Done (PR #22) |
 | 23 | Secondary clearance w∞, w_i(R), w_a(R) by direction and radius (METHOD §5.3a) in the workbook method, the route sweep and EN 15273-2 | Done (PR #23) |
-| 24 | Rotation stops (METHOD §5.3b): free rotation at R min (no diagonal contact), contact radius in service and share of the line, comfort radius, optional limit on w(R) | **This pull request** |
+| 24 | Rotation stops (METHOD §5.3b): free rotation at R min (no diagonal contact), contact radius in service and share of the line, comfort radius, optional limit on w(R) | Done (PR #24) |
+| 25 | Vertical additions (METHOD §5.3c): body camber / sag, end deflection, pitch, track unevenness, rail head wear in the vertical checks, the gauge outline and the route | **This pull request** |
 | – | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |

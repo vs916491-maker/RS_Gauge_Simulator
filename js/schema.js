@@ -110,6 +110,11 @@
     f('uf_h_mm', 'Lowest body-mounted equipment above rail zu (tare, new wheels)', 'num', 'mm', { min: 0, max: 1500, d: 330 }),
     f('uf_hw_mm', 'Half-width of that equipment yu (roll lever)', 'num', 'mm', { min: 0, max: 2500, d: 1200 }),
     f('uf_bog_h_mm', 'Lowest bogie-mounted equipment above rail zbg', 'num', 'mm', { min: 0, max: 1000, d: 150 }),
+    f('cam_up_mid_mm', 'Body camber: upward bow at mid-car, tare (pre-camber)', 'num', 'mm', { min: 0, max: 50, d: 0, h: 'Added to the upward movement between the pivots (largest at mid-car), METHOD §5.3c' }),
+    f('sag_dn_mid_mm', 'Body sag: downward deflection at mid-car, crush vs tare', 'num', 'mm', { min: 0, max: 50, d: 0, h: 'Added to the downward movement between the pivots (largest at mid-car)' }),
+    f('end_up_mm', 'Body deflection at the car end: upward', 'num', 'mm', { min: 0, max: 50, d: 0, h: 'Beyond the pivots, growing to the car end' }),
+    f('end_dn_mm', 'Body deflection at the car end: downward', 'num', 'mm', { min: 0, max: 50, d: 0, h: 'Beyond the pivots, growing to the car end' }),
+    f('pitch_dz_mm', 'Body pitch: height difference between the two pivots', 'num', 'mm', { min: 0, max: 100, d: 0, h: 'Different suspension state / wheel wear of the two bogies; gives ±Δz·n/a beyond the pivots' }),
     f('s_tare', 'Flexibility coefficient s – tare, inflated', 'num', '', { min: 0, max: 1, d: 0.3, h: 'Specified (sway test / bogie supplier)' }),
     f('s_crush', 'Flexibility coefficient s – crush, inflated', 'num', '', { min: 0, max: 1, d: 0.3 }),
     f('s_defl', 'Flexibility coefficient s – deflated', 'num', '', { min: 0, max: 1, d: 0.12 }),
@@ -374,6 +379,8 @@
     f('fw_mm', 'Rail gauge-face wear fw', 'num', 'mm', { min: 0, max: 30, d: 8 }),
     f('align_tol_mm', 'Track alignment tolerance al', 'num', 'mm', { min: 0, max: 50, d: 5, h: 'Used only if selected in the simulation options' }),
     f('cl_err_mm', 'Cross-level error CL', 'num', 'mm', { min: 0, max: 50, d: 10 }),
+    f('unev_mm', 'Vertical track unevenness (longitudinal level)', 'num', 'mm', { min: 0, max: 50, d: 0, h: 'Raises and lowers the car: added to the upward and the downward movement, METHOD §5.3c' }),
+    f('railw_v_mm', 'Vertical rail head wear', 'num', 'mm', { min: 0, max: 30, d: 0, h: 'Lowers the car: added to the downward movement (often allowed for by the infrastructure – leave 0 then)' }),
     f('widen_mm', 'Gauge widening on curves wd', 'num', 'mm', { min: 0, max: 40, d: 10, h: 'Adds wd/2 to the wheel–rail half play' }),
     f('widen_R_m', 'Widening applies below radius Rw', 'num', 'm', { min: 0, max: 5000, d: 400 })
   ];
