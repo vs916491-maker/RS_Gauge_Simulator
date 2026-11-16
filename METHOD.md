@@ -240,6 +240,31 @@ vertical unevenness `uv` (longitudinal level), vertical rail head wear `rw`.
   route underframe height (§8.3).
 * EN 15273-2 heights (§10.7) keep their own terms (Table A.1); these inputs are not added there.
 
+### 5.3d Secondary suspension travel with sag and roll
+
+The suspension deflections and the body roll may be added as in §6 only while the total deflection stays within the
+suspension's travel. Optional per bogie type: free vertical travel of the secondary to the bump stop (downward, from
+tare) `zb` and to the rebound stop (upward, from tare) `zr`; blank = no check.
+
+* Per load case: the largest suspension roll of its cases `θ = θq + θr` (rigid tilt not included); the secondary's
+  share from the theoretical stiffness model of that load (§5.4), `θ2 = θ·Kφ/Kφ2` (springs in series: the roll splits
+  in the inverse ratio of the stiffnesses; 1 when no stiffness is given); deflection at the air spring `θ2·b2`.
+* Low side: `zb − Δz − θ2·b2 ≥ 0` (Δz = body lowering of the load case); high side: `zr + Δz − θ2·b2 ≥ 0`.
+* Not checked in the deflated state (emergency springs). Part of the car type's verdict ("ON THE STOP" = the linear
+  sum of §6 is no longer valid: the roll is limited by the stop and the gauge must be checked with the stop forces).
+
+### 5.3e Electrical clearance to the contact line (rigid catenary)
+
+Live parts of a rigid catenary / contact line are entered as SOD items of type *Overhead line* (y, z, side, chainage
+range). Customer limits: static clearance (default 290 mm) and dynamic clearance (default 190 mm), the prescribed
+minimum clearances between live parts and earthed parts of the vehicle.
+
+* **Static:** car at rest, centred on straight track: the distance from each live point (|y|, z) to every section
+  profile of the run (signed distance to the mirrored outline, + outside) ≥ the static value. Part of the verdict.
+* **Dynamic:** along the line the item check of §8.7 uses for *Overhead line* items the larger of the item's own
+  required clearance and the dynamic value.
+* The pantograph itself is live and is checked by its own gauge (§10.11); this check covers the earthed roof equipment.
+
 ### 5.4 Theoretical flexibility coefficient and roll centre
 
 Roll-stiffness share per body end: ψ = 1 for an own bogie, ½ for a shared bogie. With ψ1, ψ2 of the two ends:
@@ -849,7 +874,7 @@ DE2 roll term literally.
 
 ## 12. Out of scope
 
-Pantograph sway and catenary checks, multibody dynamic simulation, coupled-train (rescue) gauging, and curves below
+Pantograph sway and flexible-catenary checks (the rigid-catenary clearance is §5.3e), multibody dynamic simulation, coupled-train (rescue) gauging, and curves below
 150 m by the graphic method. (The sway-test evaluation and the kinematic gauge test plan are in §13.)
 
 ## 13. Test calculations (Tests tab)
@@ -910,6 +935,14 @@ model is used beyond the tested range and the plan says so. Note: a stiffer vehi
 its roof corners on the low side drop less (`h − θ·x`), so the clearance with the measured values can be smaller near the
 KE top even when the sway-test acceptance of §13.1 is met; the plan shows both clearances.
 
+
+### 13.3 Static gauge measurement of a built car
+
+Measured points of a car (gauge template or laser scanner): car type, section (interior / exterior / car end), point
+name, half-width Y and height Z above the rail. After a static run, each point is treated as a profile point of its
+section (§6.3–§6.4): moved by every movement of every case of that section, the smallest clearance to the customer KE
+and its case are given; the car section passes when every point is inside. Deviation = measured Y − design half-width
+of the section's profile of the run at the same height (+ = wider than designed; blank above the profile top).
 
 ## 14. Third-rail current collector (CCD)
 

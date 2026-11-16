@@ -791,6 +791,20 @@
     renderSresEnStatic(r, c);
     renderSresXs(r, c);
     renderSresRs(r);
+    $('sres-susp').hidden = !(c.susp && c.susp.length);
+    if (c.susp && c.susp.length) {
+      roTable($('sres-susp-table'), ['End / bogie', 'Load', 'Largest roll (case)', 'Secondary share', 'Roll at the air spring θ₂·b2', 'Δz', 'Low side: travel / margin', 'High side: travel / margin', 'Status'], c.susp.map(function (x) {
+        return [x.end + ' / ' + x.bogie, x.load, fmt(x.theta * 1000, 1) + ' mrad (' + x.case + ')', fmt(x.share, 2), fmt(x.roll, 1), fmt(x.dz, 1),
+          x.mDn === null ? '–' : { v: fmt(x.bumpDn, 0) + ' / ' + fmt(x.mDn, 1), cls: x.mDn >= 0 ? '' : 'badcell' }, x.mUp === null ? '–' : { v: fmt(x.bumpUp, 0) + ' / ' + fmt(x.mUp, 1), cls: x.mUp >= 0 ? '' : 'badcell' },
+          { v: x.ok ? 'OK' : 'ON THE STOP', cls: x.ok ? 'okcell' : 'badcell' }];
+      }));
+    }
+    $('sres-el').hidden = !(c.elStatic && c.elStatic.length);
+    if (c.elStatic && c.elStatic.length) {
+      roTable($('sres-el-table'), ['Live part', 'Y / Z (mm)', 'Section', 'Profile', 'Distance (mm)', 'Required (mm)', 'Margin (mm)', 'Status'], c.elStatic.map(function (x) {
+        return [x.item, fmt(x.y) + ' / ' + fmt(x.z), x.label, x.profile, fmt(x.dist, 1), fmt(x.req), cCell(x.margin), { v: x.ok ? 'OK' : 'TOO CLOSE', cls: x.ok ? 'okcell' : 'badcell' }];
+      }));
+    }
     // vertical
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {
       return v.info ? [v.label, fmt(v.value, 1), '', '', ''] : [v.label, fmt(v.value, 1), fmt(v.limit, 1), cCell(v.margin), { v: v.ok ? 'OK' : (v.id.indexOf('uf') === 0 ? 'BELOW MIN' : 'INFRINGES'), cls: v.ok ? 'okcell' : 'badcell' }];
@@ -1230,6 +1244,11 @@
   // ---------------------------------------------------------------- Tests (METHOD §13)
   function swayResults() { try { return E.swayEval(state.p, staticOpts()); } catch (e) { return []; } }
   function renderTests() {
+    table($('t-meas'), state.p.tests.measured, S.measPoint, {
+      addLabel: 'Add measured point',
+      refs: { car: function () { return state.p.train.carTypes.map(function (c) { return c.name; }); } },
+      newRow: function () { var t = state.p.tests.measured, last = t[t.length - 1], r = S.defaults(S.measPoint); if (last) { r.car = last.car; r.section = last.section; } else { r.car = (state.p.train.carTypes[0] || {}).name || ''; } r.pt = 'P' + (t.length + 1); return r; }
+    });
     table($('t-sway'), state.p.tests.sway, S.swayTest, {
       addLabel: 'Add test row',
       refs: { car: function () { return state.p.train.carTypes.map(function (c) { return c.name; }); } },
@@ -1237,7 +1256,20 @@
     });
     renderTestsResults();
   }
+  function measResults() { try { return E.measuredEval(state.p, state.run, staticOpts()); } catch (e) { return []; } }
+  function renderTestsMeas() {
+    var ms = measResults(), SECM = { int: 'Interior', ext: 'Exterior', end: 'Car end' };
+    $('tests-meas-status').textContent = !state.run ? 'Run the static simulation to evaluate the measured points.' : (!state.p.tests.measured.length ? 'No measured points.' : (stale() ? 'Inputs changed since the static run – run it again.' : ''));
+    roTable($('tests-meas-res'), ['Car type', 'Section', 'Points', 'Design profile', 'Largest deviation (wider +)', 'Min clearance with all movements', 'Status'], ms.map(function (g) {
+      if (g.error) { return [g.car, SECM[g.section] || g.section, String(g.n), '', '', '', { v: g.error, cls: 'badcell' }]; }
+      return [g.car, SECM[g.section] || g.section, String(g.n), g.profile, g.devMax ? fmt(g.devMax.dev, 1) + ' mm (' + g.devMax.pt + ')' : '–', { v: fmt(g.min.c, 1) + ' mm (' + g.min.pt + ', ' + g.min.case + ')', cls: g.min.c >= 0 ? 'okcell' : 'badcell' },
+        { v: g.ok ? 'OK' : 'INFRINGES', cls: g.ok ? 'okcell' : 'badcell' }];
+    }));
+    var rows = []; ms.forEach(function (g) { (g.points || []).forEach(function (q) { rows.push([g.car + ' ' + (SECM[g.section] || g.section), q.pt, fmt(q.y, 1), fmt(q.z, 1), q.design === null ? '–' : fmt(q.design, 1), q.dev === null ? '–' : fmt(q.dev, 1), cCell(q.c), q.case]); }); });
+    roTable($('tests-meas-pts'), ['Car / section', 'Pt', 'Y', 'Z', 'Design Y', 'Deviation', 'Clearance', 'Governing case'], rows);
+  }
   function renderTestsResults() {
+    renderTestsMeas();
     var sw = swayResults(), LOAD = { tare: 'Tare', crush: 'Crush', deflated: 'Deflated' };
     function st(ok, txt) { return { v: txt, cls: ok ? 'okcell' : 'badcell' }; }
     roTable($('tests-sway-res'), ['Car type', 'Load', 'Readings', 's measured', 'hc measured (mm)', 'RMS residual (mm)', 's / hc used', 'Per 100 mm cant at h1 / h2 / top: measured vs used (mm)', 'Status'], sw.map(function (r) {
@@ -1405,7 +1437,7 @@
     st.textContent = 'Writing the report…';
     var o = state.p.settings.report, date = new Date().toLocaleDateString('en-GB'), images;
     try { images = reportImages(); } catch (e) { st.textContent = 'Could not draw the charts: ' + e.message; return; }
-    var bl = R.report.blocks({ p: state.p, sres: state.run, dres: state.drun, sim: (function () { try { return E.simRun(state.p, staticOpts()); } catch (e) { return null; } }()), opt: o, date: date, engineVersion: state.run.engineVersion, staleS: stale(), staleD: dstale(),
+    var bl = R.report.blocks({ p: state.p, sres: state.run, dres: state.drun, measured: measResults(), sim: (function () { try { return E.simRun(state.p, staticOpts()); } catch (e) { return null; } }()), opt: o, date: date, engineVersion: state.run.engineVersion, staleS: stale(), staleD: dstale(),
       messages: state.validation.messages, methodMd: R.methodMd, images: images, sway: swayResults(), plan: E.gaugeTestPlan(state.p, state.run, swayResults()) });
     var title = o.title || 'Vehicle gauging report';
     var parts = R.report.docxParts(bl, images, { header: title + (state.p.name ? ' – ' + state.p.name : ''), headerRight: (o.doc_no ? o.doc_no + '  ' : '') + 'Rev ' + (o.revision || '–'),
@@ -1440,7 +1472,7 @@
     if (car && !car.cases.some(function (k) { return k.id === state.calcCase; })) { state.calcCase = car.governing ? car.governing.id : car.cases[0].id; }
     (car ? car.cases : []).forEach(function (k) { kc.appendChild(el('option', { value: k.id, text: k.label + (car.governing && car.governing.id === k.id ? ' (governing)' : ''), selected: k.id === state.calcCase })); });
     var sw = swayResults(), ch = $('calc-ch').value === '' ? null : Number($('calc-ch').value);
-    var list = R.calcsteps.steps({ p: state.p, sres: sres, dres: dres, car: state.calcCar, caseId: state.calcCase, ch: ch, sway: sw, plan: sres ? E.gaugeTestPlan(state.p, sres, sw) : [] });
+    var list = R.calcsteps.steps({ p: state.p, sres: sres, dres: dres, car: state.calcCar, caseId: state.calcCase, ch: ch, sway: sw, plan: sres ? E.gaugeTestPlan(state.p, sres, sw) : [], measured: measResults() });
     var body = clear($('cm-body')), toc = clear($('cm-toc')), part = null;
     list.forEach(function (st) {
       if (st.part !== part) {
@@ -1705,7 +1737,7 @@
     $('tests-case').addEventListener('change', function () { state.testCase = this.value; renderTestsResults(); });
     $('btn-export-tests').addEventListener('click', function () {
       if (!state.run) { return; }
-      IO.downloadWorkbook(IO.testsWorkbook(swayResults(), E.gaugeTestPlan(state.p, state.run, swayResults()), state.p, { stale: stale() }), IO.fileSlug(state.p.name) + '-tests.xlsx');
+      IO.downloadWorkbook(IO.testsWorkbook(swayResults(), E.gaugeTestPlan(state.p, state.run, swayResults()), state.p, { stale: stale(), measured: measResults() }), IO.fileSlug(state.p.name) + '-tests.xlsx');
     });
     $('btn-export-static').addEventListener('click', function () {
       if (!state.run) { return; }

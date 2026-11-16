@@ -285,6 +285,12 @@
         <div class="card"><h3>Method A table <span class="muted">(mm)</span></h3><div id="sres-methodA" class="tablewrap scrolly"></div></div>
       </div>
       <div class="card"><h3>Vertical checks</h3><div id="sres-vertical" class="tablewrap"></div></div>
+      <div class="card" id="sres-susp" hidden><h3>Suspension travel with sag and roll <span class="muted">(selected car type; METHOD §5.3d)</span></h3>
+        <p class="hint">The movements may be added only while the secondary stays within its travel: body lowering Δz + roll of the secondary θ₂·b2 ≤ travel to the bump stop (low side); θ₂·b2 ≤ rebound travel + Δz (high side). θ₂ = θ·Kφ/Kφ2 (theoretical stiffness model).</p>
+        <div id="sres-susp-table" class="tablewrap"></div></div>
+      <div class="card" id="sres-el" hidden><h3>Electrical clearance to the contact line – static <span class="muted">(selected car type; METHOD §5.3e)</span></h3>
+        <p class="hint">Live parts = SOD items of type "Overhead line" (rigid catenary). Distance from each live point to the section profiles with the car at rest, centred on straight track.</p>
+        <div id="sres-el-table" class="tablewrap"></div></div>
       <div class="card" id="sres-rs" hidden><h3>Rotation stops <span class="muted">(all car types; METHOD §5.3b)</span></h3>
         <p class="hint">Bogie yaw relative to the body ψ = asin(a / 2R). At the smallest radius the closure ψ·x must stay below the gap, so two diagonally opposite stops never touch together and the bogie turns freely.
           Contact in service: the radius below which a stop touches with the body drifted by the largest cant deficiency (+ wind); w limit = gap + travel − ψ·x.</p>
@@ -464,6 +470,11 @@
       <div class="card"><div class="row"><h3>Roll displacement per 100 mm cant</h3><label>Test <select id="tests-sway-sel"></select></label></div>
         <div class="chartbox"><canvas id="chart-sway" aria-label="Measured and used roll displacement against height"></canvas></div></div>
     </div>
+    <div class="card"><h3>Static gauge measurement of a built car <span class="muted">(gauge template or laser; METHOD §13.3)</span></h3>
+      <p class="hint">One row per measured point (half-width Y, height Z above the rail). After a static run each point is moved by every movement of its section's cases and its clearance to the customer KE is taken; the deviation is measured − design half-width at the same height.</p>
+      <div id="t-meas" class="tablewrap"></div>
+      <h4 class="gap">Evaluation</h4><p id="tests-meas-status" class="muted"></p>
+      <div class="grid2"><div id="tests-meas-res" class="tablewrap"></div><div id="tests-meas-pts" class="tablewrap scrolly"></div></div></div>
     <div class="card"><div class="row"><h3>Kinematic gauge test plan</h3>
         <label>Car type <select id="tests-car"></select></label><label>Case <select id="tests-case"></select></label>
         <button type="button" id="btn-export-tests" class="ghost">Export tests (Excel)</button></div>

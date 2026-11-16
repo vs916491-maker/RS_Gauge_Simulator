@@ -122,6 +122,12 @@
         rows.push(['Third-rail CCD (static) – smallest margin', w2 ? fmt(w2.v, 1) + ' mm' : '–', w2 ? w2.c + ', ' + w2.w : '', status(s.ccd.ok)]);
       }
       var rsAll = []; s.cars.forEach(function (c) { (c.rotStops || []).forEach(function (x) { rsAll.push({ c: c.car, x: x }); }); });
+      var spAll = []; s.cars.forEach(function (c) { (c.susp || []).forEach(function (x) { spAll.push({ c: c.car, x: x }); }); });
+      if (spAll.length) { var sw2 = spAll.reduce(function (a, q) { var m = Math.min(q.x.mDn === null ? Infinity : q.x.mDn, q.x.mUp === null ? Infinity : q.x.mUp); return !a || m < a.m ? { m: m, q: q } : a; }, null);
+        rows.push(['Secondary travel with sag and roll – smallest margin to the stop', fmt(sw2.m, 1) + ' mm', sw2.q.c + ', bogie ' + sw2.q.x.bogie + ', ' + sw2.q.x.load, status(spAll.every(function (q) { return q.x.ok; }))]); }
+      var elAll = []; s.cars.forEach(function (c) { (c.elStatic || []).forEach(function (x) { elAll.push({ c: c.car, x: x }); }); });
+      if (elAll.length) { var ew = elAll.reduce(function (a, q) { return !a || q.x.margin < a.x.margin ? q : a; }, null);
+        rows.push(['Electrical clearance to the contact line, static (required ' + fmt(ew.x.req) + ' mm)', fmt(ew.x.dist, 1) + ' mm', ew.c + ', ' + ew.x.label + ', ' + ew.x.item, status(elAll.every(function (q) { return q.x.ok; }))]); }
       if (rsAll.length) { var rw = rsAll.reduce(function (a, q) { return !a || q.x.margin < a.x.margin ? q : a; }, null); rows.push(['Rotation stops – smallest margin to contact at R min', fmt(rw.x.margin, 1) + ' mm', rw.c + ', bogie ' + rw.x.bogie + ' (end ' + rw.x.end + ')', status(rsAll.every(function (q) { return q.x.ok && q.x.comfOk !== false; }))]); }
       if (en) { var eg = s.en.governing; rows.push(['EN 15273-2:2009 – smallest margin to the maximum construction gauge', eg ? fmt(eg.margin, 1) + ' mm' : '–', eg ? eg.car + ', ' + SEC[eg.section] + ', h ' + fmt(eg.h) + ' mm' : '', status(s.en.ok)]); }
     }
@@ -300,6 +306,20 @@
             x.lineTotal > 0 ? fmt(x.lineShare, 1) + ' %' : '–', status(x.ok && x.comfOk !== false)];
         }), [0.1, 0.1, 0.14, 0.09, 0.1, 0.1, 0.12, 0.12, 0.13]);
       }
+      var spC = []; s.cars.forEach(function (c) { (c.susp || []).forEach(function (x) { spC.push([c, x]); }); });
+      if (spC.length) {
+        h2('Secondary suspension travel with sag and roll');
+        para('The vertical movements and the body roll are added only while the secondary suspension stays within its travel (METHOD §5.3d): body lowering + secondary roll at the air spring ≤ travel to the bump stop on the low side, secondary roll ≤ rebound travel + lowering on the high side.');
+        table(['Car type', 'Bogie', 'Load', 'Roll at spring [mm]', 'Δz [mm]', 'Low side margin [mm]', 'High side margin [mm]', 'Status'], spC.map(function (q) {
+          var x = q[1]; return [q[0].car, x.end + ' / ' + x.bogie, x.load, fmt(x.roll, 1), fmt(x.dz, 1), x.mDn === null ? '–' : fmt(x.mDn, 1), x.mUp === null ? '–' : fmt(x.mUp, 1), status(x.ok)];
+        }));
+      }
+      var elC = []; s.cars.forEach(function (c) { (c.elStatic || []).forEach(function (x) { elC.push([c, x]); }); });
+      if (elC.length) {
+        h2('Electrical clearance to the contact line (static)');
+        para('Live parts of the rigid catenary / contact line (SOD items of type "Overhead line") against the section profiles of the car at rest, centred on straight track (METHOD §5.3e); along the line these items need at least the dynamic clearance.');
+        table(['Car type', 'Live part', 'Section', 'Distance [mm]', 'Required [mm]', 'Margin [mm]', 'Status'], elC.map(function (q) { var x = q[1]; return [q[0].car, x.item, x.label, fmt(x.dist, 1), fmt(x.req), fmt(x.margin, 1), status(x.ok)]; }));
+      }
       if (s.warnings.length) { para('Warnings of the static run:'); add({ type: 'list', items: s.warnings }); }
 
       // ---- 6 EN
@@ -407,6 +427,14 @@
         if (r.error) { return [r.car, LD[r.load] || r.load, String(r.n), r.error, '', '', '', '', '', 'CHECK']; }
         return [r.car, LD[r.load], String(r.n), fmt(r.s, 3) + ' / ' + fmt(r.hc), fmt(r.rms, 2), fmt(r.used.s, 3) + ' / ' + fmt(r.used.hc)].concat(r.checks.map(function (c) { return fmt(c.measured, 1) + ' / ' + fmt(c.used, 1); }), [status(r.ok)]);
       }), null, 7.5);
+    }
+    var ms = ctx.measured || [];
+    if (ms.length) {
+      h2('8.1a Static gauge measurement of a built car');
+      para('Measured points (gauge template or laser) moved by every movement of the cases of their section and checked against the customer KE (METHOD §13.3); deviation = measured − design half-width at the same height.');
+      table(['Car type', 'Section', 'Points', 'Largest deviation [mm]', 'Min clearance [mm]', 'Status'], ms.map(function (g) {
+        return g.error ? [g.car, g.section, String(g.n), '', g.error, 'CHECK'] : [g.car, SEC[g.section] || g.section, String(g.n), g.devMax ? fmt(g.devMax.dev, 1) + ' (' + g.devMax.pt + ')' : '–', fmt(g.min.c, 1) + ' (' + g.min.pt + ')', status(g.ok)];
+      }));
     }
     if (ctx.plan && ctx.plan.length) {
       h2('8.2 Kinematic gauge test plan');

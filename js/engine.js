@@ -601,6 +601,84 @@
   }
 
   /*
+   * Suspension travel with sag and roll (METHOD §5.3d): the movements may be added only while the secondary stays
+   * within its travel. Per bogie end with bump / rebound travel entered and per load case: the largest suspension roll
+   * of the cases, the secondary's share θ2 = θ·Kφ/Kφ2 of the theoretical model, at the air spring b2.
+   */
+  function suspLimit(p, d, cases, opt) {
+    var rows = [], th = d.theoretical;
+    if (opt.lat_state === 'deflated') { return rows; }
+    [[d.bogie.b1, 1], [d.bogie.b2, 2]].forEach(function (e) {
+      var b = e[0], hasDn = !blankV(b.bump_dn_mm), hasUp = !blankV(b.bump_up_mm);
+      if (!hasDn && !hasUp) { return; }
+      d.loads.forEach(function (L, i) {
+        var ks = cases.filter(function (k) { return k.li === i; }), w = ks.reduce(function (a, k) { var t = k.params.thq + k.params.thr; return !a || t > a.t ? { t: t, label: k.label } : a; }, null);
+        if (!w) { return; }
+        var st = th.loads[i] || th.tare, share = st && st.K2 > 0 && st.K > 0 ? st.K / st.K2 : 1, th2 = w.t * share, dRoll = th2 * n0(b.b2_mm);
+        var dn = hasDn ? n0(b.bump_dn_mm) - n0(L.dz) - dRoll : null, up = hasUp ? n0(b.bump_up_mm) + n0(L.dz) - dRoll : null;
+        rows.push({ end: e[1], bogie: b.name, load: L.name, case: w.label, theta: w.t, share: share, theta2: th2, b2: n0(b.b2_mm), roll: dRoll, dz: n0(L.dz),
+          bumpDn: hasDn ? n0(b.bump_dn_mm) : null, bumpUp: hasUp ? n0(b.bump_up_mm) : null, mDn: dn, mUp: up, ok: (dn === null || dn >= 0) && (up === null || up >= 0) });
+      });
+    });
+    return rows;
+  }
+  // Static electrical clearance (METHOD §5.3e): live contact-line parts (SOD items of type "Overhead line") to the
+  // section profiles of the car at rest, centred on straight track; required ≥ the static value of the customer limits.
+  function elStatic(p, profs, labels) {
+    var L = p.ke.limits || {}, req = n0(L.el_static_mm, 290), items = ((p.sod || {}).items || []).filter(function (it) { return it.type === 'ohe' && it.y !== null && it.z !== null; }), rows = [];
+    items.forEach(function (it) {
+      Object.keys(profs).forEach(function (k) {
+        var o = profs[k]; if (!o || !o.pts.length) { return; }
+        if (!o._full) { o._full = keFullPoly(o); }
+        var dist = -polySigned(Math.abs(n0(it.y)), n0(it.z), o._full);
+        rows.push({ item: it.name, y: n0(it.y), z: n0(it.z), section: k, label: labels[k] || k, profile: o.name, dist: dist, req: req, margin: dist - req, ok: dist - req >= 0 });
+      });
+    });
+    return rows;
+  }
+  /*
+   * Static gauge measurement of a built car (METHOD §13.3): each measured point (template or laser) is moved by every
+   * movement of every case of its section (Method B) and its clearance to the customer KE taken; deviation = measured
+   * half-width − design half-width (the profile of the run) at the same height.
+   */
+  function measuredEval(p, sres, opt) {
+    var rows = (p.tests || {}).measured || [], out = [];
+    if (!sres || !rows.length) { return out; }
+    var keP = findBy(p.ke.profiles, 'name', sres.ke.name) || p.ke.profiles[0], ke = outline(keP.points, keP.n_up);
+    var groups = {}, order = [];
+    rows.forEach(function (r, i) {
+      if (r.y_mm === null || r.z_mm === null || r.y_mm === undefined) { return; }
+      var key = r.car + '|' + (r.section || 'int');
+      if (!groups[key]) { groups[key] = { car: r.car, section: r.section || 'int', pts: [] }; order.push(key); }
+      groups[key].pts.push({ pt: r.pt || String(i + 1), y: n0(r.y_mm), z: n0(r.z_mm), row: i + 1 });
+    });
+    order.forEach(function (key) {
+      var g = groups[key], c = sres.cars.filter(function (x) { return x.car === g.car; })[0], res = { car: g.car, section: g.section, n: g.pts.length, ok: false };
+      if (!c) { res.error = 'Car type ' + g.car + ' is not in the static run'; out.push(res); return; }
+      var ks = c.cases.filter(function (k) { return k.section === g.section; });
+      if (!ks.length) { res.error = 'No cases'; out.push(res); return; }
+      var design = outline(ks[0].points.map(function (q) { return { pt: q.pt, y: q.x0, z: q.h0 }; }), null);
+      var min = null, dmax = null;
+      res.points = g.pts.map(function (q) {
+        var x = q.y / 1000, h = q.z / 1000, best = null;
+        ks.forEach(function (k) {
+          var cp = k.params, E = lateralE(cp, h, opt), xd = x + E / 1000, hd = h - cp.thtot * x - cp.drop / 1000 + cp.up / 1000;
+          var W = keWidth(ke, Math.max(hd, ke.hUpBottom)), cl = clearance((W - xd) * 1000, (keTop(ke, xd) - hd) * 1000);
+          if (!best || cl < best.c) { best = { c: cl, case: k.label, x: xd * 1000, h: hd * 1000 }; }
+        });
+        var dw = profileWidth(design, h) * 1000, inRange = h <= design.top + 1e-9 && dw > 0;
+        var r = { pt: q.pt, row: q.row, y: q.y, z: q.z, design: inRange ? dw : null, dev: inRange ? q.y - dw : null, c: best.c, case: best.case, xd: best.x, hd: best.h, ok: best.c >= 0 };
+        if (!min || r.c < min.c) { min = r; }
+        if (r.dev !== null && (dmax === null || r.dev > dmax.dev)) { dmax = r; }
+        return r;
+      });
+      res.profile = ks[0].profile; res.min = min; res.devMax = dmax; res.ok = res.points.every(function (r) { return r.ok; });
+      out.push(res);
+    });
+    return out;
+  }
+
+  /*
    * Static run (METHOD §6). opt = settings.static. Returns per car type the 6 cases, Method A and vertical checks,
    * plus the governing car / case. Throws only on missing essentials (callers validate first).
    */
@@ -644,8 +722,11 @@
       if (yes(opt.en_static)) { res.enStatic = enStaticRun(p, d, c, stRef, profs, opt); }
       if (yes(opt.bst_check)) { res.bostrab = bostrabCheck(p, d, profs, opt); }
       res.rotStops = rotStops(p, d, opt);
+      res.susp = suspLimit(p, d, cases, opt);
+      var secLab = { int: 'Interior', ext: 'Exterior', end: 'Car end' }; extras.forEach(function (xs) { secLab[xs.key] = xs.name; });
+      res.elStatic = elStatic(p, profs, secLab);
       res.rotStops.forEach(function (x) { if (x.wOver && !x.limits) { warnings.push(c.name + ' bogie ' + x.bogie + ': the entered w (straight / 250 m / 150 m) is larger than the rotation stops allow (' + x.w_lim.inf.toFixed(1) + ' / ' + x.w_lim.r250.toFixed(1) + ' / ' + x.w_lim.r150.toFixed(1) + ' mm) – set "Rotation stops limit w(R)" or correct the inputs.'); } });
-      res.ok = res.rotStops.every(function (x) { return x.ok && x.comfOk !== false; }) && (!cpr.mcg || cpr.mcg.ok) && cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok) && (!res.bostrab || res.bostrab.ok);
+      res.ok = res.rotStops.every(function (x) { return x.ok && x.comfOk !== false; }) && res.susp.every(function (x) { return x.ok; }) && res.elStatic.every(function (x) { return x.ok; }) && (!cpr.mcg || cpr.mcg.ok) && cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok) && (!res.bostrab || res.bostrab.ok);
       if (worst && (!gov || worst.min.c < gov.c)) { gov = { car: c.name, id: worst.id, label: worst.label, c: worst.min.c, pt: worst.min.pt }; }
       return res;
     });
@@ -1842,7 +1923,7 @@
     });
     function lim(v, d) { return (v === null || v === undefined || v === '') ? d : Number(v); }
     var items = (sd.items || []).filter(function (it) { return it.y !== null && it.y !== undefined && it.z !== null && it.z !== undefined; }).map(function (it) {
-      return { name: it.name, type: it.type, y: it.y / 1000, z: it.z / 1000, req: n0(it.min_clear_mm), side: it.side || 'both', from: lim(it.ch_from_m, -Infinity), to: lim(it.ch_to_m, Infinity) };
+      return { name: it.name, type: it.type, y: it.y / 1000, z: it.z / 1000, req: it.type === 'ohe' ? Math.max(n0(it.min_clear_mm), n0((p.ke.limits || {}).el_dynamic_mm, 190)) : n0(it.min_clear_mm), side: it.side || 'both', from: lim(it.ch_from_m, -Infinity), to: lim(it.ch_to_m, Infinity) };
     });
     return { sods: sods, items: items, vertical: sd.frame === 'vertical', margin: n0(sd.margin_mm, 50) };
   }
@@ -2066,7 +2147,7 @@
     VERSION: VERSION, CASES: CASES, carLoads: carLoads, carCases: carCases, sectionPos: sectionPos, carSections: carSections, G_ACC: G_ACC, playCalc: playCalc,
     trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
-    wPoints: wPoints, wCurve: wCurve, rsPsi: rsPsi, rsLimit: rsLimit, rotStops: rotStops, lineCurvature: lineCurvature, studyOf: studyOf, mcgClear: mcgClear, mcgWidth: mcgWidth, mcgOutline: mcgOutline, mcgCar: mcgCar, carProfiles: carProfiles,
+    suspLimit: suspLimit, elStatic: elStatic, measuredEval: measuredEval, wPoints: wPoints, wCurve: wCurve, rsPsi: rsPsi, rsLimit: rsLimit, rotStops: rotStops, lineCurvature: lineCurvature, studyOf: studyOf, mcgClear: mcgClear, mcgWidth: mcgWidth, mcgOutline: mcgOutline, mcgCar: mcgCar, carProfiles: carProfiles,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
     enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, bostrabCheck: bostrabCheck, simDisp: simDisp, simCases: simCases, simSection: simSection, simContext: simContext, simAlong: simAlong, simCurve: simCurve, simPick: simPick, simTangent: simTangent, simValidation: simValidation, simRun: simRun, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan

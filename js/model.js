@@ -201,7 +201,8 @@
       items: (sod.items || []).map(function (it) { return record(it, S.sodItem); }) };
     out.rs = { profiles: profiles(rs.profiles, S.rsProfile) };
     out.track = { params: record(tr.params, S.trackParams), segments: (tr.segments || []).map(function (s) { return record(s, S.segment); }) };
-    out.tests = { sway: (((p.tests || {}).sway) || []).map(function (r) { return record(r, S.swayTest); }) };
+    out.tests = { sway: (((p.tests || {}).sway) || []).map(function (r) { return record(r, S.swayTest); }),
+      measured: (((p.tests || {}).measured) || []).map(function (r) { return record(r, S.measPoint); }) };
     var st = p.settings || {};
     out.settings = { 'static': record(st['static'], S.staticOptions), dynamic: record(st.dynamic, S.dynamicOptions), report: record(st.report, S.reportOptions) };
     var dl = out.settings.dynamic, lcs = out.loads.cases;   // dynamic load case: a load-case name (older files: tare / crush)

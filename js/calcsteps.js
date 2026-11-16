@@ -190,6 +190,7 @@
     add({ part: 'B. Static check', id: 'vertical', title: 'B10. Vertical checks',
       refs: [ref('en2', 'Annex A.3.4 heights above the running surface, A.3.4.1.5 gradient transitions'), ref('uic1')],
       text: [
+        'Suspension limit (METHOD §5.3d): the deflections and the roll may be added only while the secondary stays within its travel – lowering + the secondary\'s share of the roll at the air spring must not reach the bump stop on the low side, nor the rebound stop on the high side. Electrical clearance (§5.3e): live parts of a rigid catenary must keep the static clearance (290 mm) to the car at rest and the dynamic one (190 mm) along the line.',
         'Further vertical terms (METHOD §5.3c, optional): the car body is pre-cambered upwards at mid-car when empty and sags when loaded; the ends deflect; a height difference between the two pivots (different suspension state or wheel wear of the bogies) pitches the body, so parts beyond the pivots rise at one end and fall at the other by Δz·n/a; vertical track unevenness raises and lowers the car, vertical rail head wear lowers it. Each section gets its own upward and downward addition.',
         'The roof plus the upward suspension movement must stay below the KE top; underframe equipment, after all downward movements (wheel wear, suspension deflection, roll of the body on the low side and the vertical-curve effect at mid-car / car end), must keep the customer\'s minimum height above the rail.',
         'With the EN 15273-2 option the heights of A.3.4 are checked as well. Each lower part lies in a body zone of Figure A.7: A (between the bogies, inside the air springs b2), B (between, outside b2), C (beyond the bogies, outside b2) or D (beyond, inside b2). Table A.1 gives its downward displacement: the suspension displacement Aff (air springs deflated), the difference ΔAff between the bogies weighted by n/a, a roll term 0,1·s·(b − b2) outside the springs, and the wheel wear Usr with the radius difference ΔUsr weighted by n/a. Bogie-mounted parts move with the primary suspension and the wheels only. On a vertical curve of 500 m the lower limit rises by the part of the sagitta above the 80 mm already in the reference profile (A.16 / A.17). For the roof, EN adds 10 mm per suspension level for the extension and reduces the allowed height by A.18 / A.19.'
@@ -271,6 +272,18 @@
         ['Per 100 mm cant at h2: measured / used', fmt(s1.checks[1].measured, 1) + ' / ' + fmt(s1.checks[1].used, 1) + ' mm'], ['Result', s1.ok ? 'OK' : 'CHECK']]) : null,
       nodata: 'Enter sway-test readings on the Tests tab to see the evaluation here.' });
     var pl = (ctx.plan || []).filter(function (x) { return c && x.car === c.car; })[0], pk = pl ? pl.cases.filter(function (x) { return x.id === k.id; })[0] : null;
+    var msr = (ctx.measured || []).filter(function (g) { return !g.error; })[0] || null;
+    add({ part: 'D. Test calculations', id: 'measure', title: 'D1a. Static gauge measurement of the built car',
+      refs: [ref('en2', 'conformity of the vehicle with its gauge (measurement of the static profile)'), ref('tool', '§13.3')],
+      text: [
+        'The first car is measured with a gauge template or a laser scanner. The measured points are run through the same Method B as the design profile: every point is moved by every movement of its section\'s cases and must stay inside the customer KE. The deviation from the design half-width shows where the built car is wider or narrower than drawn.'
+      ],
+      formulas: ['c = clearance(Y + E(Z), Z − θ·Y − Δz + up) ≥ 0 for every case of the section', 'deviation = Y_measured − W_design(Z)'],
+      example: msr ? ex(null, [['Car type / section', msr.car + ' / ' + (SEC[msr.section] || msr.section)], ['Points / design profile', msr.n + ' / ' + msr.profile],
+        ['Largest deviation', msr.devMax ? fmt(msr.devMax.dev, 1) + ' mm at ' + msr.devMax.pt : '–'], ['Smallest clearance with all movements', fmt(msr.min.c, 1) + ' mm at ' + msr.min.pt + ' (' + msr.min.case + ')'],
+        ['Status', msr.ok ? 'inside the KE' : 'INFRINGES']]) : null,
+      nodata: s ? 'Enter measured points on the Tests tab to see the evaluation here.' : noStatic });
+
     add({ part: 'D. Test calculations', id: 'gaugetest', title: 'D2. Kinematic gauge test',
       refs: [ref('en2', '§5.1.5 vehicle tolerances'), ref('metro'), ref('tool', '§13.2')],
       text: [
