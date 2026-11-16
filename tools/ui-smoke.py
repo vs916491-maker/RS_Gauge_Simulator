@@ -216,7 +216,7 @@ with sync_playwright() as pw:
 
     # Calculation Method tab (static and dynamic runs available)
     page.click('#tabbtn-calc'); page.wait_for_timeout(500)
-    ok(page.locator('#cm-body section.step').count() == 21 and page.locator('#cm-body .step .example table').count() == 19, 'calculation method: 21 steps, 19 with project numbers')
+    ok(page.locator('#cm-body section.step').count() == 22 and page.locator('#cm-body .step .example table').count() == 20, 'calculation method: 22 steps, 20 with project numbers')
     ok('39.65' in page.locator('#cm-methodB').text_content(), 'step B7 shows the governing clearance 39.65 mm')
     page.select_option('#calc-car', 'DMC'); page.wait_for_timeout(300); page.select_option('#calc-case', 'int_t'); page.wait_for_timeout(300)
     ok('DMC / Interior – AW0' in page.locator('#cm-geometry').text_content(), 'car type and case selectors drive the examples')
@@ -271,6 +271,7 @@ with sync_playwright() as pw:
     page.click('#tabbtn-train'); page.wait_for_timeout(200)
     page.select_option('#f-train-config select:has(option[value=bostrab])', 'customer'); page.wait_for_timeout(300)
 
+    ok(page.evaluate("!document.getElementById('sres-rs').hidden") and page.locator('#sres-rs-table tbody tr').count() == 3, 'rotation-stop table shown (%d rows)' % page.locator('#sres-rs-table tbody tr').count())
     # study direction: both shows the gauge card; backward runs without RS profiles; copy outlines to the RS tab
     page.click('#tabbtn-ssim'); page.wait_for_timeout(200)
     ok('Both' in page.locator('#ssim-study').text_content(), 'study direction shown on the Static Simulation tab')

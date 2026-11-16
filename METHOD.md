@@ -201,6 +201,28 @@ and on the direction: `w∞` on straight track, `w_i(R)` towards the inside of t
 * Where it is used: the workbook method at the static radius `Rs` (§6.1), the route sweep at the governing radius
   (§8.3) and the EN 15273-2 reductions (§10.4). Variable stops (§10.6) remain an EN-only input.
 
+### 5.3b Rotation stops
+
+Optional per bogie type: stops between bogie and body at a distance `x` ahead of and behind the bogie centre, on both
+sides, with a free lateral gap `g` (body centred, straight track) and an elastic travel `t` of the stop face.
+
+* Bogie yaw relative to the body on a curve of radius R: `ψ = asin(a/(2R))` (the body chord between the pivots against
+  the bogie, aligned with the track at its centre). A stop at `x` closes by `ψ·x` – the front stop on one side and the
+  rear stop on the other side, i.e. a **diagonal pair**.
+* **Free rotation** (design rules: the stop must not obstruct the rotation; no simultaneous contact on two diagonally
+  opposite stops): at the smallest radius `Rmin` (the smaller of the track parameter *Rmin* and the smallest radius in
+  the Track Data) `margin = g − ψ(Rmin)·x ≥ 0`; `g + t − ψ·x` = margin to a solid stop (information).
+* **Contact in service (comfort):** the body drifts on the secondary springs by
+  `y_q = (m/2)·a_q / (ψe·na·ky2)` (heaviest load case, `a_q = g·(I + Dw)/G` with the largest cant deficiency `I` and the
+  wind equivalent cant `Dw` if wind is on; `ψe` = 1 own bogie, ½ shared; at most `g`). A stop touches below the radius
+  `R_c = a / (2·sin((g − y_q)/x))` (rotation only: `y_q = 0`). The tool gives the length and share of the line with
+  `R < R_c`; when a comfort radius is entered, `R_c ≤ R_comf` is required (no contact on curves of `R_comf` and larger).
+* **Limit on w:** with the stops, the lateral clearance left at the pivot in either direction is
+  `w_rs(R) = g + t − ψ(R)·x` (front and rear stops of one side). With *Rotation stops limit w(R)* = Yes,
+  `w_i(R) = min(w_i entered, w_rs(R))`, `w_a(R) = min(w_a entered, w_rs(R))` and `w∞ = min(w∞, g + t)` in every
+  method (§5.3a, §6.1, §8.3, §10.4). With No, a warning is given when the entered w is larger than `w_rs`.
+* Free rotation, and the comfort radius when entered, are part of the car type's verdict.
+
 ### 5.4 Theoretical flexibility coefficient and roll centre
 
 Roll-stiffness share per body end: ψ = 1 for an own bogie, ½ for a shared bogie. With ψ1, ψ2 of the two ends:

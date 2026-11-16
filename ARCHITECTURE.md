@@ -57,7 +57,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
   loads:  { cases: [{ name, role: tare|crush|other, note }],
             cars:  [{ car, load, mass_t, cg_mm, dz_mm (blank = interpolated), s, hc_mm (other cases; blank = interpolated) }] },
   sections: [{ car, name, ref_end: end1|end2, dist_m, profile, note }],   // additional sections (METHOD §6.1a)
-  bogies: [{ name, p_m, play_ld_mm, q_mm, w_mm, w_defl_mm, w250_mm, w150_mm, wi250_mm, wi150_mm, wa250_mm, wa150_mm, wv_R_m, wv_mm, wv_a_mm, wheel_new_mm, wheel_worn_mm, pack_step_mm, dn_prim_mm, dn_sec_inf_mm,
+  bogies: [{ name, p_m, play_ld_mm, q_mm, w_mm, w_defl_mm, w250_mm, w150_mm, wi250_mm, wi150_mm, wa250_mm, wa150_mm, wv_R_m, wv_mm, wv_a_mm, rs_x_m, rs_gap_mm, rs_comp_mm, rs_limit_w, rs_Rcomf_m, wheel_new_mm, wheel_worn_mm, pack_step_mm, dn_prim_mm, dn_sec_inf_mm,
              dn_sec_def_mm, up_prim_mm, up_sec_mm, up_oi_mm, mass_t, n_axle, kz_prim, n_ps, b1_mm, z_prim_mm, kz2_t, kz2_c, kz_em,
              n_as, b2_mm, k_arb, z_sec_mm, z_sec_d_mm, ky_prim, ky_sec, ky2_d, bb_mm, ef_new_mm, ef_worn_mm }],
   bodies: [{ car, wind_len_m, wind_top_mm, wind_bot_mm, Cf, uf_h_mm, uf_hw_mm, uf_bog_h_mm, s_tare, s_crush, s_defl,
@@ -151,5 +151,6 @@ reads every known sheet.
 | 20 | Load definition (2): any number of load cases (AW0, AW2, AW3, AW4 …) with masses per car type, every case calculated | Done |
 | 21 | Additional sections per car type (distance from a body end, own profile; Method B, Method A, profile top) and car drawings with the sections | Done |
 | 22 | Study direction (backward / forward / both) and the maximum construction gauge outline (METHOD §7.3): per section and whole car, used as the profiles and on the route in a backward study, RS margins in a both study | Done (PR #22) |
-| 23 | Secondary clearance w∞, w_i(R), w_a(R) by direction and radius (METHOD §5.3a) in the workbook method, the route sweep and EN 15273-2 | **This pull request** |
+| 23 | Secondary clearance w∞, w_i(R), w_a(R) by direction and radius (METHOD §5.3a) in the workbook method, the route sweep and EN 15273-2 | Done (PR #23) |
+| 24 | Rotation stops (METHOD §5.3b): free rotation at R min (no diagonal contact), contact radius in service and share of the line, comfort radius, optional limit on w(R) | **This pull request** |
 | – | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |
