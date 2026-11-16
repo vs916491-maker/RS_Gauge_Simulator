@@ -85,6 +85,7 @@
       refs: [ref('en2', 'Annex A.3.9 ((l − d)/2, q, w)'), ref('uic1'), ref('metro', 'rail wear, gauge widening')],
       text: [
         '**Wheel–rail play (l − d)/2:** half the difference between track gauge and the wheelset\'s flange distance, with worn wheels. **q:** primary (axlebox) lateral play. **w:** secondary (bogie–body) lateral play to the bump stops. Metro methods add **rail gauge-face wear** and half the **gauge widening** on tight curves.',
+        'Secondary clearance and the curve (METHOD §5.3a): on straight track the body can move w∞ either way before the lateral stop; in a curve rotation or lateral stops may leave a different clearance towards the inside, **w_i(R)**, and towards the outside, **w_a(R)** (given at 250 m and 150 m, linear in 1/R). Between the pivots the body moves to the inside (w_i); beyond them it yaws – to the inside at the far bogie and to the outside at the near bogie: w_i·n/a + w_a·(n + a)/a, which is w·A when both are equal.',
         'All of these move the body bodily sideways; for sections beyond a pivot they are multiplied by A. Together with the overthrow they form the translation **T**, the same at every height.'
       ],
       formulas: ['T = dg + [ (l−d)/2 + q + w + wear + widening/2 ] · A'],

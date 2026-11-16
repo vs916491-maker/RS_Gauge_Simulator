@@ -380,7 +380,7 @@
     if (res.warnings.length) { sum.push([''], ['Warnings']); res.warnings.forEach(function (w) { sum.push([w]); }); }
     add('Static_Summary', sum, 34);
     var keys = [['n', 'Section position from pivot', 'm', 3], ['A', 'Yaw factor A', '–', 4], ['dg', 'Geometric overthrow', 'mm', 2], ['play', 'Wheel–rail half play × A', 'mm', 2], ['q', 'Primary lateral play × A', 'mm', 2],
-      ['w', 'Secondary lateral play × A', 'mm', 2], ['fw', 'Rail gauge-face wear × A', 'mm', 2], ['widen', 'Gauge widening/2 × A', 'mm', 2], ['T', 'Quasi-static translation T', 'mm', 2],
+      ['wi', 'w_i(Rs) towards the inside', 'mm', 2], ['wa', 'w_a(Rs) towards the outside', 'mm', 2], ['w', 'Secondary lateral play (w·A; on a curve w_i, or w_i·n/a + w_a·(n + a)/a)', 'mm', 2], ['fw', 'Rail gauge-face wear × A', 'mm', 2], ['widen', 'Gauge widening/2 × A', 'mm', 2], ['T', 'Quasi-static translation T', 'mm', 2],
       ['rnd_gauge', 'Random: track gauge tolerance', 'mm', 2], ['rnd_align', 'Random: alignment tolerance', 'mm', 2], ['cant', 'Cant excess (int) / deficiency (ext, end)', 'mm', 1], ['wind', 'Wind equivalent cant', 'mm', 2],
       ['cl', 'Cross-level error', 'mm', 1], ['s', 'Flexibility coefficient s', '–', 4], ['hc', 'Roll-centre height hc', 'm', 4], ['thq', 'Roll angle quasi-static θq', 'rad', 5], ['thr', 'Roll angle cross-level θr', 'rad', 5],
       ['tht', 'Rigid tilt θt', 'rad', 5], ['thtot', 'Total angle for vertical shift', 'rad', 5], ['drop', 'Body lowering Δz from tare', 'mm', 1], ['up', 'Upward movement combined with roll', 'mm', 1]];
@@ -583,7 +583,7 @@
     add('Dyn_SpeedStep', ss, 10);
     var cols = [['ch', 'Chainage (m)', 2], ['el', 'Element', 0], ['type', 'Type'], ['k', 'Curvature k (1/m, +L)', 7], ['Rl', 'Local R (m)', 1], ['cant', 'Cant (mm)', 2], ['V', 'Speed (km/h)', 0], ['Rv', 'Rv (m)', 0], ['ke', 'KE'],
       ['loc', 'Location'], ['kg', 'Governing |k| (1/m)', 7], ['Rg', 'Governing R (m)', 1], ['Eeq', 'Eq. cant (mm)', 2], ['def', 'Deficiency (mm)', 2], ['exc', 'Excess stopped (mm)', 2], ['Vw', 'Wind speed (km/h)', 0],
-      ['Dw', 'Wind eq. cant (mm)', 2], ['wd', 'Widening (mm)', 1], ['dgi', 'dgi mid (mm)', 2], ['dga', 'dga end (mm)', 2], ['o1', 'OUT h1 (mm)', 2], ['o2', 'OUT h2 (mm)', 2], ['i1', 'IN h1 (mm)', 2], ['i2', 'IN h2 (mm)', 2],
+      ['Dw', 'Wind eq. cant (mm)', 2], ['wd', 'Widening (mm)', 1], ['dgi', 'dgi mid (mm)', 2], ['dga', 'dga end (mm)', 2], ['wi', 'w_i(R) inside (mm)', 2], ['wa', 'w_a(R) outside (mm)', 2], ['o1', 'OUT h1 (mm)', 2], ['o2', 'OUT h2 (mm)', 2], ['i1', 'IN h1 (mm)', 2], ['i2', 'IN h2 (mm)', 2],
       ['kw1', 'KE w h1 (mm)', 2], ['kw2', 'KE w h2 (mm)', 2], ['xo', 'Excess OUT (mm)', 2], ['xi', 'Excess IN (mm)', 2], ['To', 'SOD allowance OUT (mm)', 2], ['Ti', 'SOD allowance IN (mm)', 2], ['sod', 'SOD check'],
       ['lean', 'Lean at h2 (mm)', 2], ['ho', 'Req. horizontal OUT (mm)', 2], ['hi', 'Req. horizontal IN (mm)', 2], ['sc', 'Structure clearance (mm)', 2], ['ss', 'Structure status'], ['vc', 'Vertical-curve effect (mm)', 2],
       ['uf', 'Underframe height (mm)', 2], ['ufs', 'Underframe status'], ['pl', 'Platform position'], ['gn', 'Gap nominal (mm)', 2], ['gm', 'Gap minimum (mm)', 2], ['gs', 'Gap status'], ['sodn', 'SOD profile'], ['sodc', 'SOD outline clearance (mm)', 2], ['sodp', 'Governing profile point'], ['sods', 'SOD outline status'],

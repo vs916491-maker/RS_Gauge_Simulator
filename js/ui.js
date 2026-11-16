@@ -546,6 +546,9 @@
       row('Total downward movement Σd (' + (o.vert_state === 'inflated' ? 'inflated' : 'deflated') + ')', 'mm', function (d) { return d.dn_total; }, 1),
       row('Total upward movement Σu', 'mm', function (d) { return d.up_total; }, 1),
       row('Secondary lateral play used w*', 'mm', function (d) { return d.w_use; }, 1),
+      row('w_i(R) / w_a(R) at 250 m (inside / outside)', 'mm', function (d) { return { v: fmt(d.wi(250), 1) + ' / ' + fmt(d.wa(250), 1) }; }),
+      row('w_i(R) / w_a(R) at 150 m (inside / outside)', 'mm', function (d) { return { v: fmt(d.wi(150), 1) + ' / ' + fmt(d.wa(150), 1) }; }),
+      row('w_i(R) / w_a(R) at the static radius Rs', 'mm', function (d) { var R = n0(state.p.track.params.R_static_m); return { v: R > 0 ? fmt(d.wi(R), 1) + ' / ' + fmt(d.wa(R), 1) : 'tangent: ' + fmt(d.w_use, 1) }; }),
       row('Roll-stiffness share ψ', '–', function (d) { return d.theoretical.roll_share; }, 2),
       row('Theoretical hc – tare / crush / deflated', 'm', function (d) { var t = d.theoretical; return { v: fmt(t.tare.hc, 3) + ' / ' + fmt(t.crush.hc, 3) + ' / ' + fmt(t.defl.hc, 3) }; }),
       row('Theoretical s – tare / crush / deflated', '–', function (d) { var t = d.theoretical; return { v: fmt(t.tare.s, 3) + ' / ' + fmt(t.crush.s, 3) + ' / ' + fmt(t.defl.s, 3) }; }),
@@ -749,7 +752,8 @@
     ['int', 'ext', 'end'].forEach(function (sec) { sectionChart('chart-sec-' + sec, r, c.car, sec); });
     // build-up
     var keys = [['n', 'Section position from pivot', 'm', 3], ['A', 'Yaw factor A', '–', 4], ['dg', 'Geometric overthrow at Rs', 'mm', 1], ['play', 'Wheel–rail half play × A', 'mm', 2], ['q', 'Primary lateral play × A', 'mm', 2],
-      ['w', 'Secondary lateral play × A', 'mm', 2], ['fw', 'Rail gauge-face wear × A', 'mm', 2], ['widen', 'Gauge widening/2 × A', 'mm', 2], ['T', 'Quasi-static translation T', 'mm', 2, true],
+      ['wi', 'w_i(Rs) – clearance towards the inside of the curve', 'mm', 2], ['wa', 'w_a(Rs) – clearance towards the outside of the curve', 'mm', 2],
+      ['w', 'Secondary lateral play: w∞·A, on a curve w_i (between) or w_i·n/a + w_a·(n + a)/a (beyond)', 'mm', 2], ['fw', 'Rail gauge-face wear × A', 'mm', 2], ['widen', 'Gauge widening/2 × A', 'mm', 2], ['T', 'Quasi-static translation T', 'mm', 2, true],
       ['rnd_gauge', 'Random: track gauge tolerance', 'mm', 2], ['rnd_align', 'Random: alignment tolerance', 'mm', 2], ['cant', 'Cant excess (interior) / deficiency (exterior, end)', 'mm', 1], ['wind', 'Wind equivalent cant', 'mm', 2],
       ['cl', 'Cross-level error', 'mm', 1], ['s', 'Flexibility coefficient s', '–', 3], ['hc', 'Roll-centre height hc', 'm', 3], ['thq', 'Roll angle – quasi-static θq = s·(cant + wind)/G', 'rad', 5, true], ['thr', 'Roll angle – cross-level θr (random)', 'rad', 5],
       ['tht', 'Rigid tilt – cross-level θt', 'rad', 5], ['thtot', 'Total angle for vertical shift', 'rad', 5], ['drop', 'Body lowering Δz from tare', 'mm', 1], ['up', 'Upward movement combined with roll', 'mm', 1]];
