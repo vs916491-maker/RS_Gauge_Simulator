@@ -114,7 +114,9 @@ tare, crush and deflated. Global: air density `ρ`, base for equivalent cant `Be
 ### 4.3 Bogie
 
 Per bogie type: wheelbase `p`; wheel–rail half play `(l − d)/2` (worn); primary lateral play `q`; secondary
-lateral play to the bump stop `w` (inflated) and `wd` (deflated); wheel diameter new `Dn` / worn `Dw`; maximum
+lateral play to the bump stop `w∞` (inflated, straight track) and `wd` (deflated); secondary play on curves (§5.3a):
+`w(250)`, `w(150)` for both directions, and per direction `w_i(250)`, `w_i(150)` (towards the inside of the curve) and
+`w_a(250)`, `w_a(150)` (towards the outside), blank = the both-directions value; wheel diameter new `Dn` / worn `Dw`; maximum
 radial wear between height corrections `Δr`; vertical travels: primary downward `dp`, secondary downward
 inflated `ds` / deflated `dsd`, primary rebound `up`, secondary rebound `us`, over-inflation `uo`; bogie mass `mb`,
 axles per bogie; suspension stiffness for the theoretical s and hc (§5.4); play-calculator inputs (back-to-back
@@ -185,6 +187,20 @@ Platform / Depot), wind Y/N, structure distance at h2, platform edge distance an
 * Total upward movement (upper parts): `Σu = up + us + (uo if over-inflation selected)`.
 * Secondary lateral play used: `w* = wd` if the lateral state is deflated, else `w`.
 
+### 5.3a Secondary clearance varying with the radius: w∞, w_i(R), w_a(R)
+
+With rotation stops or lateral stops that act in curves, the clearance between bogie and body depends on the radius
+and on the direction: `w∞` on straight track, `w_i(R)` towards the inside of the curve, `w_a(R)` towards the outside.
+
+* Per bogie and direction: `w(R) = w∞ + (w(250) − w∞)·(250/R)` for `R ≥ 250 m`;
+  `w(R) = w(250) + (w(150) − w(250))·(1/R − 1/250)/(1/150 − 1/250)` for `150 ≤ R < 250 m`; `w(150)` below 150 m
+  (linear in 1/R, as EN 15273-2 interpolates between its rule radii). Blanks: `w_i(250)` → `w(250)` → `w∞`;
+  `w_i(150)` → `w_i(250)` when only that is given and `w(150)` is blank, else `w(150)`; the same for `w_a`.
+* A car uses the larger value of its two bogies in each direction (conservative, as §4.3).
+* Deflated lateral state: `wd` in both directions and at every radius.
+* Where it is used: the workbook method at the static radius `Rs` (§6.1), the route sweep at the governing radius
+  (§8.3) and the EN 15273-2 reductions (§10.4). Variable stops (§10.6) remain an EN-only input.
+
 ### 5.4 Theoretical flexibility coefficient and roll centre
 
 Roll-stiffness share per body end: ψ = 1 for an own bogie, ½ for a shared bogie. With ψ1, ψ2 of the two ends:
@@ -236,7 +252,8 @@ Case parameters:
 | Geometric overthrow at Rs | interior `dgi = (a·n − n² + p²/4)/(2Rs)`; exterior / end `dga = (a·n + n² − p²/4)/(2Rs)`; 0 on tangent |
 | Yaw factor | 1 (interior), `A_ext`, `A_end` |
 | Gauge widening | `wd/2` if 0 < Rs < Rw, else 0 |
-| Quasi-static translation | `T = dg + A·[(l − d)/2 + q + w* + fw + wd/2]` |
+| Secondary play term | tangent (`Rs = 0`) or no curve values: `w*·A`; on a curve: interior `w_i(Rs)`, exterior / end `w_i(Rs)·n/a + w_a(Rs)·(n + a)/a` (§5.3a; the body yaws towards the inside at the far bogie and towards the outside at the near bogie; equal values give `w·A`) |
+| Quasi-static translation | `T = dg + A·[(l − d)/2 + q + fw + wd/2] + secondary play term` |
 | Random: gauge tolerance | interior `Δl`; exterior / end `Δl·A` only if selected |
 | Random: alignment | `al` if selected |
 | Cant | `Ie` (interior), `I` (exterior, end) |
@@ -371,6 +388,7 @@ case of the section (§6.1–§6.3: `x′ = x + E(h)`, `h′ = h − θ·x − �
 | Wind equivalent cant | `D = Cw·Vwind²` (if wind selected) |
 | Gauge widening | `wd` if 0 < Rg < Rw |
 | Overthrow | `dgi = (a² + p²)/8·|k_gov|`, `dga = (a·nE + nE² − p²/4)/2·|k_gov|` |
+| Plays at the governing radius Rg | `dT_in = (l − d)/2 + q + fw + w_i(Rg)`; `dT_out = A_end·[(l − d)/2 + q + fw] + w_i(Rg)·nE/a + w_a(Rg)·(nE + a)/a` (§5.3a; straight track or no curve values: `dT_out = A_end·dT_in` with `w*`) |
 | Required half-width OUTSIDE at h | `x_prof(h) + dga + dT_out + A_end·wd/2 + s·(I + D)/G·(h − hc) + random_out(h)` |
 | Required half-width INSIDE at h | `x_prof(h) + dgi + dT_in + wd/2 + s·(E + D)/G·(h − hc) + random_in(h)` |
 | KE half-width | `W_KE(h1)`, `W_KE(h2)` of the element's KE (upper envelope) |
@@ -527,7 +545,9 @@ profile point is treated as part of the body.
 | Coach Ei (A.46–A.48) | `Δi − 2R1·(w∞ − w(250)) ≤ R1·(l_max − d) − 2·(Ck_up − Ck)` | `P + q + w∞ + z − e0` | `Δi·k1 + q + w(250) + z + [x]>0 − Ck/R1` |
 | Coach Ea (A.49–A.51) | `Δa − 2R1·W ≤ R1·(l_max − d)·fi + 2Ck` | `(P + q)·A + w∞i·fi + w∞a·fa + z − e0` | `Δa·k1 + P·fa + q·A + w_i(250)·fi + w_a(250)·fa + z + [x]>0 − e0 − Ck/R1` |
 
-with `W = (w∞i − w_i(250))·fi + (w∞a − w_a(250))·fa`; `x = (Δi − Xi)·kx + w(150) − w(250)` between the pivots and
+with `W = (w∞i − w_i(250))·fi + (w∞a − w_a(250))·fa`. Directional clearances (§5.3a): between the pivots the body moves
+towards the inside of the curve at the bogie (`w = w_i(R)` of that bogie); beyond them `w_i` is the inside value of the
+far bogie and `w_a` the outside value of the bogie at the section's end. Without directional inputs both are `w(R)`; `x = (Δi − Xi)·kx + w(150) − w(250)` between the pivots and
 `x = (Δa − Xa)·kx + (w_i(150) − w_i(250))·fi + (w_a(150) − w_a(250))·fa` beyond. With the G1 values (`2Ck` = 5 | 7,5,
 `2R1` = 500, `kx` = 1/750, `e0 + Ck/R1` = 0,025 | 0,030, `Ck/R1` = 0,010 | 0,015, `Xi`, `Xa` = 100, 120) these are the
 standard's formulae; the switching conditions are applied as written.
@@ -535,6 +555,8 @@ standard's formulae; the switching conditions are applied as written.
 ### 10.5 Motor coaches (A.3.9.2, A.37–A.45)
 
 Unprimed: the motor bogie; primed: the carrying bogie. Each pair gives the larger of its two formulae (NOTE of A.3.9.2).
+Directional clearances as §10.4: between the pivots `w_i` of both bogies; beyond them `w_i` of the far bogie and `w_a`
+of the bogie at the section's end.
 
 * Between the pivots, `n_μ` = distance from the motor bogie centre (both `n_μ = ni` and `a − ni` are evaluated),
   `fm = (a − n_μ)/a`, `fc = n_μ/a`, `Δ = a·n_μ − n_μ² + p²/4·fm + p'²/4·fc`:
@@ -552,7 +574,8 @@ Unprimed: the motor bogie; primed: the carrying bogie. Each pair gives the large
 When a bogie has variable stops starting at radius `Rv` (with `w(Rv)`), the bracket formulae A.33 / A.35 (traction
 units) and A.52 / A.54 (coaches) are also evaluated at `R = Rv`:
 `Ei(Rv) = [(Δi − 2Ck)/(2Rv) + w(Rv)] + P + q + z − e0` (coach: `+ q + z`),
-`Ea(Rv) = [(Δa − 2Ck)/(2Rv) + w_i(Rv)·fi + w_a(Rv)·fa] + (P + q)·A + z − e0` (coach: `+ P·fa + q·A + z − e0`),
+`Ea(Rv) = [(Δa − 2Ck)/(2Rv) + w_i(Rv)·fi + w_a(Rv)·fa] + (P + q)·A + z − e0` (coach: `+ P·fa + q·A + z − e0`)
+with `w_i(Rv)` = *w_i at that radius* and `w_a(Rv)` = *w_a at that radius* (blank = the inside value),
 and the reduction is the larger of these and §10.4. The 150 m variants (A.34, A.36, A.53, A.55) are not applied: by
 footnotes 6 and 7 of the standard they do not apply in practice (variable stops act above 250 m); a warning is given
 for `Rv` below 250 m. Not defined for motor coaches.
