@@ -95,4 +95,12 @@ test('Excel: the Sections sheet of the train tab round-trips', function () {
   assert.deepStrictEqual(q.sections, P.sections);
 });
 
+test('Standard sections measured from the body ends (hand values)', function () {
+  var g = E.carGeometry({ length_m: 21.7, n_free_m: 3.5, n_art_m: 0, end1: 'free', end2: 'free', ni_m: 7.35, na_m: 2.173 });
+  assert.ok(Math.abs(g.int_e1 - 10.85) < 1e-9 && Math.abs(g.int_e2 - 10.85) < 1e-9);
+  assert.ok(Math.abs(g.ext_e1 - 1.327) < 1e-9 && Math.abs(g.ext_e2 - 1.327) < 1e-9);
+  var h = E.carGeometry({ length_m: 18, n_free_m: 3, n_art_m: 0.5, end1: 'free', end2: 'shared', ni_m: null, na_m: 2 });
+  assert.ok(Math.abs(h.int_e1 - (3 + h.a / 2)) < 1e-9 && Math.abs(h.ext_e1 - 1) < 1e-9 && h.ext_e2 === null, 'exterior beyond a 0,5 m shared overhang: none at end 2');
+});
+
 module.exports = tests;
