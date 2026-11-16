@@ -55,7 +55,7 @@
     add({ part: 'A. Concepts', id: 'flow', title: 'A2. The calculation route in this tool',
       refs: [ref('tool', '§1–§13')],
       text: [
-        '1. **Static (Static Simulation):** each RS profile point is displaced by every movement of the case and its clearance to the customer KE is measured (Method B); the largest static half-width the KE allows at each height follows (Method A); vertical checks complete it. Optional: EN 15273-2 kinematic reductions with the customer KE as reference profile.',
+        '1. **Static (Static Simulation):** each RS profile point is displaced by every movement of the case and its clearance to the customer KE is measured (Method B, forward); the largest static half-width the KE allows at each height follows (Method A) and, for a backward or both study, the full maximum construction gauge outline (B8a); vertical checks complete it. Optional: EN 15273-2 kinematic reductions with the customer KE as reference profile.',
         '2. **Dynamic (Dynamic Simulation):** along the line, at every chainage and for every car type, the required half-widths in the actual curve, cant and speed are compared with the KE and the SOD curve allowance; the whole profile is checked against the SOD outline, structures, underframe and platforms.',
         '3. **Tests:** the sway test confirms s and hc; the kinematic gauge test plan says how to show the static result on a test stand.',
         'The steps below follow this route. Numbers are those of the loaded project for the car type and case chosen above.'
@@ -139,6 +139,21 @@
       formulas: ['W_max(h) = W_KE(h) − max over the load cases of E_load(h)'],
       example: ma ? ex(null, [['Height h', fmt(ma.h, 0) + ' mm'], ['KE half-width', fmt(ma.W, 1) + ' mm'], ['Max static half-width – interior / exterior / car end', fmt(ma.max_int, 1) + ' / ' + fmt(ma.max_ext, 1) + ' / ' + fmt(ma.max_end, 1) + ' mm'],
         ['Margin of the RS profile – interior / exterior / car end', fmt(ma.margin_int, 1) + ' / ' + fmt(ma.margin_ext, 1) + ' / ' + fmt(ma.margin_end, 1) + ' mm']]) : null, nodata: noStatic });
+
+    var mg = c && c.mcg, mgc = mg ? mg.car : null, mgs = mg ? mg[k.section] : null;
+    add({ part: 'B. Static check', id: 'mcg', title: 'B8a. Maximum construction gauge outline (backward study)',
+      refs: [ref('en1', 'terms: maximum construction gauge'), ref('en2', '§5.1.1 maximum construction gauge = reference profile − reductions'), ref('uic1'), ref('tool', '§7.3')],
+      text: [
+        'Method A only gives half-widths on a height grid and ignores the vertical shift of the displaced point. The **maximum construction gauge outline** is the full backward answer: the largest closed cross-section whose every point, moved by **every** movement of every load case of the section (the same Method B displacement: lateral E(h), roll tilt θ·x, body lowering Δz, upward movement), still lies inside the customer KE.',
+        'At each height (default every 10 mm, refined in between where the outline would cut outside) the tool searches the largest half-width with all cases inside the KE. The top is the KE top minus the upward movement Σu (on the centre line, or combined with roll as the option says); the bottom on the centre line is the customer\'s minimum body-equipment height plus the downward movement Σd and the vertical-curve lowering, rising towards the side with the roll angle of the crush case. **Whole car** = all three sections together (the profile of a constant-section car body).',
+        'Study direction (Train Configuration): **Backward** uses these outlines as the section profiles (the Method B clearances then close at about 0 mm, a self-check) and the whole-car outline on the route; **Both** also checks the RS profiles and shows how far they stay inside the gauge; **Forward** does not derive it.'
+      ],
+      formulas: ['x_max(h) = largest x with c(x + E(h), h − θ·x − Δz + up) ≥ 0 for every case of the section', 'top = H_KE,top − Σu,  bottom(y) = cb + Σd + v_c + θ_crush·y'],
+      example: mgc && mgc.ok ? ex(null, [['Car type / study', c.car + ' / ' + (s.study || 'both')], ['Whole car: top / bottom on the centre line', fmt(mgc.top, 1) + ' / ' + fmt(mgc.bottom, 1) + ' mm'],
+        ['Whole car: largest half-width', fmt(mgc.maxWidth, 1) + ' mm (' + mgc.points.length + ' points)'],
+        [SEC[k.section] + ': largest half-width', mgs && mgs.ok ? fmt(mgs.maxWidth, 1) + ' mm' : '–'],
+        ['RS profile margin side / top (' + SEC[k.section] + ')', mgs && mgs.rs ? (mgs.rs.min ? fmt(mgs.rs.min.margin, 1) + ' mm at ' + mgs.rs.min.pt : '–') + ' / ' + fmt(mgs.rs.topMargin, 1) + ' mm' : 'not checked (backward study)']]) : null,
+      nodata: s ? 'Set the study direction to Backward or Both on Train Configuration and run again to see the outline.' : noStatic });
 
     var en = c && c.en, eq = en ? en.checks[k.section].min : null;
     add({ part: 'B. Static check', id: 'en', title: 'B9. EN 15273-2 kinematic reductions Ei / Ea',

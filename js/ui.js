@@ -288,6 +288,7 @@
     var t = state.p.train;
     form($('f-train-desc'), S.trainDescription, t);
     form($('f-train-config'), S.trainConfig, t, function (k) {
+      if (k === 'study') { changed(true); return; }
       if (k === 'framework' || (k === 'ebo_use' && t.framework === 'ebo')) { applyFramework(); changed(true); return; }
       changed(false);
     });
@@ -598,6 +599,7 @@
     profileChart('chart-ke', 'ke');
   }
   function renderRS() {
+    $('rs-study-note').hidden = state.p.train.study !== 'backward';
     profileSet($('ps-rs'), 'rs', state.p.rs.profiles, S.rsProfile, { newName: 'RS profile', onRename: function (old, nu) {
       renameRefs(state.p.train.carTypes, ['prof_int', 'prof_ext', 'prof_end'], old, nu);
       renameRefs(state.p.sections, ['profile'], old, nu);
@@ -658,8 +660,12 @@
   }
 
   // ---------------------------------------------------------------- Static Simulation
+  var STUDY_TXT = { both: 'Study direction: Both – the maximum construction gauge is derived from the customer KE (backward) and the RS profiles are checked (forward).',
+    backward: 'Study direction: Backward – the maximum construction gauge is derived from the customer KE and used as the section profiles; no RS profile is needed.',
+    forward: 'Study direction: Forward – the RS profiles are checked against the customer KE (no gauge outline is derived).' };
   function renderSsim() {
     var o = staticOpts();
+    $('ssim-study').textContent = STUDY_TXT[state.p.train.study] || STUDY_TXT.both;
     form($('f-static'), S.staticOptions, o, function () { changed(false); renderFramework(); }, { ke: keNames, en_static_ref: function () { return [''].concat(keNames()); } });
     renderFramework();
     carPicker($('ssim-cars'), o);
@@ -718,7 +724,10 @@
     // cards
     var cards = clear($('sres-cards')), g = r.governing;
     function stat(k, v, u, key) { cards.appendChild(el('div', { class: 'stat' + (key ? ' key' : '') }, [el('div', { class: 'v' }, [v, u ? el('span', { class: 'u', text: ' ' + u }) : null]), el('div', { class: 'k', text: k })])); }
-    stat('Governing clearance', g ? fmt(g.c, 1) : '—', 'mm', true);
+    var bw = r.study === 'backward';
+    $('sres-table-h').firstChild.textContent = bw ? 'Closure of the derived gauge with the customer KE by car type and case ' : 'Minimum clearance to the customer KE by car type and case ';
+    if (c.mcg && c.mcg.car.ok) { stat('Max construction gauge – ' + c.car + ' whole car', fmt(c.mcg.car.maxWidth, 1) + ' / ' + fmt(c.mcg.car.top, 0), 'mm half-width / top', bw); }
+    stat(bw ? 'Closure (gauge vs KE, ≈ 0 by construction)' : 'Governing clearance', g ? fmt(g.c, 1) : '—', 'mm', !bw);
     stat('Governing car and case', g ? g.car + ' · ' + g.label : '—');
     stat('Status', r.ok ? 'ALL OK' : 'CHECK');
     stat('Customer KE', r.ke.name);
@@ -735,6 +744,7 @@
       return { cls: x.car === c.car ? 'selrow' : '', cells: [x.car].concat(std(x).map(function (k) { return { v: fmt(k.min.c, 1) + ' @ ' + k.min.pt, cls: k.ok ? 'okcell' : 'badcell', title: k.profile }; }), xcell,
         [x.governing ? x.governing.label : '', { v: vOk ? 'OK' : 'CHECK', cls: vOk ? 'okcell' : 'badcell' }, { v: fmt(x.derived.shared.axle_t, 2), cls: x.derived.shared.axle_ok ? '' : 'badcell' }]) };
     }), 'results');
+    renderSresMcg(r, c);
     // section charts
     ['int', 'ext', 'end'].forEach(function (sec) { sectionChart('chart-sec-' + sec, r, c.car, sec); });
     // build-up
@@ -778,6 +788,53 @@
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {
       return v.info ? [v.label, fmt(v.value, 1), '', '', ''] : [v.label, fmt(v.value, 1), fmt(v.limit, 1), cCell(v.margin), { v: v.ok ? 'OK' : (v.id.indexOf('uf') === 0 ? 'BELOW MIN' : 'INFRINGES'), cls: v.ok ? 'okcell' : 'badcell' }];
     }));
+  }
+
+  // Maximum construction gauge of the selected car type (METHOD §7.3): chart, one row per section, points of the chosen outline
+  var MCG_SEC = { car: 'Whole car', int: 'Interior', ext: 'Exterior', end: 'Car end' };
+  function mcgKeys(c) { return ['car', 'int', 'ext', 'end'].concat((c.extraSections || []).map(function (q) { return q.key; })); }
+  function mcgLabel(c, k) { if (MCG_SEC[k]) { return MCG_SEC[k]; } var q = (c.extraSections || []).filter(function (x) { return x.key === k; })[0]; return q ? q.name : k; }
+  function renderSresMcg(r, c) {
+    var m = c.mcg, box = $('sres-mcg');
+    box.hidden = !m;
+    if (!m) { return; }
+    var sel = $('sres-mcg-sel'); clear(sel);
+    var opts = [['all', 'Whole car + sections']].concat(mcgKeys(c).map(function (k) { return [k, mcgLabel(c, k)]; }));
+    if (!opts.some(function (o) { return o[0] === state.mcgSel; })) { state.mcgSel = 'all'; }
+    opts.forEach(function (o) { sel.appendChild(el('option', { value: o[0], text: o[1], selected: o[0] === state.mcgSel })); });
+    $('sres-mcg-hint').textContent = 'At every height: the largest half-width whose point stays inside the KE in every load case of the section (Method B movements). Top = KE top − Σu ' +
+      (m.upRoll ? '(Σu combined with roll)' : '(' + fmt(m.up, 1) + ' mm, centre line)') + ' = ' + fmt(m.top, 1) + ' mm; bottom on the centre line = cb ' + fmt(m.cb, 0) + ' + Σd ' + fmt(m.dn, 1) +
+      ' + vertical curve ' + fmt(m.vc, 1) + ' = ' + fmt(m.bottom, 1) + ' mm, rising with the crush roll angle ' + fmt(m.th * 1000, 2) + ' mrad towards the side. Height step ' + fmt(m.step, 0) + ' mm, refined where needed.';
+    var both = r.study === 'both';
+    roTable($('sres-mcg-info'), ['Section', 'Top', 'Bottom', 'Largest half-width', 'Points'].concat(both ? ['RS profile', 'RS margin side / top'] : [], ['Status']), mcgKeys(c).map(function (k) {
+      var q = m[k];
+      if (!q.ok) { return [mcgLabel(c, k), '–', '–', '–', '–'].concat(both ? ['', ''] : [], [{ v: 'NO GAUGE', cls: 'badcell', title: q.warn.join(' ') }]); }
+      var rs = q.rs, rsOk = !rs || rs.ok;
+      return { cls: k === state.mcgSel ? 'selrow' : '', cells: [mcgLabel(c, k), fmt(q.top, 1), fmt(q.bottom, 1), fmt(q.maxWidth, 1), String(q.points.length)].concat(both ? [rs ? rs.profile : '–',
+        rs ? { v: (rs.min ? fmt(rs.min.margin, 1) + ' (' + rs.min.pt + ')' : '–') + ' / ' + fmt(rs.topMargin, 1), cls: rsOk ? 'okcell' : 'badcell' } : '–'] : [],
+        [{ v: q.warn.length ? 'OK (see warnings)' : 'OK', cls: 'okcell', title: q.warn.join(' ') }]) };
+    }));
+    var cols = { ke: cssVar('--c1', '#2563eb'), car: cssVar('--c4', '#dc2626'), int: cssVar('--c3', '#059669'), ext: cssVar('--c5', '#7c3aed'), end: cssVar('--c2', '#d97706'), rs: '#6b7280' };
+    var ds = P.mcgDatasets(r, c.car, state.mcgSel, cols);
+    scatterChart('chart-mcg', ds, P.profileAxes(ds), null, null, null, 'bottom');
+    var shown = m[state.mcgSel === 'all' ? 'car' : state.mcgSel];
+    roTable($('sres-mcg-points'), ['Pt', 'Y', 'Z'], shown && shown.ok ? shown.points.map(function (q) { return [q.pt, fmt(q.y, 1), fmt(q.z, 1)]; }) : []);
+  }
+  // Copy the outlines of the selected car type to the RS Profile tab (replacing profiles of the same name)
+  function copyMcg() {
+    var r = state.run, c = r && r.cars.filter(function (x) { return x.car === state.resCar; })[0];
+    if (!c || !c.mcg) { return; }
+    var n = 0;
+    mcgKeys(c).forEach(function (k) {
+      var m = c.mcg[k]; if (!m.ok) { return; }
+      var pr = { name: m.name, note: 'Maximum construction gauge derived from the customer KE ' + r.ke.name + ' (' + mcgLabel(c, k) + ')', points: m.points.map(function (q) { return { pt: q.pt, y: q.y, z: q.z }; }) };
+      var list = state.p.rs.profiles, i = -1;
+      list.forEach(function (x, j) { if (x.name === m.name) { i = j; } });
+      if (i >= 0) { list[i] = M.record(pr, S.rsProfile); list[i].points = pr.points; } else { var nr = M.record(pr, S.rsProfile); nr.points = pr.points; list.push(nr); }
+      n++;
+    });
+    changed(true);
+    $('sres-stale').textContent = n + ' outline(s) of ' + c.car + ' copied to the RS Profile tab.';
   }
 
   // Additional sections of the selected car type: one row per section (cases per load), chart of the chosen one
@@ -918,6 +975,7 @@
   // ---------------------------------------------------------------- Dynamic Simulation
   function renderDsim() {
     var o = dynOpts();
+    $('dsim-study-note').hidden = state.p.train.study !== 'backward';
     form($('f-dynamic'), S.dynamicOptions, o, function () { changed(false); },
       { profile: function () { return [''].concat(rsNames()); }, ss_ke: function () { return [''].concat(keNames()); }, load: loadNames });
     form($('f-dyn-step'), S.trackSweep, state.p.track.params);
@@ -1294,6 +1352,7 @@
     r.cars.forEach(function (c, i) {
       var sec = c.governing ? c.governing.id.split('_')[0] : 'int';
       im['sec-' + i] = profileShot(P.sectionDatasets(r, c.car, sec, { ke: RPT.ke, rs: RPT.rs, tare: RPT.tare, crush: RPT.crush }));
+      if (c.mcg) { im['mcg-' + i] = profileShot(P.mcgDatasets(r, c.car, 'all', { ke: RPT.ke, rs: RPT.mu, car: RPT.tare, int: RPT.rs, ext: RPT.ext, end: RPT.crush })); }
       im['ma-' + i] = halfWidthShot(P.methodADatasets(r, c.car, RPT));
       if (c.en) { im['en-' + i] = halfWidthShot(P.enDatasets(r, c.car, RPT)); }
     });
@@ -1607,6 +1666,8 @@
       IO.downloadWorkbook(IO.dynamicResultsWorkbook(state.drun, state.p, { stale: dstale() }), IO.fileSlug(state.p.name) + '-dynamic-results.xlsx');
     });
     $('sres-car').addEventListener('change', function () { state.resCar = this.value; renderSres(); });
+    $('sres-mcg-sel').addEventListener('change', function () { state.mcgSel = this.value; var r = state.run, c = r && r.cars.filter(function (x) { return x.car === state.resCar; })[0]; if (c) { renderSresMcg(r, c); } });
+    $('btn-mcg-copy').addEventListener('click', copyMcg);
     $('sres-case').addEventListener('change', function () { state.resCase = this.value; renderSres(); });
     $('sres-xs-sel').addEventListener('change', function () { state.resXs = this.value; renderSres(); });
     $('sres-en-sec').addEventListener('change', function () { renderSres(); });

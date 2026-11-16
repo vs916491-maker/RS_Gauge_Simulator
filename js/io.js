@@ -369,7 +369,8 @@
   function staticResultsWorkbook(res, p, meta) {
     var XL = X(), wb = XL.utils.book_new(), o = p.settings['static'];
     function add(name, rows, w) { var sh = XL.utils.aoa_to_sheet(rows); sh['!cols'] = rows[0].map(function (c, i) { return { wch: i === 0 ? (w || 22) : 14 }; }); XL.utils.book_append_sheet(wb, sh, name); }
-    var sum = [['Rolling Stock Gauge Simulator – static results'], ['Project', p.name], ['Customer KE', res.ke.name], ['Engine version', res.engineVersion],
+    var STUDY_L = { both: 'Both – define and check', backward: 'Backward – customer KE → maximum construction gauge', forward: 'Forward – RS profile → generated KE' };
+    var sum = [['Rolling Stock Gauge Simulator – static results'], ['Project', p.name], ['Customer KE', res.ke.name], ['Study direction', STUDY_L[res.study || 'both']], ['Engine version', res.engineVersion],
       ['Inputs changed since this run', meta && meta.stale ? 'YES – run again' : 'no'], ['Fictional example data', p.fictional ? 'YES' : 'no'], [''],
       ['Governing', res.governing ? res.governing.car + ' – ' + res.governing.label : '', res.governing ? r2(res.governing.c) : '', 'mm', res.ok ? 'ALL OK' : 'CHECK'], [''],
       ['Car type', 'Case', 'Section n (m)', 'Profile', 'Min clearance (mm)', 'At point', 'x displaced (mm)', 'h displaced (mm)', 'T (mm)', 'Status']];
@@ -410,6 +411,23 @@
     });
     if (!ma.length) { ma.push(['Car type', 'h (mm)', 'KE width (mm)']); }
     add('Method_A', ma, 10);
+    // maximum construction gauge outlines (METHOD §7.3): one row per vertex, ready to paste on the RS Profile tab
+    if (res.cars.some(function (c) { return c.mcg; })) {
+      var mg = [['Car type', 'Section', 'Profile name', 'Point (pt)', 'Y (y) (mm)', 'Z (z) (mm)', 'Top (mm)', 'Bottom on the centre line (mm)', 'Largest half-width (mm)', 'RS profile', 'Min margin RS → gauge (mm)', 'Top margin (mm)']];
+      res.cars.forEach(function (c) {
+        if (!c.mcg) { return; }
+        var nm = { car: 'Whole car', int: 'Interior', ext: 'Exterior', end: 'Car end' };
+        (c.extraSections || []).forEach(function (q) { nm[q.key] = q.name; });
+        Object.keys(nm).forEach(function (k) {
+          var m = c.mcg[k]; if (!m) { return; }
+          if (!m.ok) { mg.push([c.car, nm[k], m.name, '', '', '', '', '', '', '', '', m.warn.join(' ')]); return; }
+          m.points.forEach(function (q, i) {
+            mg.push([c.car, nm[k], m.name, q.pt, q.y, q.z].concat(i ? ['', '', '', '', '', ''] : [r2(m.top, 1), r2(m.bottom, 1), r2(m.maxWidth, 1), m.rs ? m.rs.profile : '', m.rs && m.rs.min ? r2(m.rs.min.margin, 1) : '', m.rs ? r2(m.rs.topMargin, 1) : '']));
+          });
+        });
+      });
+      add('Max_Construction_Gauge', mg, 10);
+    }
     if (res.en) {
       var en = [['Car type', 'Formula set', 'h (mm)', 'KE width (mm)', 'Ei Int (mm)', 'Ea Ext (mm)', 'Ea End (mm)', 'z Int (mm)', 'z End (mm)', 'EN max Int (mm)', 'EN max Ext (mm)', 'EN max End (mm)',
         'Method A Int (mm)', 'Method A Ext (mm)', 'Method A End (mm)', 'Margin Int (mm)', 'Margin Ext (mm)', 'Margin End (mm)']];

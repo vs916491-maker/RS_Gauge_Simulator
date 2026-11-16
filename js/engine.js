@@ -16,7 +16,7 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '5.0.0';
+  var VERSION = '5.1.0';
   var G_ACC = 9.81;
   // The six cases of the reference workbook (tare and crush); the cases of a run follow the load cases (carCases).
   var CASES = [
@@ -359,6 +359,150 @@
     var o = outline(pr.points, null); o.name = pr.name; return o;
   }
 
+  // ---------------------------------------------------------------- maximum construction gauge outline (METHOD §7.3)
+  // Study direction (Train Configuration): backward = customer KE → maximum construction gauge (no RS profile needed),
+  // forward = RS profile → generated KE checked against the customer KE, both = the two together.
+  function studyOf(p) { var s = p.train && p.train.study; return s === 'backward' || s === 'forward' ? s : 'both'; }
+
+  // Smallest clearance (mm) to the KE over the cases cps of a body point (x, h) in m, as Method B (§6.3–6.4).
+  // Below the bottom of the KE's upper envelope the displaced point must also lie inside the whole KE outline (its lower
+  // part, e.g. a third-rail or platform notch), which Method B does not look at.
+  function mcgClear(cps, ke, opt, x, h) {
+    var best = Infinity, i, cp, E, xd, hd, W, c;
+    if (!ke._full) { ke._full = keFullPoly(ke); }
+    for (i = 0; i < cps.length; i++) {
+      cp = cps[i]; E = lateralE(cp, h, opt);
+      xd = x + E / 1000; hd = h - cp.thtot * x - cp.drop / 1000 + cp.up / 1000;
+      W = keWidth(ke, Math.max(hd, ke.hUpBottom));
+      c = clearance((W - xd) * 1000, (keTop(ke, xd) - hd) * 1000);
+      if (hd < ke.hUpBottom) { c = Math.min(c, polySigned(xd * 1000, hd * 1000, ke._full)); }
+      if (c < best) { best = c; }
+    }
+    return best;
+  }
+  // Largest half-width x (m) at height h with every case inside the KE; null when even x = 0 is outside.
+  function mcgWidth(cps, ke, opt, h) {
+    if (mcgClear(cps, ke, opt, 0, h) < 0) { return null; }
+    var lim = 0, i;
+    for (i = 0; i < ke.pts.length; i++) { lim = Math.max(lim, ke.pts[i].x); }
+    var lo = 0, hi = null, x, step = 0.01;
+    for (x = step; x <= lim + 0.5; x += step) { if (mcgClear(cps, ke, opt, x, h) < 0) { hi = x; break; } lo = x; }
+    if (hi === null) { return lo; }
+    for (i = 0; i < 40; i++) { x = (lo + hi) / 2; if (mcgClear(cps, ke, opt, x, h) >= 0) { lo = x; } else { hi = x; } }
+    return lo;
+  }
+  /*
+   * Outline of the maximum construction gauge for the cases cps (one section, or all three for the whole car):
+   * top centre → side (upper and side part from the lateral and vertical movements) → bottom side → bottom centre.
+   * vb = { z0 (m, bottom on the centre line), th (rad, roll slope of the bottom) }. Points in mm (y floored to 0,1 mm).
+   */
+  function mcgOutline(cps, ke, opt, top, vb, step, name) {
+    var pts = [], warn = [], h, x;
+    function W(hh) { return mcgWidth(cps, ke, opt, hh); }
+    if (!(top > vb.z0)) { return { name: name, ok: false, points: [], warn: ['The KE leaves no height: bottom ' + fmtMm(vb.z0) + ' mm is above the top ' + fmtMm(top) + ' mm.'] }; }
+    // top: the cap, or lower where even the centre line leaves the KE
+    var hTop = top, xTop = W(top);
+    if (xTop === null) {
+      var lo = vb.z0, hi = top, k;
+      if (W(lo) === null) { return { name: name, ok: false, points: [], warn: ['No width at any height: the movements exceed the KE.'] }; }
+      for (k = 0; k < 50; k++) { h = (lo + hi) / 2; if (W(h) === null) { hi = h; } else { lo = h; } }
+      hTop = lo; xTop = W(hTop);
+    }
+    // bottom side point: on the roll-sloped bottom line z = z0 + th·x
+    var xb = W(vb.z0) || 0, zs = vb.z0 + vb.th * xb;
+    xb = W(zs) || 0; zs = vb.z0 + vb.th * xb;
+    var xs = W(zs);
+    if (xs === null) { xs = 0; warn.push('No width at the bottom side point (' + fmtMm(zs) + ' mm).'); }
+    var raw = [{ x: 0, h: hTop }];
+    if (xTop > 0) { raw.push({ x: xTop, h: hTop }); }
+    var hs = [];
+    for (h = Math.floor(hTop / step - 1e-9) * step; h > zs + 1e-9; h -= step) { hs.push(Math.round(h * 1e6) / 1e6); }
+    hs.forEach(function (hh) {
+      x = W(hh);
+      if (x === null) { x = 0; if (warn.length < 3) { warn.push('No width at ' + fmtMm(hh) + ' mm (the outline is closed to the centre line there).'); } }
+      raw.push({ x: x, h: hh });
+    });
+    raw.push({ x: xs, h: zs });
+    // refine: where the straight line between two points cuts outside the true width, add the midpoint (6 levels)
+    function refine(a, b, depth) {
+      if (depth > 6 || Math.abs(a.h - b.h) < 1e-5) { return [a]; }
+      var hm = (a.h + b.h) / 2, xm = W(hm), xl = (a.x + b.x) / 2;
+      if (xm === null || xl <= xm + 1e-5) { return [a]; }
+      var m = { x: xm, h: hm };
+      return refine(a, m, depth + 1).concat(refine(m, b, depth + 1));
+    }
+    var fine = [];
+    for (var i = 0; i < raw.length - 1; i++) { fine = fine.concat(i === 0 ? [raw[0]] : refine(raw[i], raw[i + 1], 0)); }
+    fine.push(raw[raw.length - 1]);
+    // drop points whose neighbours' chord stays on or inside them (never outside)
+    var keep = [fine[0]], j;
+    for (j = 1; j < fine.length - 1; j++) {
+      var a0 = keep[keep.length - 1], b0 = fine[j + 1], m0 = fine[j];
+      var t = (b0.h === a0.h) ? null : (m0.h - a0.h) / (b0.h - a0.h);
+      var xl0 = t === null ? null : a0.x + t * (b0.x - a0.x);
+      if (xl0 === null || t < 0 || t > 1 || xl0 > m0.x + 1e-6 || Math.abs(xl0 - m0.x) > 5e-5) { keep.push(m0); }
+    }
+    keep.push(fine[fine.length - 1]);
+    keep.push({ x: 0, h: vb.z0 });
+    var out = keep.map(function (q, n) { return { pt: 'M' + (n + 1), y: Math.floor(q.x * 10000 + 1e-6) / 10, z: (q.h === hTop ? Math.floor(q.h * 10000 + 1e-6) : Math.round(q.h * 10000)) / 10 }; });
+    // the 0,1 mm rounding must not put a vertex outside: pull it in until every case is inside
+    out.forEach(function (q) { var k2 = 0; while (q.y > 0 && k2 < 10 && mcgClear(cps, ke, opt, q.y / 1000, q.z / 1000) < 0) { q.y = Math.max(0, Math.round((q.y - 0.1) * 10) / 10); k2++; } });
+    var o = outline(out, null);
+    var maxW = 0; out.forEach(function (q) { maxW = Math.max(maxW, q.y); });
+    return { name: name, ok: true, points: out, top: out[0].z, bottom: vb.z0 * 1000, side: { y: Math.floor(xs * 10000) / 10, z: zs * 1000 }, maxWidth: maxW, warn: warn, o: o };
+  }
+  function fmtMm(m) { return (Math.round(m * 10000) / 10).toFixed(1); }
+
+  // Maximum construction gauge of one car type: per section (int, ext, end, additional sections) and the whole car.
+  function mcgCar(p, d, extras, ke, opt) {
+    var L = p.ke.limits || {}, tp = p.track.params, step = Math.max(1, Math.min(50, n0(opt.mcg_step_mm, 10))) / 1000;
+    var cases = carCases(d, extras).map(function (cs) { return { cs: cs, cp: caseParams(p, d, cs, opt) }; });
+    var top = ke.top - (yes(opt.up_roll) ? 0 : d.up_total / 1000);   // centre line: top + Σu ≤ KE top (§7.2)
+    var Rv = n0(tp.Rv_static_m), vc = Rv === 0 ? 0 : d.geo.a * d.geo.a / (8 * Rv) * 1000;
+    var th = cases.filter(function (k) { return k.cs.role === 'crush'; }).reduce(function (m, k) { return Math.max(m, k.cp.thtot); }, 0);
+    var z0 = (n0(L.uf_min_body_mm) + d.dn_total + vc) / 1000, vb = { z0: z0, th: th };
+    function pick(fn) { return cases.filter(function (k) { return fn(k.cs); }).map(function (k) { return k.cp; }); }
+    var nm = d.car + ' – ';
+    var res = {
+      step: step * 1000, top: top * 1000, bottom: z0 * 1000, vc: vc, th: th, cb: n0(L.uf_min_body_mm), dn: d.dn_total, up: d.up_total, upRoll: yes(opt.up_roll),
+      int: mcgOutline(pick(function (cs) { return cs.section === 'int'; }), ke, opt, top, vb, step, 'MCG ' + nm + 'interior'),
+      ext: mcgOutline(pick(function (cs) { return cs.section === 'ext'; }), ke, opt, top, vb, step, 'MCG ' + nm + 'exterior'),
+      end: mcgOutline(pick(function (cs) { return cs.section === 'end'; }), ke, opt, top, vb, step, 'MCG ' + nm + 'car end'),
+      car: mcgOutline(pick(function (cs) { return !cs.extra; }), ke, opt, top, vb, step, 'MCG ' + nm + 'whole car')
+    };
+    (extras || []).forEach(function (xs) { res[xs.key] = mcgOutline(pick(function (cs) { return cs.section === xs.key; }), ke, opt, top, vb, step, 'MCG ' + nm + xs.name); });
+    res.ok = ['int', 'ext', 'end', 'car'].concat((extras || []).map(function (xs) { return xs.key; })).every(function (k) { return res[k].ok; });
+    return res;
+  }
+  // Section profiles of a car type for a run: the RS profiles (forward, both) or the maximum construction gauge (backward).
+  function carProfiles(p, d, c, extras, ke, opt) {
+    var st = studyOf(p), mcg = st === 'forward' ? null : mcgCar(p, d, extras, ke, opt), profs;
+    if (st === 'backward') {
+      profs = {};
+      ['int', 'ext', 'end'].concat(extras.map(function (xs) { return xs.key; })).forEach(function (k) {
+        var m = mcg[k]; if (m.ok) { profs[k] = m.o; profs[k].name = m.name; } else { profs[k] = outline([{ pt: 'M1', y: 0, z: 0 }, { pt: 'M2', y: 0, z: 0 }], null); profs[k].name = m.name; }
+      });
+      extras.forEach(function (xs) { xs.profile = profs[xs.key].name; });
+    } else {
+      profs = { int: profileFor(p, c.prof_int), ext: profileFor(p, c.prof_ext), end: profileFor(p, c.prof_end) };
+      extras.forEach(function (xs) { profs[xs.key] = profileFor(p, xs.profile); xs.profile = profs[xs.key] ? profs[xs.key].name : ''; });
+    }
+    if (mcg && st === 'both') {   // RS profile against the gauge: horizontal margin at the profile vertex heights inside the gauge's height range
+      Object.keys(profs).forEach(function (k) {
+        var m = mcg[k]; if (!m || !m.ok || !profs[k]) { return; }
+        var min = null;
+        profs[k].pts.forEach(function (q) {
+          if (q.h > m.top / 1000 + 1e-9 || q.h < m.bottom / 1000 - 1e-9) { return; }
+          var mg = (profileWidth(m.o, q.h) - q.x) * 1000;
+          if (!min || mg < min.margin) { min = { margin: mg, pt: q.pt, h: q.h * 1000 }; }
+        });
+        var topM = m.top - profs[k].top * 1000;
+        m.rs = { profile: profs[k].name, min: min, topMargin: topM, ok: (!min || min.margin >= -0.05) && topM >= -0.05 };
+      });
+    }
+    return { profs: profs, mcg: mcg };
+  }
+
   /*
    * Static run (METHOD §6). opt = settings.static. Returns per car type the 6 cases, Method A and vertical checks,
    * plus the governing car / case. Throws only on missing essentials (callers validate first).
@@ -367,7 +511,8 @@
     opt = opt || {};
     var keP = findBy(p.ke.profiles, 'name', opt.ke) || p.ke.profiles[0];
     if (!keP) { throw new Error('No customer KE.'); }
-    if (!p.rs.profiles.length) { throw new Error('No RS profile.'); }
+    var study = studyOf(p);
+    if (study !== 'backward' && !p.rs.profiles.length) { throw new Error('No RS profile.'); }
     var ke = outline(keP.points, keP.n_up); ke.name = keP.name;
     var stP = (opt.en_static_ref && findBy(p.ke.profiles, 'name', opt.en_static_ref)) || keP, stRef = outline(stP.points, stP.n_up); stRef.name = stP.name;
     var want = opt.cars && opt.cars !== 'all' ? String(opt.cars).split(',') : null;
@@ -377,15 +522,18 @@
       var d = deriveCar(p, c, opt);
       if (!(d.geo.a > 0)) { warnings.push(c.name + ': pivot distance a ≤ 0 — check body length and overhangs.'); }
       if (!d.geo.na_ok) { warnings.push(c.name + ': exterior section na is beyond the car-end overhang.'); }
-      var profs = { int: profileFor(p, c.prof_int), ext: profileFor(p, c.prof_ext), end: profileFor(p, c.prof_end) };
-      var extras = carSections(p, c, d.geo);
-      extras.forEach(function (xs) { profs[xs.key] = profileFor(p, xs.profile); xs.profile = profs[xs.key] ? profs[xs.key].name : ''; });
+      var extras = carSections(p, c, d.geo), cpr = carProfiles(p, d, c, extras, ke, opt), profs = cpr.profs;
+      if (cpr.mcg) {
+        ['int', 'ext', 'end', 'car'].concat(extras.map(function (xs) { return xs.key; })).forEach(function (k) {
+          cpr.mcg[k].warn.forEach(function (w) { warnings.push(c.name + ' – ' + cpr.mcg[k].name + ': ' + w); });
+        });
+      }
       var cases = carCases(d, extras).map(function (cs) { return runCase(p, d, cs, ke, profs[cs.section], opt); });
       var worst = null;
       cases.forEach(function (r) { if (r.min && (!worst || r.min.c < worst.min.c)) { worst = r; } });
       var res = { car: c.name, count: c.count, derived: d, cases: cases, governing: worst ? { id: worst.id, label: worst.label, c: worst.min.c } : null,
         methodA: methodA(p, d, cases, ke, profs, opt), vertical: verticalChecks(p, d, cases, ke, profs, extras), profiles: { int: profs.int.name, ext: profs.ext.name, end: profs.end.name },
-        extraSections: extras };
+        extraSections: extras, mcg: cpr.mcg };
       if (yes(opt.en_check)) {
         res.en = enRun(p, d, ke, profs, opt, res.methodA);
         res.en.vertical = enVertical(p, d, c, ke, profs);
@@ -398,7 +546,7 @@
       }
       if (yes(opt.en_static)) { res.enStatic = enStaticRun(p, d, c, stRef, profs, opt); }
       if (yes(opt.bst_check)) { res.bostrab = bostrabCheck(p, d, profs, opt); }
-      res.ok = cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok) && (!res.bostrab || res.bostrab.ok);
+      res.ok = (!cpr.mcg || cpr.mcg.ok) && cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok) && (!res.bostrab || res.bostrab.ok);
       if (worst && (!gov || worst.min.c < gov.c)) { gov = { car: c.name, id: worst.id, label: worst.label, c: worst.min.c, pt: worst.min.pt }; }
       return res;
     });
@@ -422,7 +570,7 @@
       enRes = { governing: enGov, bogieParts: bp, ok: out.every(function (c) { return !c.en || c.en.ok; }) && bp.ok };
     }
     return {
-      engineVersion: VERSION, ke: { name: ke.name, top: ke.top * 1000, nUp: ke.nUp, points: keP.points },
+      engineVersion: VERSION, study: study, ke: { name: ke.name, top: ke.top * 1000, nUp: ke.nUp, points: keP.points },
       cars: out, governing: gov, en: enRes, ccd: ccdRes,
       enStatic: yes(opt.en_static) ? { ref: stRef.name, ok: out.every(function (c) { return !c.enStatic || c.enStatic.ok; }), governing: stGov(out) } : null,
       ok: out.every(function (r) { return r.ok; }) && (!enRes || enRes.bogieParts.ok) && (!ccdRes || ccdRes.ok), warnings: warnings
@@ -1102,7 +1250,9 @@
       var cv = conds[k].cv.slice().sort(function (u, v) { return n0(u.R_m) - n0(v.R_m); });
       return { cond: k, cases: simCases(conds[k].tr), curving: cv };
     }).filter(function (x) { return x.cases.length; });
-    var profs = { int: profileFor(p, c.prof_int), ext: profileFor(p, c.prof_ext), end: profileFor(p, c.prof_end) };
+    var profs;
+    if (studyOf(p) === 'backward') { var kp = findBy(p.ke.profiles, 'name', sOpt.ke) || p.ke.profiles[0], ko = outline(kp.points, kp.n_up); profs = carProfiles(p, d, c, [], ko, sOpt).profs; }
+    else { profs = { int: profileFor(p, c.prof_int), ext: profileFor(p, c.prof_ext), end: profileFor(p, c.prof_end) }; }
     var secs = [{ key: 'int', x: Math.max(0, g.a / 2 - g.ni), prof: profs.int }, { key: 'ext', x: g.a / 2 + g.na, prof: profs.ext }, { key: 'end', x: g.a / 2 + g.n_end, prof: profs.end }];
     return { car: c.name, a: g.a, p: d.bogie.p, xd: xd, hd: hd, fmax: fmax, kS: kS, conds: list, secs: secs };
   }
@@ -1454,7 +1604,7 @@
     return x || d.loads[0];
   }
   // Constants of one car type for the dynamic calculation (Dynamic Calc §1).
-  function dynConstants(p, d, sOpt, dOpt) {
+  function dynConstants(p, d, sOpt, dOpt, mcgProf) {
     var tp = p.track.params, G = n0(p.train.L_mm, 1500), L = p.ke.limits || {}, g = d.geo, bg = d.bogie;
     var ld = dynLoad(d, dOpt.load);
     var s = ld.s, hc = ld.hc, Cw = ld.Cw;
@@ -1467,9 +1617,12 @@
       return lin ? gtol + al + a + b : K * Math.sqrt(gtol * gtol + al * al + a * a + b * b);
     }
     var prof = null, c = d.carRec;
-    var pname = dOpt.profile ? dOpt.profile : c.prof_end;
-    var pr = findBy(p.rs.profiles, 'name', pname) || p.rs.profiles[0];
-    prof = outline(pr.points, null); prof.name = pr.name;
+    if (mcgProf) { prof = mcgProf; }   // backward study: the whole-car maximum construction gauge (METHOD §7.3)
+    else {
+      var pname = dOpt.profile ? dOpt.profile : c.prof_end;
+      var pr = findBy(p.rs.profiles, 'name', pname) || p.rs.profiles[0];
+      prof = outline(pr.points, null); prof.name = pr.name;
+    }
     var h1 = n0(L.h_ref1_mm) / 1000, h2 = n0(L.h_ref2_mm) / 1000, hf = n0(c.floor_mm) / 1000;
     return {
       s: s, hc: hc, Cw: Cw, dT_in: dT_in, dT_out: dT_out, thr: thr, tht: tht, h1: h1, h2: h2, hf: hf, G: G,
@@ -1678,9 +1831,16 @@
     var sw = sweepChainages(tm, dOpt, n0(p.track.params.dx_m, 10));
     var want = dOpt.cars && dOpt.cars !== 'all' ? String(dOpt.cars).split(',') : null;
     var cars = p.train.carTypes.filter(function (c) { return !want || want.indexOf(c.name) >= 0; });
-    var warnings = [], sc = sodContext(p);
+    var warnings = [], sc = sodContext(p), backward = studyOf(p) === 'backward';
+    if (backward) { warnings.push('Backward study: the route is checked with the whole-car maximum construction gauge derived from the customer KE "' + kes.__default.name + '" (static options), not with an RS profile.'); }
     var out = cars.map(function (c) {
-      var d = deriveCar(p, c, sOpt), k = dynConstants(p, d, sOpt, dOpt);
+      var d = deriveCar(p, c, sOpt), mp = null;
+      if (backward) {
+        var mc = mcgCar(p, d, [], kes.__default, sOpt).car;
+        if (!mc.ok) { throw new Error(c.name + ': no maximum construction gauge – ' + mc.warn.join(' ')); }
+        mp = mc.o; mp.name = mc.name;
+      }
+      var k = dynConstants(p, d, sOpt, dOpt, mp);
       var win = Math.ceil(k.win_m / sw.step - 1e-12);   // ROUNDUP(… / step, 0)
       var ka = sw.pts.map(function (q) { var e = tm.el[locate(tm, q.ch)], t = Math.max(0, Math.min(1, (q.ch - e.s0) / (e.s1 - e.s0))); return Math.abs(e.ks + (e.ke - e.ks) * t); });
       var rows = sw.pts.map(function (q, i) {
@@ -1720,7 +1880,7 @@
     ['def', 'xo', 'xi', 'sc', 'uf', 'gm', 'gn', 'sodc', 'itm', 'simc'].forEach(function (key) {
       if (summary[key]) { var row = env.filter(function (r) { return r.ch === summary[key].ch; })[0]; summary[key].car = row ? row[key + '_car'] : null; }
     });
-    return { engineVersion: VERSION, sweep: { ch0: sw.ch0, end: sw.end, step: sw.step, n: sw.pts.length }, ke: kes.__default.name,
+    return { engineVersion: VERSION, study: studyOf(p), sweep: { ch0: sw.ch0, end: sw.end, step: sw.step, n: sw.pts.length }, ke: kes.__default.name,
       cars: out, envelope: env, summary: summary, elements: elementSummary(tm, env), ccd: ccd, ok: summary.ok, warnings: warnings };
   }
 
@@ -1783,6 +1943,7 @@
     VERSION: VERSION, CASES: CASES, carLoads: carLoads, carCases: carCases, sectionPos: sectionPos, carSections: carSections, G_ACC: G_ACC, playCalc: playCalc,
     trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
+    studyOf: studyOf, mcgClear: mcgClear, mcgWidth: mcgWidth, mcgOutline: mcgOutline, mcgCar: mcgCar, carProfiles: carProfiles,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
     enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, bostrabCheck: bostrabCheck, simDisp: simDisp, simCases: simCases, simSection: simSection, simContext: simContext, simAlong: simAlong, simCurve: simCurve, simPick: simPick, simTangent: simTangent, simValidation: simValidation, simRun: simRun, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan

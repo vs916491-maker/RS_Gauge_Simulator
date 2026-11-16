@@ -4,6 +4,9 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
 
 * **Static (profile):** derive the maximum static profile from the customer kinematic envelope (KE), and check our
   RS profile + all vehicle/track movements (our KE) against the customer KE.
+* **Study direction** (Train Configuration): **Backward** – customer KE → maximum construction gauge outline per section
+  and for the whole car (no RS profile needed; the outline is used on the route too), **Forward** – RS profile →
+  generated KE vs customer KE, **Both** (default) – the two together, with each RS profile's margin to the gauge.
 * **Dynamic (route):** chainage by chainage along the line (curve, cant, vertical curve, speed, section type), check
   our KE against the structure gauge / SOD and items such as the third rail and platform edge.
 * Method of the reference gauging workbook: **Method B** (generated KE, point-by-point clearance) and **Method A**
@@ -20,7 +23,8 @@ Offline rolling stock gauging tool (sister of the RS SEC Simulator).
    workbook with every input sheet, which **Import all inputs…** reads back.
 5. **Static Simulation**: choose the options (defaults = reference method) and press **Run static simulation**;
    **Static Results** shows the governing car and case, charts of each section, the movement build-up, every point,
-   Method A and the vertical checks, and exports them to Excel. Optionally it also checks by the EN 15273-2:2009
+   Method A, the maximum construction gauge outline (backward / both study; **Copy outlines to the RS Profile tab**) and
+   the vertical checks, and exports them to Excel. Optionally it also checks by the EN 15273-2:2009
    kinematic method with the customer KE as reference profile (rules on the Customer KE & SOD tab, G1 defaults).
 6. **Dynamic Simulation**: sweeps every car type along the Track Data and press **Run dynamic simulation**;
    **Dynamic Results** gives the line summary (worst car type per chainage), charts against chainage, a chainage

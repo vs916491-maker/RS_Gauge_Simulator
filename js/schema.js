@@ -28,7 +28,9 @@
     f('formation', 'Train formation', 'text', '', { h: 'Car type names joined by "-", e.g. DMC-TC-MC-MC-TC-DMC', d: '' }),
     f('n_cars', 'Number of cars', 'int', '', { min: 1, max: 20, d: 6 })
   ];
+  var STUDY = [['both', 'Both – define the gauge and check the RS profile'], ['backward', 'Backward – customer KE → maximum construction gauge (define)'], ['forward', 'Forward – RS profile → generated KE vs customer KE (check)']];
   var trainConfig = [
+    f('study', 'Study direction', 'sel', '', { o: STUDY, d: 'both', h: 'Backward: no RS profile needed – the maximum construction gauge is derived from the customer KE and used as the section profiles and on the route. Forward: the RS profiles are checked. Both: the two together (METHOD §7.3)' }),
     f('vehicle_type', 'Vehicle type', 'sel', '', { o: [['lrv', 'LRV / tram'], ['metro', 'Metro'], ['hs', 'High-speed']], d: 'metro', h: 'Use "Apply typical values" to load the preset values of this type' }),
     f('vmax_kmh', 'Design speed Vd', 'num', 'km/h', { min: 1, max: 400, d: 90 }),
     f('gauge_mm', 'Nominal track gauge l', 'num', 'mm', { min: 600, max: 1800, d: 1435 }),
@@ -410,6 +412,7 @@
     f('ma_from_mm', 'Method A: first height', 'num', 'mm', { min: 0, max: 6000, d: 900 }),
     f('ma_to_mm', 'Method A: last height', 'num', 'mm', { min: 0, max: 8000, opt: true, h: 'Blank = top of the KE' }),
     f('ma_step_mm', 'Method A: height step', 'num', 'mm', { min: 10, max: 1000, d: 100 }),
+    f('mcg_step_mm', 'Maximum construction gauge: height step of the outline', 'num', 'mm', { min: 1, max: 50, d: 10, h: 'Backward / both study (METHOD §7.3); the outline is refined between the steps where needed' }),
     f('en_check', 'Also check EN 15273-2:2009 kinematic (customer KE as reference profile)', 'sel', '', { o: YN, d: 'no', h: 'Reductions Ei / Ea with the rules on the Customer KE & SOD tab; in the verdict when Yes' }),
     f('en_mc', 'EN: car with one motor bogie uses', 'sel', '', { o: [['traction', 'Traction-unit formulae (Table A.4 note a)'], ['motor', 'Motor-coach formulae A.3.9.2']], d: 'traction' }),
     f('bst_check', 'Also check BOStrab §34 vehicle dimensions', 'sel', '', { o: YN, d: 'no', h: 'Public limits of §34(2) and §34(3); the BOStrab-Lichtraum-Richtlinien are not yet included' }),
@@ -583,7 +586,7 @@
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
     trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
     staticOptions: staticOptions, dynamicOptions: dynamicOptions, reportOptions: reportOptions, swayTest: swayTest,
-    enGaugeRules: enGaugeRules, enGaugeValues: enGaugeValues, FRAMEWORKS: FRAMEWORKS, frameworkDefaults: frameworkDefaults, frameworkGauge: frameworkGauge,
+    enGaugeRules: enGaugeRules, enGaugeValues: enGaugeValues, FRAMEWORKS: FRAMEWORKS, STUDY: STUDY, frameworkDefaults: frameworkDefaults, frameworkGauge: frameworkGauge,
     defaults: defaults, byKey: byKey
   };
 }));

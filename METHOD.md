@@ -23,6 +23,11 @@ directions:
 * **Method A – define:** subtracted from the customer KE, it gives the **maximum static half-width** the car
   section may have at each height.
 
+**Study direction** (Train Configuration, §7.3): *Backward* – customer KE → maximum construction gauge (define; no
+RS profile needed, the derived outline is used as the section profiles and on the route); *Forward* – RS profile →
+generated KE checked against the customer KE (check); *Both* (default) – the two together, with the margin of each
+RS profile to the derived gauge.
+
 **Static gauge** = car section on straight track (or a set static radius) with every movement at its limit.
 **Dynamic gauge** = the same calculation evaluated at each chainage with the local curvature, cant, speed and
 wind (Phase 3).
@@ -64,7 +69,7 @@ Static Simulation (options, Run) → Static Results → (Dynamic Simulation → 
 
 ### 4.1 Train configuration
 
-Vehicle type (LRV / Metro / High-speed; *Apply typical values* loads `samples/vehicle-types.json`), design speed
+Study direction: backward / forward / both (§1, §7.3). Vehicle type (LRV / Metro / High-speed; *Apply typical values* loads `samples/vehicle-types.json`), design speed
 `Vd`, nominal track gauge `l`, distance between rail centres `G` (cant base, 1500 mm for 1435 mm gauge).
 
 Per **car type**: body length `Lb`, overhang pivot → free end `n`, overhang at a shared end `nj`, end 1 / end 2
@@ -155,6 +160,7 @@ Platform / Depot), wind Y/N, structure distance at h2, platform edge distance an
 | Wind | Yes | Wind equivalent cant |
 | Air-spring over-inflation | No | Adds `uo` to the upward movement |
 | Method A heights | 900 mm to KE top, 100 mm | Table and chart of §7 |
+| Maximum construction gauge: height step | 10 mm | Outline of §7.3 (backward and both studies), refined between the steps |
 
 ## 5. Derived values per car type
 
@@ -299,6 +305,35 @@ the KE top):
 | Roll lowering of the underframe edge | `max θ of the crush cases · yu` | information |
 | Body-mounted equipment height, worst case | `zu − Σd − a²/(8Rv) − θ·yu` | ≥ cb |
 | Bogie-mounted equipment height, worst case | `zbg − Δw − dp` | ≥ cbg |
+
+### 7.3 Maximum construction gauge outline (backward study)
+
+The full inverse of Method B: the largest closed cross-section whose every point, moved by every movement of every
+case of the section (§6.1–§6.3: `x′ = x + E(h)`, `h′ = h − θ·x − Δz + up`), stays inside the customer KE (§6.4,
+`c ≥ 0`). Calculated for the interior, exterior and car-end sections, each additional section (§6.1a) and the
+**whole car** (all cases of the three standard sections together = a constant-section car body).
+
+* **Side:** at each height h of a grid (step `Δh`, default 10 mm, from the top downwards) the largest half-width
+  `x_max(h)` with `c ≥ 0` in every case; where the displaced point is below the bottom of the KE's upper envelope it
+  must also lie inside the whole KE outline (signed distance ≥ 0 to the mirrored outline – a third-rail or platform
+  notch of the lower part; Method B itself does not look there): scan in 10 mm steps from the centre line, then bisection (40 halvings).
+  Between two grid heights the straight line of the outline is checked at the mid-height; where it lies outside the
+  true `x_max`, the mid-height point is added (up to 6 levels, 0,16 mm with the default step).
+* **Top:** `h_top = H_KE,top − Σu` on the centre line (§7.2; with *Upward movement combined with roll* = Yes the
+  upward movement is already in `h′` and `h_top = H_KE,top`); lower if even `x = 0` leaves the KE (bisection).
+* **Bottom:** on the centre line `z_b = cb + Σd + a²/(8Rv)` (§7.2, Rv static crest; 0 on level track), rising
+  towards the side with the roll of the crush cases: `z(y) = z_b + θ_crush·y`. The side ends where this line meets
+  `x_max`. Lower parts below the upper envelope of the KE are not part of Method B; check them with §7.2 / §10.7.
+* **Points** from the top centre round the side to the bottom centre (`M1 … Mn`, mm): y rounded down to 0,1 mm and
+  pulled in by 0,1 mm steps if a vertex would leave the KE after rounding; points whose neighbours' chord stays on or
+  inside them (within 0,05 mm) are dropped.
+* **Use by study:** *backward* – the section outlines are the RS profiles of §6 (Method B then closes at about 0 mm, a
+  self-check), the EN / BOStrab checks see the derived gauge, and the dynamic sweep (§8) uses the whole-car outline;
+  *both* – the RS profiles are checked as usual and each gets a horizontal margin to its section outline
+  (`x_max(h) − x_prof(h)` at the profile vertices inside the gauge's height range) and a top margin
+  (`h_top − profile top`); *forward* – not calculated.
+* The outline is a check result, not a design: it does not include the equipment, door or pantograph rules of §10
+  and assumes the plays and suspension of the inputs.
 
 ## 8. Dynamic calculation (chainage sweep)
 

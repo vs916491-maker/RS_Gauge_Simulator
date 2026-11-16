@@ -10,6 +10,7 @@
     "line": "Demo Line 1",
     "formation": "DMC-TC-MC-MC-TC-DMC",
     "n_cars": 6,
+    "study": "both",
     "vehicle_type": "metro",
     "vmax_kmh": 90,
     "gauge_mm": 1435,

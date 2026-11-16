@@ -421,6 +421,7 @@
 
   function validate(p) {
     var m = new Msgs(), t = p.train, cars = t.carTypes, carNames, bogieNames = {}, rsNames = {}, keNames, i;
+    var backward = t.study === 'backward';   // the maximum construction gauge replaces the RS profiles (METHOD §7.3)
     // ---- train
     rangeChecks(m, 'train', 'Train', t, S.trainDescription.concat(S.trainConfig));
     rangeChecks(m, 'bogie', 'Wind', t, S.trainWind);
@@ -445,6 +446,7 @@
         else if (!bogieNames[c[k]]) { m.add('train', 'err', w + ': bogie type "' + c[k] + '" is not defined on the Car body & Bogie tab.'); }
       });
       ['prof_int', 'prof_ext', 'prof_end'].forEach(function (k) {
+        if (backward) { return; }
         if (!c[k]) { m.add('train', 'err', w + ': ' + S.byKey(S.carType, k).l + ' is empty.'); }
         else if (!rsNames[c[k]]) { m.add('train', 'err', w + ': RS profile "' + c[k] + '" is not defined on the RS Profile tab.'); }
       });
@@ -470,6 +472,7 @@
       else if (p.sections.some(function (q, j) { return j < i && q.car === r.car && q.name === r.name; })) { m.add('train', 'err', w + ': the name is used twice for car type ' + r.car + '.'); }
       if (r.dist_m === null) { m.add('train', 'err', w + ': the distance from the body end is empty.'); }
       else if (r.dist_m > n0v(c.length_m)) { m.add('train', 'err', w + ': the distance ' + r.dist_m + ' m is beyond the body length ' + c.length_m + ' m.'); }
+      if (backward) { return; }
       if (!r.profile) { m.add('train', 'err', w + ': no RS profile chosen.'); }
       else if (!rsNames[r.profile]) { m.add('train', 'err', w + ': RS profile "' + r.profile + '" is not defined on the RS Profile tab.'); }
     });
@@ -598,7 +601,7 @@
     });
 
     // ---- RS profile
-    if (!p.rs.profiles.length) { m.add('rs', 'err', 'No rolling stock profile.'); }
+    if (!p.rs.profiles.length && !backward) { m.add('rs', 'err', 'No rolling stock profile (or choose the backward study on Train Configuration).'); }
     uniqueNames(m, 'rs', 'RS profile', p.rs.profiles);
     p.rs.profiles.forEach(function (pr) { profileChecks(m, 'rs', 'RS profile', pr); });
 
@@ -637,7 +640,7 @@
     // ---- dynamic options
     var dyo = p.settings.dynamic;
     rangeChecks(m, 'dsim', 'Dynamic options', dyo, S.dynamicOptions);
-    if (dyo.profile && !rsNames[dyo.profile]) { m.add('dsim', 'err', 'Dynamic options: RS profile "' + dyo.profile + '" not found.'); }
+    if (dyo.profile && !rsNames[dyo.profile] && !backward) { m.add('dsim', 'err', 'Dynamic options: RS profile "' + dyo.profile + '" not found.'); }
     if (dyo.ss_ke && !keNames[dyo.ss_ke]) { m.add('dsim', 'err', 'Dynamic options: KE "' + dyo.ss_ke + '" not found.'); }
     if (dyo.ch_from_m !== null && dyo.ch_to_m !== null && dyo.ch_to_m <= dyo.ch_from_m) { m.add('dsim', 'err', 'Dynamic options: end chainage must be greater than the start chainage.'); }
     if (!seg.length) { m.add('dsim', 'err', 'No track data: the dynamic simulation needs the Track Data tab.'); }
