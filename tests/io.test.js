@@ -88,7 +88,7 @@ test('Workbook-style track rows (labels as in the gauging workbook) are imported
 test('Static results workbook has the summary, build-up, points, Method A, EN (when selected), vertical and derived sheets', function () {
   var E = require('../js/engine.js'), res = E.staticRun(P, P.settings['static']);
   var wb = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(res, P, { stale: false }))));
-  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Max_Construction_Gauge', 'EN15273_MaxGauge', 'EN15273_Check', 'EN15273_Vertical', 'EN15273_DoorsSteps', 'EN15273_BogieParts', 'CCD_Static', 'Vertical_Checks', 'Derived_Values']);
+  assert.deepStrictEqual(wb.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Rotation_Stops', 'Max_Construction_Gauge', 'EN15273_MaxGauge', 'EN15273_Check', 'EN15273_Vertical', 'EN15273_DoorsSteps', 'EN15273_BogieParts', 'CCD_Static', 'Vertical_Checks', 'Derived_Values']);
   var mg = XL.utils.sheet_to_json(wb.Sheets.Max_Construction_Gauge, { header: 1 });
   assert.strictEqual(mg.length - 1, res.cars.reduce(function (n, c) { return n + ['car', 'int', 'ext', 'end'].concat(c.extraSections.map(function (q) { return q.key; })).reduce(function (m, k) { return m + c.mcg[k].points.length; }, 0); }, 0));
   var pts = XL.utils.sheet_to_json(wb.Sheets.Static_Points, { header: 1 });
@@ -98,7 +98,7 @@ test('Static results workbook has the summary, build-up, points, Method A, EN (w
   // without the EN check: no EN sheets
   var o = JSON.parse(JSON.stringify(P.settings['static'])); o.en_check = 'no';
   var wb2 = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(E.staticRun(P, o), P, { stale: false }))));
-  assert.deepStrictEqual(wb2.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Max_Construction_Gauge', 'CCD_Static', 'Vertical_Checks', 'Derived_Values']);
+  assert.deepStrictEqual(wb2.SheetNames, ['Static_Summary', 'Static_BuildUp', 'Static_Points', 'Method_A', 'Rotation_Stops', 'Max_Construction_Gauge', 'CCD_Static', 'Vertical_Checks', 'Derived_Values']);
   // forward study: no gauge sheet
   var pf = JSON.parse(JSON.stringify(P)); pf.train.study = 'forward';
   var wb4 = IO.readWorkbookBytes(new Uint8Array(IO.workbookBytes(IO.staticResultsWorkbook(E.staticRun(pf, o), pf, { stale: false }))));
