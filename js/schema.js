@@ -158,6 +158,8 @@
     f('dn_sec_def_mm', 'Secondary – downward, deflated dsd', 'num', 'mm', { min: 0, max: 200, d: 50 }),
     f('up_prim_mm', 'Primary – upward (rebound) up', 'num', 'mm', { min: 0, max: 100, d: 15 }),
     f('up_sec_mm', 'Secondary – upward (rebound) us', 'num', 'mm', { min: 0, max: 100, d: 15 }),
+    f('bump_dn_mm', 'Secondary: free vertical travel to the bump stop – downward, from tare', 'num', 'mm', { min: 0, max: 200, opt: true, h: 'Blank = no check. Limit for sag + roll on the low side (METHOD §5.3d)' }),
+    f('bump_up_mm', 'Secondary: free vertical travel to the rebound stop – upward, from tare', 'num', 'mm', { min: 0, max: 200, opt: true, h: 'Blank = no check. Limit for the roll on the high side' }),
     f('up_oi_mm', 'Air-spring over-inflation uo', 'num', 'mm', { min: 0, max: 100, d: 20 }),
     f('mass_t', 'Bogie mass (complete) mb', 'num', 't', { min: 0.5, max: 20, d: 6.5 }),
     f('n_axle', 'Axles per bogie', 'int', '', { min: 1, max: 4, d: 2 }),
@@ -290,7 +292,9 @@
     f('sod_L_m', 'SOD design vehicle – body length L', 'num', 'm', { min: 1, max: 40, opt: true, h: 'Blank = this vehicle' }),
     f('sod_b_m', 'SOD design vehicle – bogie wheelbase b', 'num', 'm', { min: 0.5, max: 5, opt: true, h: 'Blank = this vehicle' }),
     f('h_ref1_mm', 'Reference height 1 (floor / platform level) h1', 'num', 'mm', { min: 0, max: 3000, d: 1100 }),
-    f('h_ref2_mm', 'Reference height 2 (cantrail) h2', 'num', 'mm', { min: 0, max: 6000, d: 3000 })
+    f('h_ref2_mm', 'Reference height 2 (cantrail) h2', 'num', 'mm', { min: 0, max: 6000, d: 3000 }),
+    f('el_static_mm', 'Electrical clearance to live contact-line parts – static', 'num', 'mm', { min: 0, max: 2000, d: 290, h: 'Rigid catenary / contact line: SOD items of type "Overhead line" are the live parts (METHOD §5.3e)' }),
+    f('el_dynamic_mm', 'Electrical clearance to live contact-line parts – dynamic', 'num', 'mm', { min: 0, max: 2000, d: 190, h: 'Required clearance of "Overhead line" items along the line (at least this value)' })
   ];
   var GAUGES = [['G1', 'G1 (Annex A)'], ['GA', 'GA (Annex B)'], ['GB', 'GB (Annex B)'], ['GC', 'GC (Annex B)'], ['GB1', 'GB1 (Annex C)'], ['GB2', 'GB2 (Annex C)'],
     ['G2', 'G2 (Annex E)'], ['DE1', 'DE1 (Annex L)'], ['DE2', 'DE2 (Annex L)'], ['DE3', 'DE3 (Annex L)'], ['custom', 'Custom (values below)']];
@@ -458,6 +462,16 @@
     f('note', 'Note', 'text', '', { d: '' })
   ];
 
+  // Static gauge measurement (template / laser) of a built car (METHOD §13.3)
+  var measPoint = [
+    f('car', 'Car type', 'text', '', { d: '' }),
+    f('section', 'Section', 'sel', '', { o: [['int', 'Interior'], ['ext', 'Exterior'], ['end', 'Car end']], d: 'int' }),
+    f('pt', 'Point', 'text', '', { d: '' }),
+    f('y_mm', 'Measured half-width Y', 'num', 'mm', { min: 0, max: 3000 }),
+    f('z_mm', 'Measured height Z above rail', 'num', 'mm', { min: 0, max: 6000 }),
+    f('note', 'Note', 'text', '', { d: '' })
+  ];
+
   // ---------------------------------------------------------------- EN Dynamic Method tab (METHOD §15, EN 15273-2 §5.2 / Annex O)
   var DATUM = [['lead', 'Leading end'], ['centre', 'Centre'], ['trail', 'Trailing end']];
   var simSettings = [
@@ -601,7 +615,7 @@
     customerLimits: customerLimits, enParams: enParams, sodSettings: sodSettings, point: point, sodItem: sodItem,
     keProfile: keProfile, sodProfile: sodProfile, rsProfile: rsProfile,
     trackOperating: trackOperating, trackTolerances: trackTolerances, trackStatic: trackStatic, trackSweep: trackSweep,
-    trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
+    measPoint: measPoint, trackParams: trackOperating.concat(trackTolerances, trackStatic, trackSweep), segment: segment,
     staticOptions: staticOptions, dynamicOptions: dynamicOptions, reportOptions: reportOptions, swayTest: swayTest,
     enGaugeRules: enGaugeRules, enGaugeValues: enGaugeValues, FRAMEWORKS: FRAMEWORKS, STUDY: STUDY, frameworkDefaults: frameworkDefaults, frameworkGauge: frameworkGauge,
     defaults: defaults, byKey: byKey

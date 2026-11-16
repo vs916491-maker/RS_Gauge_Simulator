@@ -33,7 +33,7 @@
     ke: ['KE', 'CustomerLimits', 'SOD', 'SOD_Settings', 'SOD_Items', 'EN_Params', 'Third_Rail', 'Third_Rail_Parts'],
     rs: ['RSProfile', 'EN_Doors_Steps', 'EN_Pantographs'],
     track: ['TrackParams', 'Track'],
-    tests: ['Sway_Test'],
+    tests: ['Sway_Test', 'Measured_Profile'],
     endyn: ['Sim_Settings', 'Sim_Cars', 'Sim_Transient', 'Sim_Curving', 'Val_Weighbridge', 'Val_BogieRotation', 'Val_Sway', 'Val_Ride']
   };
   var PRIMARY = { train: 'Train', bogie: 'Bogies', ke: 'KE', rs: 'RSProfile', track: 'Track', tests: 'Sway_Test', endyn: 'Sim_Transient' };
@@ -117,6 +117,7 @@
       case 'TrackParams': return paramRows(p.track.params, S.trackParams);
       case 'Track': return tableRows(p.track.segments, S.segment);
       case 'Sway_Test': return tableRows(p.tests.sway, S.swayTest);
+      case 'Measured_Profile': return tableRows(p.tests.measured || [], S.measPoint);
       case 'Sim_Settings': return paramRows((p.sim || {}).settings || {}, S.simSettings);
       case 'Sim_Cars': return tableRows((p.sim || {}).cars || [], S.simCar);
       case 'Sim_Transient': return tableRows((p.sim || {}).transient || [], S.simTransient);
@@ -162,6 +163,7 @@
     RSProfile: 'Rolling stock static section profile(s) (e.g. roof section, HVAC section): profile name and points as for KE. Car types pick a profile for each section.',
     TrackParams: 'Operating limits (cant, cant deficiency / excess, wind), track tolerances and the static-check geometry.',
     Track: 'One row per element (Tangent / Transition / Circular) in increasing chainage, without gaps. R 0 = infinite; transitions go from R start to R end with cant start to cant end. Rv > 0 crest, < 0 sag. Location Open / Tunnel / Platform / Depot.',
+    Measured_Profile: 'Static gauge measurement of a built car (gauge template or laser): one row per measured point – car type, section (Interior / Exterior / Car end), point name, half-width Y and height Z above the rail in mm. Checked with every movement against the customer KE.',
     Sway_Test: 'Sway (roll) test: one row per shim step. Car type name, load state (Tare / Crush / Deflated), shim height D, low side, and the lateral body displacement in the track plane at 2 or 3 heights, relative to the reading without shims, positive towards the low rail.'
   };
 
@@ -336,6 +338,7 @@
         case 'TrackParams': v = readParams(rows, S.trackParams, msgs, n); Object.keys(v).forEach(function (k) { raw.track.params[k] = v[k]; }); break;
         case 'Track': v = readTable(rows, S.segment, msgs, n); if (v) { raw.track.segments = v; } break;
         case 'Sway_Test': v = readTable(rows, S.swayTest, msgs, n); if (v) { raw.tests = raw.tests || {}; raw.tests.sway = v; } break;
+        case 'Measured_Profile': v = readTable(rows, S.measPoint, msgs, n); if (v) { raw.tests = raw.tests || {}; raw.tests.measured = v; } break;
         case 'Sim_Settings': v = readParams(rows, S.simSettings, msgs, n); raw.sim = raw.sim || {}; raw.sim.settings = raw.sim.settings || {}; Object.keys(v).forEach(function (k) { raw.sim.settings[k] = v[k]; }); break;
         case 'Sim_Cars': v = readTable(rows, S.simCar, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.cars = v; } break;
         case 'Sim_Transient': v = readTable(rows, S.simTransient, msgs, n); if (v) { raw.sim = raw.sim || {}; raw.sim.transient = v; } break;
@@ -544,6 +547,14 @@
     });
     add('Gauge_Test_Setup', su, 12);
     add('Gauge_Test_Points', pts, 10);
+    if (meta && meta.measured && meta.measured.length) {   // static gauge measurement (METHOD §13.3)
+      var me = [['Car type', 'Section', 'Pt', 'Y measured (mm)', 'Z measured (mm)', 'Design Y (mm)', 'Deviation (mm)', 'Clearance with all movements (mm)', 'Governing case', 'Status']];
+      meta.measured.forEach(function (g) {
+        if (g.error) { me.push([g.car, g.section, '', '', '', '', '', '', '', 'ERROR: ' + g.error]); return; }
+        g.points.forEach(function (q) { me.push([g.car, g.section, q.pt, q.y, q.z, q.design === null ? '' : r2(q.design, 1), q.dev === null ? '' : r2(q.dev, 1), r2(q.c, 2), q.case, q.ok ? 'OK' : 'INFRINGES']); });
+      });
+      add('Measured_Profile_Check', me, 10);
+    }
     return wb;
   }
   function dynamicResultsWorkbook(res, p, meta) {

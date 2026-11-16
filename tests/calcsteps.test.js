@@ -8,7 +8,7 @@ var tests = [];
 function test(name, fn) { tests.push({ name: name, fn: fn }); }
 function ctx(withDyn) {
   var p = M.normalizeProject(JSON.parse(JSON.stringify(SAMPLE))), s = E.staticRun(p, p.settings['static']), sw = E.swayEval(p, p.settings['static']);
-  return { p: p, sres: s, dres: withDyn ? E.dynamicRun(p, p.settings['static'], p.settings.dynamic) : null, car: null, caseId: null, ch: null, sway: sw, plan: E.gaugeTestPlan(p, s, sw) };
+  return { p: p, sres: s, dres: withDyn ? E.dynamicRun(p, p.settings['static'], p.settings.dynamic) : null, car: null, caseId: null, ch: null, sway: sw, plan: E.gaugeTestPlan(p, s, sw), measured: E.measuredEval(p, s, p.settings['static']) };
 }
 
 test('Calculation steps: four parts, references on every step, examples from the engine', function () {

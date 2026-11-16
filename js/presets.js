@@ -280,6 +280,8 @@
           "dn_sec_def_mm": 50,
           "up_prim_mm": 15,
           "up_sec_mm": 15,
+          "bump_dn_mm": 75,
+          "bump_up_mm": 65,
           "up_oi_mm": 20,
           "mass_t": 7.2,
           "n_axle": 2,
@@ -334,6 +336,8 @@
           "dn_sec_def_mm": 50,
           "up_prim_mm": 15,
           "up_sec_mm": 15,
+          "bump_dn_mm": 75,
+          "bump_up_mm": 65,
           "up_oi_mm": 20,
           "mass_t": 5.8,
           "n_axle": 2,
@@ -1439,7 +1443,9 @@
           "sod_L_m": null,
           "sod_b_m": null,
           "h_ref1_mm": 1100,
-          "h_ref2_mm": 3000
+          "h_ref2_mm": 3000,
+          "el_static_mm": 290,
+          "el_dynamic_mm": 190
         },
         "en": {
           "en_gauge": "G1",
@@ -2595,6 +2601,104 @@
             "h3_mm": 3600,
             "y3_mm": 70.8,
             "note": "Fictional example"
+          }
+        ],
+        "measured": [
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R1",
+            "y_mm": 0,
+            "z_mm": 3778,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R2",
+            "y_mm": 182,
+            "z_mm": 3772,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R3",
+            "y_mm": 362,
+            "z_mm": 3750,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R4",
+            "y_mm": 542,
+            "z_mm": 3712,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R5",
+            "y_mm": 721,
+            "z_mm": 3655,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R6",
+            "y_mm": 882,
+            "z_mm": 3580,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R7",
+            "y_mm": 1022,
+            "z_mm": 3490,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R8",
+            "y_mm": 1152,
+            "z_mm": 3390,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R9",
+            "y_mm": 1283,
+            "z_mm": 3270,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R10",
+            "y_mm": 1332,
+            "z_mm": 3060,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R11",
+            "y_mm": 1444,
+            "z_mm": 2000,
+            "note": "Fictional laser reading"
+          },
+          {
+            "car": "DMC",
+            "section": "int",
+            "pt": "M-R12",
+            "y_mm": 1443,
+            "z_mm": 1090,
+            "note": "Fictional laser reading"
           }
         ]
       }
