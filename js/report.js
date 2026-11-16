@@ -77,9 +77,16 @@
     h1('1. Purpose and scope');
     para('This report gives the gauging of the ' + (t.name || 'train') + (t.formation ? ' (' + t.formation + ')' : '') + ', car types ' + carNames.join(', ') +
       ', against the customer kinematic envelope ' + (s ? '**' + s.ke.name + '**' : '') + '. It covers:');
-    var scope = ['the static check of the RS profiles with all vehicle movements against the customer KE (Method B, three sections × ' + ((p.loads || {}).cases || []).length + ' load cases per car type);',
+    var study = (s && s.study) || t.study || 'both';
+    var scope = [study === 'backward'
+      ? 'the closure check of the derived maximum construction gauge with all vehicle movements against the customer KE (Method B, three sections × ' + ((p.loads || {}).cases || []).length + ' load cases per car type);'
+      : 'the static check of the RS profiles with all vehicle movements against the customer KE (Method B, three sections × ' + ((p.loads || {}).cases || []).length + ' load cases per car type);',
       'the maximum static half-width allowed by the customer KE (Method A) and the vertical checks;'];
+    var STUDY_T = { both: 'both directions – the maximum construction gauge is derived from the customer KE (backward) and the RS profiles are checked (forward)',
+      backward: 'backward – the maximum construction gauge is derived from the customer KE; no RS profile is checked', forward: 'forward – the RS profiles are checked against the customer KE' };
+    if (study !== 'forward') { scope.splice(1, 0, 'the maximum construction gauge derived from the customer KE: the outline per section and for the whole car (METHOD §7.3);'); }
     var FWN = { customer: 'customer KE (metro practice)', en: 'EN 15273-2', ebo: 'EBO (German main line, reference line ' + (t.ebo_use === 'g1' ? 'G1' : 'G2') + ')', bostrab: 'BOStrab (German tram, light rail, U-Bahn)' };
+    scope.unshift('study direction: ' + STUDY_T[study] + ';');
     scope.unshift('applicable rules: ' + (FWN[t.framework] || FWN.customer) + (t.framework === 'ebo' || t.framework === 'bostrab' ? ' – the ' + (t.framework === 'ebo' ? 'EBO Anlage 9 specifics' : 'BOStrab-Lichtraum-Richtlinien') + ' are not yet included;' : ';'));
     if (en) { scope.push('the check by the EN 15273-2:2009 kinematic method, with the customer KE as reference profile;'); }
     if (enSt) { scope.push('the check by the EN 15273-2:2009 static gauge method (A.2), with ' + s.enStatic.ref + ' as reference profile;'); }
@@ -92,7 +99,17 @@
     var rows = [];
     if (s) {
       var g = s.governing;
-      rows.push(['Static clearance to the customer KE (Method B)', g ? fmt(g.c, 1) + ' mm' : '–', g ? g.car + ', ' + g.label : '', status(s.cars.every(function (c) { return c.cases.every(function (k) { return k.ok; }); }))]);
+      rows.push([study === 'backward' ? 'Closure of the derived gauge with the customer KE (Method B)' : 'Static clearance to the customer KE (Method B)', g ? fmt(g.c, 1) + ' mm' : '–', g ? g.car + ', ' + g.label : '', status(s.cars.every(function (c) { return c.cases.every(function (k) { return k.ok; }); }))]);
+      var mcgC = s.cars.filter(function (c) { return c.mcg; });
+      if (mcgC.length) {
+        var narrow = mcgC.reduce(function (a, c) { return !a || (c.mcg.car.ok && c.mcg.car.maxWidth < a.mcg.car.maxWidth) ? c : a; }, null);
+        rows.push(['Maximum construction gauge – whole car, largest half-width / top', narrow && narrow.mcg.car.ok ? fmt(narrow.mcg.car.maxWidth, 1) + ' / ' + fmt(narrow.mcg.car.top, 1) + ' mm' : '–', narrow ? narrow.car + ' (narrowest car type)' : '', status(mcgC.every(function (c) { return c.mcg.ok; }))]);
+        if (study === 'both') {
+          var rsLow = null;
+          mcgC.forEach(function (c) { ['int', 'ext', 'end'].forEach(function (k) { var m = c.mcg[k]; if (m && m.rs && m.rs.min && (!rsLow || m.rs.min.margin < rsLow.v)) { rsLow = { v: m.rs.min.margin, car: c.car, sec: SEC[k], pt: m.rs.min.pt, ok: m.rs.ok }; } }); });
+          rows.push(['RS profile inside the maximum construction gauge – smallest horizontal margin', rsLow ? fmt(rsLow.v, 1) + ' mm' : '–', rsLow ? rsLow.car + ', ' + rsLow.sec + ', ' + rsLow.pt : '', status(mcgC.every(function (c) { return ['int', 'ext', 'end'].every(function (k) { return !c.mcg[k].rs || c.mcg[k].rs.ok; }); }))]);
+        }
+      }
       var lowV = null;
       s.cars.forEach(function (c) { c.vertical.forEach(function (v) { if (!v.info && (!lowV || v.margin < lowV.margin)) { lowV = { margin: v.margin, car: c.car, label: v.label }; } }); });
       rows.push(['Vertical checks – smallest margin', lowV ? fmt(lowV.margin, 1) + ' mm' : '–', lowV ? lowV.car + ', ' + lowV.label : '', status(s.cars.every(function (c) { return c.vertical.every(function (v) { return v.info || v.ok; }); }))]);
@@ -205,7 +222,23 @@
         para('Additional sections (METHOD §6.1a), smallest clearance of all load cases:');
         table(['Car type', 'Section', 'Position', 'Between / beyond the pivots', 'Profile', 'Min clearance [mm]'], xrows);
       }
-      para('Governing: **' + (s.governing ? s.governing.car + ', ' + s.governing.label + ', ' + fmt(s.governing.c, 1) + ' mm' : '–') + '**. Point names in brackets; ✗ = infringes the KE.');
+      para('Governing: **' + (s.governing ? s.governing.car + ', ' + s.governing.label + ', ' + fmt(s.governing.c, 1) + ' mm' : '–') + '**. Point names in brackets; ✗ = infringes the KE.' +
+        (study === 'backward' ? ' Backward study: the profiles are the derived maximum construction gauge, so the clearances close at about 0 mm by construction.' : ''));
+      if (mcgC.length) {
+        para('Maximum construction gauge (METHOD §7.3): at every height the largest half-width whose point stays inside the customer KE in every case of the section, with the top lowered by the upward movement Σu' +
+          (st && st.up_roll === 'yes' ? ' (combined with roll)' : ' on the centre line') + ' and the bottom raised to the minimum body-equipment height (cb + Σd + vertical-curve lowering, sloped by the roll of the crush case). The outline points are in appendix C and in the Max_Construction_Gauge sheet of the results workbook.');
+        var mrows = [];
+        mcgC.forEach(function (c) {
+          var nm = { car: 'Whole car', int: 'Interior', ext: 'Exterior', end: 'Car end' };
+          (c.extraSections || []).forEach(function (q) { nm[q.key] = q.name; });
+          Object.keys(nm).forEach(function (k) {
+            var m = c.mcg[k]; if (!m) { return; }
+            mrows.push([c.car, nm[k], m.ok ? fmt(m.top, 1) : '–', m.ok ? fmt(m.bottom, 1) : '–', m.ok ? fmt(m.maxWidth, 1) : '–', m.ok ? String(m.points.length) : '–',
+              m.rs ? (m.rs.min ? fmt(m.rs.min.margin, 1) + ' (' + m.rs.min.pt + ')' : '–') + ' / ' + fmt(m.rs.topMargin, 1) : (m.ok ? '–' : 'no gauge: ' + m.warn.join(' '))]);
+          });
+        });
+        table(['Car type', 'Section', 'Top [mm]', 'Bottom [mm]', 'Largest half-width [mm]', 'Points', study === 'both' ? 'RS margin side / top [mm]' : 'Note'], mrows, [0.1, 0.18, 0.12, 0.12, 0.16, 0.1, 0.22]);
+      }
       s.cars.forEach(function (c, ci) {
         h2('5.' + (ci + 2) + ' Car type ' + c.car);
         var gk = c.cases.filter(function (k) { return c.governing && k.id === c.governing.id; })[0] || c.cases[0];
@@ -218,6 +251,7 @@
           ['Minimum clearance [mm]'].concat(c.cases.map(function (k) { return fmt(k.min.c, 1); }))
         ]);
         image('sec-' + ci, c.car + ': ' + (gk ? gk.label : '') + ' (governing case), profile and displaced profile against the customer KE.');
+        image('mcg-' + ci, c.car + ': maximum construction gauge of the whole car and of the sections' + (study === 'both' ? ', with the RS profiles' : '') + ', against the customer KE.');
         image('ma-' + ci, c.car + ': maximum static half-width (Method A)' + (c.en ? ' and EN 15273-2 maximum construction gauge' : '') + '.');
         var maRows = c.methodA.filter(function (x, i) { return i % 2 === 0 || i === c.methodA.length - 1; });
         table(['h [mm]', 'KE [mm]', 'Max Int', 'Max Ext', 'Max End', 'Margin Int', 'Margin Ext', 'Margin End'], maRows.map(function (x) {
@@ -417,6 +451,15 @@
         table(['Pt', 'x0', 'h0', 'Lateral E', 'x displ.', 'h displ.', 'KE width at h', 'ΔX', 'ΔH', 'Clearance', 'Status'], gk.points.map(function (x) {
           return [x.pt, fmt(x.x0, 1), fmt(x.h0, 1), fmt(x.E, 2), fmt(x.x, 1), fmt(x.h, 1), fmt(x.W, 1), fmt(x.dX, 1), fmt(x.dH, 1), fmt(x.c, 1), x.ok ? 'OK' : 'INFRINGES'];
         }), null, 7.5);
+      });
+    }
+    if (s && s.cars.some(function (c) { return c.mcg && c.mcg.car.ok; })) {
+      h1('Appendix C – Maximum construction gauge outlines (whole car)');
+      para('Half outline from the top centre round the side to the bottom centre, mm above the top of rail; mirror it for the other side. The section outlines are in the results workbook.');
+      s.cars.forEach(function (c) {
+        if (!c.mcg || !c.mcg.car.ok) { return; }
+        h2(c.car + ' – ' + c.mcg.car.name);
+        table(['Pt', 'Y [mm]', 'Z [mm]'], c.mcg.car.points.map(function (x) { return [x.pt, fmt(x.y, 1), fmt(x.z, 1)]; }), [0.2, 0.4, 0.4], 8);
       });
     }
     return out;

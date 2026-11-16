@@ -108,6 +108,30 @@
     });
     return ds;
   }
+  // Maximum construction gauge (METHOD §7.3): the customer KE, the gauge outline(s) and, in a 'both' study, the RS profiles.
+  // which = 'all' (whole car bold + interior / exterior / car end) or one section key (int, ext, end, car, x1 …).
+  function mcgDatasets(res, car, which, colors) {
+    colors = colors || {};
+    var c = res.cars.filter(function (x) { return x.car === car; })[0], ds = [];
+    if (!c || !c.mcg) { return ds; }
+    ds.push(line('Customer KE: ' + res.ke.name, M.fullProfile(res.ke.points).map(function (q) { return { x: q.y, y: q.z }; }), colors.ke || '#2563eb', { w: 2.2 }));
+    var keys = which === 'all' ? ['car', 'int', 'ext', 'end'] : [which];
+    var COL = { car: colors.car || '#dc2626', int: colors.int || '#059669', ext: colors.ext || '#7c3aed', end: colors.end || '#d97706' };
+    keys.forEach(function (k, i) {
+      var m = c.mcg[k]; if (!m || !m.ok) { return; }
+      ds.push(line(m.name, M.fullProfile(m.points).map(function (q) { return { x: q.y, y: q.z }; }), COL[k] || colors.car || '#dc2626', { w: k === 'car' || which !== 'all' ? 2.4 : 1.3, dash: k === 'car' || which !== 'all' ? [] : [4, 3] }));
+    });
+    if (res.study === 'both') {
+      var secs = which === 'all' || which === 'car' ? ['int', 'ext', 'end'] : [which], seen = {};
+      secs.forEach(function (k) {
+        var cs = c.cases.filter(function (x) { return x.section === k; })[0];
+        if (!cs || seen[cs.profile]) { return; }
+        seen[cs.profile] = true;
+        ds.push(line('RS profile: ' + cs.profile, mirrorRight(cs.points.map(function (q) { return { x: q.x0, y: q.h0 }; })), colors.rs || '#4b5563', { w: 1.2, dash: [2, 2] }));
+      });
+    }
+    return ds;
+  }
   // Method A: half-width against height, as (x = half-width, y = height) lines.
   function methodADatasets(res, car, colors) {
     colors = colors || {};
@@ -209,5 +233,5 @@
   }
 
   return { chainageSeries: chainageSeries, crossSectionDatasets: crossSectionDatasets, profileDatasets: profileDatasets, profileAxes: profileAxes, trackSeries: trackSeries,
-    sectionDatasets: sectionDatasets, methodADatasets: methodADatasets, enDatasets: enDatasets, swayDatasets: swayDatasets, testPlanDatasets: testPlanDatasets, ccdDatasets: ccdDatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
+    sectionDatasets: sectionDatasets, mcgDatasets: mcgDatasets, methodADatasets: methodADatasets, enDatasets: enDatasets, swayDatasets: swayDatasets, testPlanDatasets: testPlanDatasets, ccdDatasets: ccdDatasets, mirrorRight: mirrorRight, PALETTE: PALETTE };
 }));

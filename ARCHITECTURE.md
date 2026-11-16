@@ -50,7 +50,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
 
 ```
 { format, version: 2, name, notes, fictional,
-  train:  { name, customer, line, formation, n_cars, vehicle_type: lrv|metro|hs, vmax_kmh, gauge_mm, L_mm (G),
+  train:  { name, customer, line, formation, n_cars, study: both|backward|forward, vehicle_type: lrv|metro|hs, vmax_kmh, gauge_mm, L_mm (G),
             primary_type, secondary_type, power_supply, framework, ebo_use, bostrab_street, rho_air, Beq_mm,
             carTypes: [{ name, count, length_m, n_free_m, n_art_m, end1/end2: free|shared, ni_m (blank = a/2), na_m, width_mm, floor_mm,
                          sill_hw_mm, bogie1, bogie2, prof_int, prof_ext, prof_end }] },
@@ -72,7 +72,7 @@ Version-1 files (Phase 1) are migrated on load (`model.migrate1`). Field lists, 
             segments: [{ from_m, to_m, element: tangent|transition|circular, side, R_start_m, R_end_m, cant_start_mm, cant_end_mm,
                          speed_kmh, Rv_m, ke, location: open|tunnel|platform|depot, wind: Y|N, struct_mm, platform_mm, platform_side, sod, remarks }] },
   settings: { static: { ke, flex, latflex, lat_state, vert_state, comb, K_rss, gtol_ext, align, tilt, up_roll, wind, over_infl,
-                        ma_from_mm, ma_to_mm, ma_step_mm, en_check: yes|no, cars: 'all' | 'A,B' },
+                        ma_from_mm, ma_to_mm, ma_step_mm, mcg_step_mm, en_check: yes|no, cars: 'all' | 'A,B' },
               dynamic: { ov_meth: max|local, load: tare|crush, profile, ch_from_m, ch_to_m, ss_R_m, ss_cant_mm, ss_wind_kmh,
                          ss_step_kmh, ss_n, ss_ke, cars },   // the static options are the common options of both runs
               report: { title, doc_no, revision, prepared, checked, approved, appendix_points } }   // Word report fields; not part of the out-of-date check
@@ -149,5 +149,6 @@ reads every known sheet.
 | 18 | Applicable-rules framework (Customer KE / EN 15273-2 / EBO / BOStrab) with per-check override; BOStrab §34 public limits | Done |
 | 19 | Load definition (1): bogie ends per car type, formation drawing with shared bogies and joint checks | Done |
 | 20 | Load definition (2): any number of load cases (AW0, AW2, AW3, AW4 …) with masses per car type, every case calculated | Done |
-| 21 | Additional sections per car type (distance from a body end, own profile; Method B, Method A, profile top) and car drawings with the sections | **This pull request** |
-| 21 | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |
+| 21 | Additional sections per car type (distance from a body end, own profile; Method B, Method A, profile top) and car drawings with the sections | Done |
+| 22 | Study direction (backward / forward / both) and the maximum construction gauge outline (METHOD §7.3): per section and whole car, used as the profiles and on the route in a backward study, RS margins in a both study | **This pull request** |
+| – | EBO Anlage 9 specifics and BOStrab-Lichtraum-Richtlinien | When the documents are available |
