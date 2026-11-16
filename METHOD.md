@@ -171,6 +171,8 @@ Platform / Depot), wind Y/N, structure distance at h2, platform edge distance an
 * End overhangs: `n1 = nj` if end 1 is shared, else `n`; `n2` likewise.
 * Pivot distance: `a = Lb − n1 − n2`.
 * Largest overhang (car-end section): `nE = max(n1, n2)`; check `na ≤ nE`.
+* Standard sections from the body ends (information, Train Configuration geometry table and drawing): interior
+  `n1 + ni` from end 1 (`Lb − n1 − ni` from end 2); exterior `n1 − na` from end 1 and `n2 − na` from end 2.
 * Yaw factor beyond the pivot: `A = (a + 2n)/a` → `A_ext` with n = na, `A_end` with n = nE; between pivots A = 1.
 
 ### 5.2 Wind as equivalent cant

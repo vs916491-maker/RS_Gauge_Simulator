@@ -414,8 +414,8 @@
       dim(0, g.n1, 124, 'n1 ' + fmt(g.n1, 3)); dim(g.n1, Lb - g.n2, 124, 'a ' + fmt(g.a, 3)); dim(Lb - g.n2, Lb, 124, 'n2 ' + fmt(g.n2, 3));
       dim(0, Lb, 146, 'Lb ' + fmt(Lb, 3) + ' m');
       // sections: standard (red) and additional (purple); label rows alternate to avoid overlap
-      var lines = [{ x: g.n1 + g.ni, t: 'Int', cls: 'sec-std' }];
-      [[g.n1 - g.na, g.n1], [Lb - g.n2 + g.na, g.n2]].forEach(function (e) { if (g.na <= e[1] + 1e-9) { lines.push({ x: e[0], t: 'Ext', cls: 'sec-std' }); } });
+      var lines = [{ x: g.n1 + g.ni, t: 'Int', cls: 'sec-std', title: 'Interior: ni ' + fmt(g.ni, 3) + ' m from pivot 1 = ' + fmt(g.int_e1, 3) + ' m from body end 1 (' + fmt(g.int_e2, 3) + ' m from end 2)' }];
+      [[g.n1 - g.na, g.n1, g.ext_e1, 1], [Lb - g.n2 + g.na, g.n2, g.ext_e2, 2]].forEach(function (e) { if (g.na <= e[1] + 1e-9) { lines.push({ x: e[0], t: 'Ext', cls: 'sec-std', title: 'Exterior: na ' + fmt(g.na, 3) + ' m beyond pivot ' + e[3] + ' = ' + fmt(e[2], 3) + ' m from body end ' + e[3] }); } });
       if (Math.abs(g.n1 - g.n_end) < 1e-9) { lines.push({ x: 0.04, t: 'End', cls: 'sec-std' }); }
       if (Math.abs(g.n2 - g.n_end) < 1e-9) { lines.push({ x: Lb - 0.04, t: 'End', cls: 'sec-std' }); }
       E.carSections(state.p, c, g).forEach(function (xs) { lines.push({ x: xs.x, t: xs.name, cls: 'sec-x', title: xs.name + ': ' + fmt(xs.dist, 3) + ' m from body ' + (xs.ref_end === 'end2' ? 'end 2' : 'end 1') + ', ' + xs.pos + ' the pivots, n ' + fmt(xs.n, 3) + ' m, A ' + fmt(xs.A, 4) }); });
@@ -432,10 +432,11 @@
   function calcGeometry() {
     var rows = state.p.train.carTypes.map(function (c) {
       var g = E.carGeometry(c);
-      return [c.name, fmt(g.Lb, 3), fmt(g.n1, 3), fmt(g.n2, 3), { v: fmt(g.a, 3), cls: g.a > 0 ? '' : 'badcell' }, fmt(g.n_end, 3), fmt(g.ni, 3), fmt(g.na, 3), fmt(g.A_ext, 4), fmt(g.A_end, 4),
+      return [c.name, fmt(g.Lb, 3), fmt(g.n1, 3), fmt(g.n2, 3), { v: fmt(g.a, 3), cls: g.a > 0 ? '' : 'badcell' }, fmt(g.n_end, 3), fmt(g.ni, 3), fmt(g.int_e1, 3) + ' / ' + fmt(g.int_e2, 3),
+        fmt(g.na, 3), (g.ext_e1 === null ? '–' : fmt(g.ext_e1, 3)) + ' / ' + (g.ext_e2 === null ? '–' : fmt(g.ext_e2, 3)), fmt(g.A_ext, 4), fmt(g.A_end, 4),
         { v: g.na_ok ? 'OK' : 'na > overhang – check', cls: g.na_ok ? 'okcell' : 'badcell' }];
     });
-    roTable($('calc-geometry'), ['Car type', 'Lb (m)', 'n1 (m)', 'n2 (m)', 'Pivot distance a (m)', 'Largest overhang nE (m)', 'Interior ni (m)', 'Exterior na (m)', 'Yaw factor A exterior', 'Yaw factor A car end', 'Exterior within overhang'], rows);
+    roTable($('calc-geometry'), ['Car type', 'Lb (m)', 'n1 (m)', 'n2 (m)', 'Pivot distance a (m)', 'Largest overhang nE (m)', 'Interior ni from pivot 1 (m)', 'Interior from body end 1 / end 2 (m)', 'Exterior na beyond each pivot (m)', 'Exterior from body end 1 / end 2 (m)', 'Yaw factor A exterior', 'Yaw factor A car end', 'Exterior within overhang'], rows);
   }
   function drawTrain() {
     var box = $('train-drawing'), t = state.p.train, ns = 'http://www.w3.org/2000/svg';

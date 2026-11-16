@@ -89,7 +89,9 @@
     return {
       Lb: Lb, n_free: nf, n_art: na, shared1: s1, shared2: s2, n1: n1, n2: n2, a: a, n_end: nEnd, ni: ni, na: nx,
       A_ext: a > 0 ? (a + 2 * nx) / a : NaN, A_end: a > 0 ? (a + 2 * nEnd) / a : NaN,
-      share1: s1 ? 0.5 : 1, share2: s2 ? 0.5 : 1, na_ok: nx <= nEnd + 0.0001
+      share1: s1 ? 0.5 : 1, share2: s2 ? 0.5 : 1, na_ok: nx <= nEnd + 0.0001,
+      // positions of the standard sections measured from the body ends (m; null where the exterior section is beyond that overhang)
+      int_e1: n1 + ni, int_e2: Lb - n1 - ni, ext_e1: nx <= n1 + 0.0001 ? n1 - nx : null, ext_e2: nx <= n2 + 0.0001 ? n2 - nx : null
     };
   }
 
