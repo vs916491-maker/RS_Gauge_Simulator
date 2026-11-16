@@ -285,6 +285,10 @@
         <div class="card"><h3>Method A table <span class="muted">(mm)</span></h3><div id="sres-methodA" class="tablewrap scrolly"></div></div>
       </div>
       <div class="card"><h3>Vertical checks</h3><div id="sres-vertical" class="tablewrap"></div></div>
+      <div class="card" id="sres-rs" hidden><h3>Rotation stops <span class="muted">(all car types; METHOD §5.3b)</span></h3>
+        <p class="hint">Bogie yaw relative to the body ψ = asin(a / 2R). At the smallest radius the closure ψ·x must stay below the gap, so two diagonally opposite stops never touch together and the bogie turns freely.
+          Contact in service: the radius below which a stop touches with the body drifted by the largest cant deficiency (+ wind); w limit = gap + travel − ψ·x.</p>
+        <div id="sres-rs-table" class="tablewrap"></div></div>
       <div id="sres-ccd" hidden>
         <div class="card"><h3>Third-rail CCD <span class="muted">(static, mm)</span></h3>
           <p class="hint">Tangent and the minimum radius with the rail outside and inside the curve, vertical curve both ways. Envelope: every corner of the moved outline point inside the envelope;

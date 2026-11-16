@@ -111,6 +111,12 @@
     if (c <= c2) { return pt.r1 + (pt.r2 - pt.r1) * (c - c1) / (c2 - c1); }
     return pt.r2;
   }
+  // Rotation stops (METHOD §5.3b): lateral clearance left at the pivot with the bogie yawed by ψ = asin(a/2R) relative
+  // to the body, in mm; null without stops. a = pivot distance of the car (m), R in m (0 = straight).
+  function rsHas(b) { return !blankV(b.rs_x_m) && !blankV(b.rs_gap_mm) && n0(b.rs_x_m) > 0; }
+  function rsPsi(a, R) { return R > 0 ? Math.asin(Math.min(1, a / (2 * R))) : 0; }
+  function rsLimit(b, a, R) { return rsHas(b) ? Math.max(0, n0(b.rs_gap_mm) + n0(b.rs_comp_mm) - rsPsi(a, R) * n0(b.rs_x_m) * 1000) : null; }
+  function rsLimits(b) { return rsHas(b) && b.rs_limit_w === 'yes'; }
   // The two bogies under a car combined conservatively: largest plays, travels and wheelbase.
   function carBogie(p, c) {
     var b1 = findBy(p.bogies, 'name', c.bogie1) || p.bogies[0] || {}, b2 = findBy(p.bogies, 'name', c.bogie2) || b1;
@@ -267,12 +273,14 @@
     });
     var up = bg.up_prim + bg.up_sec + (yes(opt.over_infl) ? bg.up_oi : 0);
     var dn = bg.dn_wheel + bg.dn_prim + (deflVert ? bg.dn_sec_def : bg.dn_sec_inf);
-    var wb = [bg.b1, bg.b2].map(function (b) { return { i: wPoints(b, 'i', deflLat), a: wPoints(b, 'a', deflLat) }; });
-    function wDir(dir, R) { return Math.max(wCurve(wb[0][dir], R), wCurve(wb[1][dir], R)); }
-    var wVar = wb.some(function (x) { return ['i', 'a'].some(function (k) { return x[k].r1 !== x[k].inf || x[k].r2 !== x[k].inf; }); });
+    var wb = [bg.b1, bg.b2].map(function (b) { return { i: wPoints(b, 'i', deflLat), a: wPoints(b, 'a', deflLat), b: b }; });
+    function wOne(x, dir, R) { var w = wCurve(x[dir], R); return rsLimits(x.b) ? Math.min(w, rsLimit(x.b, g.a, R)) : w; }
+    function wDir(dir, R) { return Math.max(wOne(wb[0], dir, R), wOne(wb[1], dir, R)); }
+    var rsOn = wb.some(function (x) { return rsLimits(x.b); });
+    var wVar = rsOn || wb.some(function (x) { return ['i', 'a'].some(function (k) { return x[k].r1 !== x[k].inf || x[k].r2 !== x[k].inf; }); });
     return {
       car: c.name, carRec: c, geo: g, bogie: bg, body: body,
-      w_use: deflLat ? bg.w_defl : bg.w,
+      w_use: rsOn ? Math.max(wOne(wb[0], 'i', 0), wOne(wb[1], 'i', 0)) : (deflLat ? bg.w_defl : bg.w),
       w_var: wVar, w_pts: wb, wi: function (R) { return wDir('i', R); }, wa: function (R) { return wDir('a', R); },
       wind: { Lw: Lw, Aw: Aw, Cf: Cf, rho: rho, Beq: Beq, Cw_t: Cw_t, Cw_c: Cw_c, F: 0.5 * rho * Cf * Aw * Math.pow(Vw / 3.6, 2), Dw_t: Cw_t * Vw * Vw, Dw_c: Cw_c * Vw * Vw },
       dn_total: dn, up_total: up,
@@ -528,6 +536,49 @@
     return { profs: profs, mcg: mcg };
   }
 
+  // Smallest curve radius of the line (m; 0 = no curves) and the length with |1/R| ≥ kc (curvature linear along each element).
+  function lineCurvature(p, kc) {
+    var tm = trackModel(p), Rmin = 0, len = 0, tot = 0;
+    tm.el.forEach(function (e) {
+      var L = e.s1 - e.s0, a = Math.abs(e.ks), b = Math.abs(e.ke), hi = Math.max(a, b), lo = Math.min(a, b);
+      tot += L;
+      if (hi > 0 && (Rmin === 0 || 1 / hi < Rmin)) { Rmin = 1 / hi; }
+      if (kc === undefined) { return; }
+      if (lo >= kc) { len += L; } else if (hi > kc) { len += L * (hi - kc) / (hi - lo); }
+    });
+    return { Rmin: Rmin, len: len, total: tot };
+  }
+  /*
+   * Rotation-stop check (METHOD §5.3b) per car type and bogie end: the bogie must turn freely down to the smallest radius
+   * (no contact on two diagonally opposite stops), contact radius in service (comfort) and the stop limit on w(R).
+   */
+  function rotStops(p, d, opt) {
+    var g = d.geo, tp = p.track.params, G = n0(p.train.L_mm, 1500), rows = [];
+    var lc = lineCurvature(p), Rmin = n0(tp.R_min_m);
+    if (lc.Rmin > 0 && (!(Rmin > 0) || lc.Rmin < Rmin)) { Rmin = lc.Rmin; }
+    var heavy = d.loads.reduce(function (x, L) { return !x || L.m > x.m ? L : x; }, null);
+    [[d.bogie.b1, 1, g.share1], [d.bogie.b2, 2, g.share2]].forEach(function (e) {
+      var b = e[0];
+      if (!rsHas(b)) { return; }
+      var xs = n0(b.rs_x_m), gap = n0(b.rs_gap_mm), tr = n0(b.rs_comp_mm), psi = rsPsi(g.a, Rmin), clos = psi * xs * 1000;
+      var margin = gap - clos, solid = gap + tr - clos;   // contact starts at the gap; the face is solid after the travel
+      function Rat(free) { return free <= 0 ? Infinity : (free / 1000 / xs >= Math.PI / 2 ? 0 : g.a / (2 * Math.sin(free / 1000 / xs))); }
+      // quasi-static lateral drift of the body on the secondary springs at the largest cant deficiency + wind (heaviest load)
+      var aq = G_ACC * (n0(tp.cantdef_max_mm) + (yes(opt.wind) ? heavy.Cw * Math.pow(n0(tp.wind_open_kmh), 2) : 0)) / G;
+      var K = e[2] * n0(b.n_as, 2) * n0(b.ky_sec), yq = K > 0 ? Math.min(heavy.m / 2 * aq / K * 1000, gap) : 0;
+      var Rrot = Rat(gap), Rrun = Rat(gap - yq), Rc = blankOr(b.rs_Rcomf_m, null);
+      var share = Rrun === Infinity ? lc.total : (Rrun > 0 ? lineCurvature(p, 1 / Rrun).len : 0);
+      var wp = wPoints(b, 'i', false), wq = wPoints(b, 'a', false);
+      var l1 = rsLimit(b, g.a, 250), l2 = rsLimit(b, g.a, 150);
+      var wOver = Math.max(wp.r1, wq.r1) > l1 + 1e-9 || Math.max(wp.r2, wq.r2) > l2 + 1e-9 || n0(b.w_mm) > gap + tr + 1e-9;
+      rows.push({ end: e[1], bogie: b.name, x: xs, gap: gap, travel: tr, a: g.a, Rmin: Rmin, psi: psi, closure: clos, margin: margin, solid: solid, ok: margin >= 0,
+        load: heavy.name, aq: aq, K: K, yq: yq, Rrot: Rrot, Rrun: Rrun, Rcomf: Rc, comfOk: Rc === null ? null : Rrun <= Rc + 1e-9,
+        lineLen: share, lineTotal: lc.total, lineShare: lc.total > 0 ? share / lc.total * 100 : null,
+        w_lim: { inf: rsLimit(b, g.a, 0), r250: l1, r150: l2 }, w_entered: { inf: n0(b.w_mm), i250: wp.r1, i150: wp.r2, a250: wq.r1, a150: wq.r2 }, limits: rsLimits(b), wOver: wOver });
+    });
+    return rows;
+  }
+
   /*
    * Static run (METHOD §6). opt = settings.static. Returns per car type the 6 cases, Method A and vertical checks,
    * plus the governing car / case. Throws only on missing essentials (callers validate first).
@@ -571,7 +622,9 @@
       }
       if (yes(opt.en_static)) { res.enStatic = enStaticRun(p, d, c, stRef, profs, opt); }
       if (yes(opt.bst_check)) { res.bostrab = bostrabCheck(p, d, profs, opt); }
-      res.ok = (!cpr.mcg || cpr.mcg.ok) && cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok) && (!res.bostrab || res.bostrab.ok);
+      res.rotStops = rotStops(p, d, opt);
+      res.rotStops.forEach(function (x) { if (x.wOver && !x.limits) { warnings.push(c.name + ' bogie ' + x.bogie + ': the entered w (straight / 250 m / 150 m) is larger than the rotation stops allow (' + x.w_lim.inf.toFixed(1) + ' / ' + x.w_lim.r250.toFixed(1) + ' / ' + x.w_lim.r150.toFixed(1) + ' mm) – set "Rotation stops limit w(R)" or correct the inputs.'); } });
+      res.ok = res.rotStops.every(function (x) { return x.ok && x.comfOk !== false; }) && (!cpr.mcg || cpr.mcg.ok) && cases.every(function (r) { return r.ok; }) && res.vertical.every(function (r) { return r.info || r.ok; }) && (!res.en || res.en.ok) && (!res.enStatic || res.enStatic.ok) && (!res.bostrab || res.bostrab.ok);
       if (worst && (!gov || worst.min.c < gov.c)) { gov = { car: c.name, id: worst.id, label: worst.label, c: worst.min.c, pt: worst.min.pt }; }
       return res;
     });
@@ -751,6 +804,10 @@
         if (dir === 'a') { v.wv = blankOr(b.wv_a_mm, o.wv * 1000) / 1000; }
         o[dir] = v;
       });
+      if (rsLimits(b)) {   // rotation stops limit w(R) (§5.3b)
+        var li = rsLimit(b, g.a, 0) / 1000, l1 = rsLimit(b, g.a, r.R1) / 1000, l2 = rsLimit(b, g.a, r.R2) / 1000;
+        [o, o.i, o.a].forEach(function (v) { v.winf = Math.min(v.winf, li); v.w250 = Math.min(v.w250, l1); v.w150 = Math.min(v.w150, l2); });
+      }
       o.dirW = o.i.w250 !== o.a.w250 || o.i.w150 !== o.a.w150 || o.i.wv !== o.a.wv;
       return o;
     }
@@ -1988,7 +2045,7 @@
     VERSION: VERSION, CASES: CASES, carLoads: carLoads, carCases: carCases, sectionPos: sectionPos, carSections: carSections, G_ACC: G_ACC, playCalc: playCalc,
     trackModel: trackModel, locate: locate, sweepChainages: sweepChainages, dynamicRun: dynamicRun, crossSection: crossSection,
     envelopeTP: envelopeTP, polySigned: polySigned, sodPolygon: sodPolygon, sodContext: sodContext, sodCheck: sodCheck,
-    wPoints: wPoints, wCurve: wCurve, studyOf: studyOf, mcgClear: mcgClear, mcgWidth: mcgWidth, mcgOutline: mcgOutline, mcgCar: mcgCar, carProfiles: carProfiles,
+    wPoints: wPoints, wCurve: wCurve, rsPsi: rsPsi, rsLimit: rsLimit, rotStops: rotStops, lineCurvature: lineCurvature, studyOf: studyOf, mcgClear: mcgClear, mcgWidth: mcgWidth, mcgOutline: mcgOutline, mcgCar: mcgCar, carProfiles: carProfiles,
     outline: outline, keWidth: keWidth, keTop: keTop, profileWidth: profileWidth, clearance: clearance,
     carGeometry: carGeometry, deriveCar: deriveCar, caseParams: caseParams, lateralE: lateralE, staticRun: staticRun,
     enRules: enRules, enZ: enZ, enReduction: enReduction, enE: enE, enGradient: enGradient, enTableA1: enTableA1, enVertical: enVertical, enBogieE: enBogieE, enBogieParts: enBogieParts, enStaticE: enStaticE, enStaticRun: enStaticRun, enRulesAt: enRulesAt, enStaticRulesAt: enStaticRulesAt, enDoorAllowance: enDoorAllowance, enStepGap: enStepGap, enPantoP: enPantoP, wAtR: wAtR, bostrabCheck: bostrabCheck, simDisp: simDisp, simCases: simCases, simSection: simSection, simContext: simContext, simAlong: simAlong, simCurve: simCurve, simPick: simPick, simTangent: simTangent, simValidation: simValidation, simRun: simRun, ccdMove: ccdMove, ccdBogie: ccdBogie, ccdRail: ccdRail, ccdContact: ccdContact, ccdStatic: ccdStatic, ccdLine: ccdLine, rectDist: rectDist, swayFit: swayFit, swayEval: swayEval, gaugeTestPlan: gaugeTestPlan

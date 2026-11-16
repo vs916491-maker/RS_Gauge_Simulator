@@ -121,6 +121,8 @@
         var w2 = sm2.sort(function (a, b) { return a.v - b.v; })[0];
         rows.push(['Third-rail CCD (static) – smallest margin', w2 ? fmt(w2.v, 1) + ' mm' : '–', w2 ? w2.c + ', ' + w2.w : '', status(s.ccd.ok)]);
       }
+      var rsAll = []; s.cars.forEach(function (c) { (c.rotStops || []).forEach(function (x) { rsAll.push({ c: c.car, x: x }); }); });
+      if (rsAll.length) { var rw = rsAll.reduce(function (a, q) { return !a || q.x.margin < a.x.margin ? q : a; }, null); rows.push(['Rotation stops – smallest margin to contact at R min', fmt(rw.x.margin, 1) + ' mm', rw.c + ', bogie ' + rw.x.bogie + ' (end ' + rw.x.end + ')', status(rsAll.every(function (q) { return q.x.ok && q.x.comfOk !== false; }))]); }
       if (en) { var eg = s.en.governing; rows.push(['EN 15273-2:2009 – smallest margin to the maximum construction gauge', eg ? fmt(eg.margin, 1) + ' mm' : '–', eg ? eg.car + ', ' + SEC[eg.section] + ', h ' + fmt(eg.h) + ' mm' : '', status(s.en.ok)]); }
     }
     if (d) {
@@ -287,6 +289,16 @@
         var crs = [];
         s.ccd.ccds.forEach(function (c) { c.cases.forEach(function (k) { crs.push([c.name, k.situation, k.ke ? fmt(k.ke.margin, 1) : '–', fmt(k.contact.reach, 1), fmt(k.contact.mOv, 1), k.clear ? fmt(k.clear.margin, 1) : '–', status(k.ok)]); }); });
         table(['CCD', 'Situation', 'Envelope [mm]', 'Reach [mm]', 'Overlap [mm]', 'Clearance [mm]', 'Status'], crs);
+      }
+      var rsC = []; s.cars.forEach(function (c) { (c.rotStops || []).forEach(function (x) { rsC.push([c, x]); }); });
+      if (rsC.length) {
+        h2('Rotation stops');
+        para('The bogie yaws relative to the body by ψ = asin(a / 2R). At the smallest radius of the line the closure ψ·x of each stop must stay below its gap, so that two diagonally opposite stops never touch at the same time and the bogie turns freely; the contact radius in service includes the lateral drift of the body at the largest cant deficiency and wind (METHOD §5.3b).');
+        table(['Car type', 'Bogie', 'Gap / x', 'R min [m]', 'Closure [mm]', 'Margin [mm]', 'Contact below R [m]', 'Line with contact', 'Status'], rsC.map(function (q) {
+          var x = q[1];
+          return [q[0].car, x.end + ' / ' + x.bogie, fmt(x.gap) + ' mm / ' + fmt(x.x, 2) + ' m', fmt(x.Rmin), fmt(x.closure, 1), fmt(x.margin, 1), x.Rrun === Infinity ? 'any' : fmt(x.Rrun),
+            x.lineTotal > 0 ? fmt(x.lineShare, 1) + ' %' : '–', status(x.ok && x.comfOk !== false)];
+        }), [0.1, 0.1, 0.14, 0.09, 0.1, 0.1, 0.12, 0.12, 0.13]);
       }
       if (s.warnings.length) { para('Warnings of the static run:'); add({ type: 'list', items: s.warnings }); }
 

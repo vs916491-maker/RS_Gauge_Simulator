@@ -788,12 +788,31 @@
     }
     renderSresEnStatic(r, c);
     renderSresXs(r, c);
+    renderSresRs(r);
     // vertical
     roTable($('sres-vertical'), ['Check', 'Value (mm)', 'Limit / reference (mm)', 'Margin (mm)', 'Status'], c.vertical.map(function (v) {
       return v.info ? [v.label, fmt(v.value, 1), '', '', ''] : [v.label, fmt(v.value, 1), fmt(v.limit, 1), cCell(v.margin), { v: v.ok ? 'OK' : (v.id.indexOf('uf') === 0 ? 'BELOW MIN' : 'INFRINGES'), cls: v.ok ? 'okcell' : 'badcell' }];
     }));
   }
 
+  // Rotation stops of every car type (METHOD §5.3b)
+  function rsR(v) { return v === Infinity ? 'any (also straight)' : (v === 0 ? '–' : fmt(v, 0)); }
+  function renderSresRs(r) {
+    var rows = [];
+    r.cars.forEach(function (c) { (c.rotStops || []).forEach(function (x) { rows.push([c, x]); }); });
+    $('sres-rs').hidden = !rows.length;
+    if (!rows.length) { return; }
+    roTable($('sres-rs-table'), ['Car type', 'End / bogie', 'x (m)', 'Gap + travel (mm)', 'R min (m)', 'ψ (mrad)', 'Closure ψ·x (mm)', 'Margin to contact (mm)', 'Free rotation',
+      'Drift at I + wind (mm)', 'Contact below R – rotation only / in service (m)', 'Line length with contact', 'Comfort', 'w limit ∞ / 250 / 150 (mm)', 'Used in w(R)'], rows.map(function (q) {
+      var c = q[0], x = q[1];
+      return [c.car, x.end + ' / ' + x.bogie, fmt(x.x, 2), fmt(x.gap, 0) + ' + ' + fmt(x.travel, 0), fmt(x.Rmin, 0), fmt(x.psi * 1000, 2), fmt(x.closure, 1), cCell(x.margin),
+        { v: x.ok ? 'OK' : 'BLOCKED (diagonal contact)', cls: x.ok ? 'okcell' : 'badcell' }, fmt(x.yq, 1), rsR(x.Rrot) + ' / ' + rsR(x.Rrun),
+        x.lineTotal > 0 ? fmt(x.lineLen, 0) + ' m (' + fmt(x.lineShare, 1) + ' %)' : 'no track data',
+        x.comfOk === null ? 'info' : { v: x.comfOk ? 'OK (no contact ≥ ' + fmt(x.Rcomf, 0) + ' m)' : 'CONTACT above ' + fmt(x.Rcomf, 0) + ' m', cls: x.comfOk ? 'okcell' : 'badcell' },
+        { v: fmt(x.w_lim.inf, 1) + ' / ' + fmt(x.w_lim.r250, 1) + ' / ' + fmt(x.w_lim.r150, 1), cls: x.wOver && !x.limits ? 'warncell' : '', title: x.wOver && !x.limits ? 'The entered w is larger than the stops allow' : '' },
+        x.limits ? 'Yes' : 'No'];
+    }));
+  }
   // Maximum construction gauge of the selected car type (METHOD §7.3): chart, one row per section, points of the chosen outline
   var MCG_SEC = { car: 'Whole car', int: 'Interior', ext: 'Exterior', end: 'Car end' };
   function mcgKeys(c) { return ['car', 'int', 'ext', 'end'].concat((c.extraSections || []).map(function (q) { return q.key; })); }

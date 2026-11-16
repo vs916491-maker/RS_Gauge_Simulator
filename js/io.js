@@ -411,6 +411,19 @@
     });
     if (!ma.length) { ma.push(['Car type', 'h (mm)', 'KE width (mm)']); }
     add('Method_A', ma, 10);
+    // rotation stops (METHOD §5.3b)
+    if (res.cars.some(function (c) { return (c.rotStops || []).length; })) {
+      var rs = [['Car type', 'End', 'Bogie', 'x (m)', 'Gap (mm)', 'Travel (mm)', 'a (m)', 'R min (m)', 'ψ (mrad)', 'Closure (mm)', 'Margin to contact (mm)', 'Margin to solid (mm)', 'Free rotation',
+        'Load', 'Drift (mm)', 'Contact R rotation only (m)', 'Contact R in service (m)', 'Line length with contact (m)', 'Line share (%)', 'Comfort R (m)', 'Comfort',
+        'w limit ∞ (mm)', 'w limit 250 m (mm)', 'w limit 150 m (mm)', 'Limits w(R)']];
+      function rr(v) { return v === Infinity ? 'any' : r2(v, 0); }
+      res.cars.forEach(function (c) { (c.rotStops || []).forEach(function (x) {
+        rs.push([c.car, x.end, x.bogie, x.x, x.gap, x.travel, r2(x.a, 3), r2(x.Rmin, 0), r2(x.psi * 1000, 3), r2(x.closure, 2), r2(x.margin, 2), r2(x.solid, 2), x.ok ? 'OK' : 'BLOCKED',
+          x.load, r2(x.yq, 2), rr(x.Rrot), rr(x.Rrun), r2(x.lineLen, 0), x.lineShare === null ? '' : r2(x.lineShare, 2), x.Rcomf === null ? '' : x.Rcomf, x.comfOk === null ? 'info' : (x.comfOk ? 'OK' : 'CONTACT'),
+          r2(x.w_lim.inf, 2), r2(x.w_lim.r250, 2), r2(x.w_lim.r150, 2), x.limits ? 'yes' : 'no']);
+      }); });
+      add('Rotation_Stops', rs, 10);
+    }
     // maximum construction gauge outlines (METHOD §7.3): one row per vertex, ready to paste on the RS Profile tab
     if (res.cars.some(function (c) { return c.mcg; })) {
       var mg = [['Car type', 'Section', 'Profile name', 'Point (pt)', 'Y (y) (mm)', 'Z (z) (mm)', 'Top (mm)', 'Bottom on the centre line (mm)', 'Largest half-width (mm)', 'RS profile', 'Min margin RS → gauge (mm)', 'Top margin (mm)']];

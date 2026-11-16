@@ -91,6 +91,21 @@
       formulas: ['T = dg + [ (l−d)/2 + q + w + wear + widening/2 ] · A'],
       example: c ? ex(['Term (× A)', 'mm'], [['Wheel–rail play', fmt(cp.play, 2)], ['Primary play q', fmt(cp.q, 2)], ['Secondary play w', fmt(cp.w, 2)], ['Rail wear', fmt(cp.fw, 2)], ['Gauge widening / 2', fmt(cp.widen, 2)], ['Overthrow dg', fmt(cp.dg, 2)], ['Translation T', fmt(cp.T, 2)]]) : null, nodata: noStatic });
 
+    var rsc = c && c.rotStops && c.rotStops.length ? c : (s ? s.cars.filter(function (x) { return x.rotStops && x.rotStops.length; })[0] : null), rsr = rsc ? rsc.rotStops[0] : null;
+    add({ part: 'B. Static check', id: 'rotstops', title: 'B3a. Rotation stops: free rotation, contact in service and the limit on w',
+      refs: [ref('en2', 'Annex A.3.9 (w varying with the radius: w_i(R), w_a(R))'), ref('uic1'), ref('tool', '§5.3b')],
+      text: [
+        'On a curve the bogie turns relative to the body by ψ = asin(a / 2R). A rotation stop at a distance x from the bogie centre closes by ψ·x – the front stop on one side and the rear stop on the other, a **diagonal pair**. Design rules: the stop must not obstruct the rotation, and two diagonally opposite stops must never be in contact at the same time; so at the smallest radius ψ·x must stay below the gap.',
+        'In service the body also drifts sideways on the air springs under the uncompensated lateral acceleration (cant deficiency + wind). The stop then touches already on wider curves; too many contacts are felt by the passengers, so the tool gives the contact radius and the share of the line below it, and checks a comfort radius if one is entered.',
+        'The stops also limit the lateral clearance left at the pivot: w_rs(R) = gap + travel − ψ·x in either direction. This is the physical origin of a w that falls with the radius (w_i(R), w_a(R)); the option *Rotation stops limit w(R)* applies it to every method.'
+      ],
+      formulas: ['ψ = asin(a / 2R),  closure = ψ·x,  margin = gap − ψ(R_min)·x ≥ 0', 'y_q = (m/2)·g·(I + Dw)/G / (na·ky2),  R_c = a / (2·sin((gap − y_q)/x))', 'w_rs(R) = gap + travel − ψ(R)·x'],
+      example: rsr ? ex(null, [['Car type / bogie', rsc.car + ' / end ' + rsr.end + ', ' + rsr.bogie], ['x / gap / travel', fmt(rsr.x, 2) + ' m / ' + fmt(rsr.gap, 0) + ' / ' + fmt(rsr.travel, 0) + ' mm'],
+        ['R min / ψ', fmt(rsr.Rmin, 0) + ' m / ' + fmt(rsr.psi * 1000, 2) + ' mrad'], ['Closure / margin to contact', fmt(rsr.closure, 1) + ' / ' + fmt(rsr.margin, 1) + ' mm (' + (rsr.ok ? 'turns freely' : 'BLOCKED') + ')'],
+        ['Drift in service / contact below R', fmt(rsr.yq, 1) + ' mm / ' + (rsr.Rrun === Infinity ? 'any radius' : fmt(rsr.Rrun, 0) + ' m')],
+        ['w limit straight / 250 m / 150 m', fmt(rsr.w_lim.inf, 1) + ' / ' + fmt(rsr.w_lim.r250, 1) + ' / ' + fmt(rsr.w_lim.r150, 1) + ' mm']]) : null,
+      nodata: s ? 'Enter rotation stops for a bogie type (Car body & Bogie tab) and run again to see the numbers.' : noStatic });
+
     add({ part: 'B. Static check', id: 'roll', title: 'B4. Quasi-static roll: cant, wind, flexibility s and roll centre hc',
       refs: [ref('en2', 'Annex A.3.8.1 quasi-static term; §5.1.4 (s measured by EN 14363)'), ref('uic5', 'reference flexibility s0 and roll centre hc0'), ref('uic1')],
       text: [
