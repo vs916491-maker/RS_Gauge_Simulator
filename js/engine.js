@@ -271,6 +271,15 @@
       else { s = blankV(L.s) ? interp(L.m, mt, mc, sT, sC) : n0(L.s); hc = blankV(L.hc) ? interp(L.m, mt, mc, hT, hC) : n0(L.hc) / 1000; }
       return { name: L.name, role: L === lT ? 'tare' : (L === lC ? 'crush' : 'other'), m: L.m, hG: L.hG, dz: L.dz, s: s, hc: hc, Cw: cw(L.m), Dw: cw(L.m) * Vw * Vw };
     });
+    // body camber / sag / end deflection / pitch and track unevenness / rail wear (METHOD §5.3c), mm at a section
+    var vx = { cam: n0(body.cam_up_mid_mm), sag: n0(body.sag_dn_mid_mm), eu: n0(body.end_up_mm), ed: n0(body.end_dn_mm), pz: n0(body.pitch_dz_mm),
+      unev: n0(tp.unev_mm), railw: n0(tp.railw_v_mm) };
+    function vert(n, inner) {
+      if (inner) { var sh = g.a > 0 ? Math.max(0, Math.min(1, 4 * n * (g.a - n) / (g.a * g.a))) : 0; return { up: vx.cam * sh + vx.unev, dn: vx.sag * sh + vx.unev + vx.railw, body: vx.sag * sh, shape: sh }; }
+      var r = g.n_end > 0 ? Math.min(1, n / g.n_end) : 0, pt = g.a > 0 ? vx.pz * n / g.a : 0;
+      return { up: vx.eu * r + pt + vx.unev, dn: vx.ed * r + pt + vx.unev + vx.railw, body: vx.ed * r + pt, shape: r, pitch: pt };
+    }
+    vx.any = vx.cam || vx.sag || vx.eu || vx.ed || vx.pz || vx.unev || vx.railw;
     var up = bg.up_prim + bg.up_sec + (yes(opt.over_infl) ? bg.up_oi : 0);
     var dn = bg.dn_wheel + bg.dn_prim + (deflVert ? bg.dn_sec_def : bg.dn_sec_inf);
     var wb = [bg.b1, bg.b2].map(function (b) { return { i: wPoints(b, 'i', deflLat), a: wPoints(b, 'a', deflLat), b: b }; });
@@ -283,7 +292,7 @@
       w_use: rsOn ? Math.max(wOne(wb[0], 'i', 0), wOne(wb[1], 'i', 0)) : (deflLat ? bg.w_defl : bg.w),
       w_var: wVar, w_pts: wb, wi: function (R) { return wDir('i', R); }, wa: function (R) { return wDir('a', R); },
       wind: { Lw: Lw, Aw: Aw, Cf: Cf, rho: rho, Beq: Beq, Cw_t: Cw_t, Cw_c: Cw_c, F: 0.5 * rho * Cf * Aw * Math.pow(Vw / 3.6, 2), Dw_t: Cw_t * Vw * Vw, Dw_c: Cw_c * Vw * Vw },
-      dn_total: dn, up_total: up,
+      dn_total: dn, up_total: up, vx: vx, vert: vert,
       theoretical: th, s_t: sT, s_c: sC, hc_t: hT, hc_c: hC, loads: loads,
       shared: sharedCheck(p, c, g, bg, Ls)
     };
@@ -314,7 +323,8 @@
       rnd_gauge: rg, rnd_align: ra, cant: cant, wind: wind, cl: cl, s: s, hc: hc,
       thq: thq, thr: thr, tht: tht, thtot: thq + thr + tht,
       drop: L.dz,
-      up: yes(opt.up_roll) ? d.up_total : 0
+      vup: d.vert ? d.vert(n, inner).up : 0,
+      up: yes(opt.up_roll) ? d.up_total + (d.vert ? d.vert(n, inner).up : 0) : 0
     };
   }
 
@@ -365,18 +375,22 @@
     var L = p.ke.limits || {}, tp = p.track.params, b = d.body || {};
     var Rv = n0(tp.Rv_static_m), a = d.geo.a;
     var rows = [];
+    var g = d.geo, SECN = { int: [g.ni, true], ext: [g.na, false], end: [g.n_end, false] };
+    function vu(n, inner) { return d.vert ? d.vert(n, inner).up : 0; }
     ['int', 'ext', 'end'].forEach(function (sec) {
-      var v = profs[sec].top * 1000 + d.up_total;
+      var v = profs[sec].top * 1000 + d.up_total + vu(SECN[sec][0], SECN[sec][1]);
       rows.push({ id: 'top_' + sec, label: { int: 'Interior', ext: 'Exterior', end: 'Car-end' }[sec] + ' profile top + upward movement', value: v, limit: ke.top * 1000, margin: ke.top * 1000 - v, unit: 'mm' });
     });
     var extraTops = (extras || []).map(function (xs) {   // additional sections (METHOD §6.1a), after the standard rows
-      var v = profs[xs.key].top * 1000 + d.up_total;
+      var v = profs[xs.key].top * 1000 + d.up_total + vu(xs.n, xs.inner);
       return { id: 'top_' + xs.key, label: xs.name + ' profile top + upward movement', value: v, limit: ke.top * 1000, margin: ke.top * 1000 - v, unit: 'mm' };
     });
     var vc = Rv === 0 ? 0 : a * a / (8 * Rv) * 1000;
     var roll = cases.filter(function (k) { return k.role === 'crush'; }).reduce(function (m, k) { return Math.max(m, k.params.thtot); }, 0) * n0(b.uf_hw_mm);
-    var body = n0(b.uf_h_mm) - d.dn_total - vc - roll;
-    var bog = n0(b.uf_bog_h_mm) - d.bogie.dn_wheel - d.bogie.dn_prim;
+    var vm = d.vert ? d.vert(a / 2, true) : { dn: 0 }, vxx = d.vx || {};
+    var body = n0(b.uf_h_mm) - d.dn_total - vc - roll - vm.dn;
+    var bog = n0(b.uf_bog_h_mm) - d.bogie.dn_wheel - d.bogie.dn_prim - n0(vxx.unev) - n0(vxx.railw);
+    if (vxx.any) { rows.push({ id: 'vx', label: 'Body sag + track unevenness + rail head wear at mid-car (§5.3c)', value: vm.dn, unit: 'mm', info: true }); }
     rows.push({ id: 'vc', label: 'Vertical-curve lowering at mid-car (crest Rv static)', value: vc, unit: 'mm', info: true });
     rows.push({ id: 'roll', label: 'Roll lowering of underframe edge (largest crush θ)', value: roll, unit: 'mm', info: true });
     rows.push({ id: 'uf_body', label: 'Body-mounted equipment height in worst case', value: body, limit: n0(L.uf_min_body_mm), margin: body - n0(L.uf_min_body_mm), unit: 'mm' });
@@ -495,15 +509,22 @@
     var th = cases.filter(function (k) { return k.cs.role === 'crush'; }).reduce(function (m, k) { return Math.max(m, k.cp.thtot); }, 0);
     var z0 = (n0(L.uf_min_body_mm) + d.dn_total + vc) / 1000, vb = { z0: z0, th: th };
     function pick(fn) { return cases.filter(function (k) { return fn(k.cs); }).map(function (k) { return k.cp; }); }
+    // §5.3c: the section's own upward (top, centre-line rule) and downward (bottom) additions
+    var g = d.geo, SECN = { int: [g.ni, true], ext: [g.na, false], end: [g.n_end, false] };
+    (extras || []).forEach(function (xs) { SECN[xs.key] = [xs.n, xs.inner]; });
+    function vs(k) { return d.vert ? d.vert(SECN[k][0], SECN[k][1]) : { up: 0, dn: 0 }; }
+    function topOf(k) { return top - (yes(opt.up_roll) ? 0 : vs(k).up / 1000); }
+    function vbOf(k) { return { z0: z0 + vs(k).dn / 1000, th: th }; }
+    var carTop = Math.min(topOf('int'), topOf('ext'), topOf('end')), carVb = { z0: Math.max(vbOf('int').z0, vbOf('ext').z0, vbOf('end').z0), th: th };
     var nm = d.car + ' – ';
     var res = {
-      step: step * 1000, top: top * 1000, bottom: z0 * 1000, vc: vc, th: th, cb: n0(L.uf_min_body_mm), dn: d.dn_total, up: d.up_total, upRoll: yes(opt.up_roll),
-      int: mcgOutline(pick(function (cs) { return cs.section === 'int'; }), ke, opt, top, vb, step, 'MCG ' + nm + 'interior'),
-      ext: mcgOutline(pick(function (cs) { return cs.section === 'ext'; }), ke, opt, top, vb, step, 'MCG ' + nm + 'exterior'),
-      end: mcgOutline(pick(function (cs) { return cs.section === 'end'; }), ke, opt, top, vb, step, 'MCG ' + nm + 'car end'),
-      car: mcgOutline(pick(function (cs) { return !cs.extra; }), ke, opt, top, vb, step, 'MCG ' + nm + 'whole car')
+      step: step * 1000, top: carTop * 1000, bottom: carVb.z0 * 1000, vc: vc, th: th, cb: n0(L.uf_min_body_mm), dn: d.dn_total, up: d.up_total, upRoll: yes(opt.up_roll),
+      int: mcgOutline(pick(function (cs) { return cs.section === 'int'; }), ke, opt, topOf('int'), vbOf('int'), step, 'MCG ' + nm + 'interior'),
+      ext: mcgOutline(pick(function (cs) { return cs.section === 'ext'; }), ke, opt, topOf('ext'), vbOf('ext'), step, 'MCG ' + nm + 'exterior'),
+      end: mcgOutline(pick(function (cs) { return cs.section === 'end'; }), ke, opt, topOf('end'), vbOf('end'), step, 'MCG ' + nm + 'car end'),
+      car: mcgOutline(pick(function (cs) { return !cs.extra; }), ke, opt, carTop, carVb, step, 'MCG ' + nm + 'whole car')
     };
-    (extras || []).forEach(function (xs) { res[xs.key] = mcgOutline(pick(function (cs) { return cs.section === xs.key; }), ke, opt, top, vb, step, 'MCG ' + nm + xs.name); });
+    (extras || []).forEach(function (xs) { res[xs.key] = mcgOutline(pick(function (cs) { return cs.section === xs.key; }), ke, opt, topOf(xs.key), vbOf(xs.key), step, 'MCG ' + nm + xs.name); });
     res.ok = ['int', 'ext', 'end', 'car'].concat((extras || []).map(function (xs) { return xs.key; })).every(function (k) { return res[k].ok; });
     return res;
   }
@@ -1762,7 +1783,7 @@
     var lean = k.h2 * cant / G * 1000, ho = o2 - lean, hi = i2 + lean;
     var sc = e.str === 0 ? null : e.str - Math.max(ho, hi), ss = sc === null ? '' : (sc >= 0 ? 'OK' : 'INFRINGES');
     var vc = e.Rv > 0 ? a * a / (8 * e.Rv) * 1000 : (e.Rv < 0 ? (a * nE + nE * nE) / (2 * Math.abs(e.Rv)) * 1000 : 0);
-    var uf = n0(body.uf_h_mm) - d.dn_total - vc - d.s_c * (Math.max(def, exc) + d.wind.Cw_c * Vw * Vw * (yes(sOpt.wind) ? 1 : 0) + n0(tp.cl_err_mm)) / G * n0(body.uf_hw_mm);
+    var uf = n0(body.uf_h_mm) - d.dn_total - vc - (d.vert ? d.vert(g.a / 2, true).dn : 0) - d.s_c * (Math.max(def, exc) + d.wind.Cw_c * Vw * Vw * (yes(sOpt.wind) ? 1 : 0) + n0(tp.cl_err_mm)) / G * n0(body.uf_hw_mm);
     var ufs = uf >= n0(L.uf_min_body_mm) ? 'OK' : 'BELOW MIN';
     var pl = '', gn = null, gm = null, gs = '';
     if (e.loc === 'platform') {

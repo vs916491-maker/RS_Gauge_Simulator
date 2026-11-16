@@ -223,6 +223,23 @@ sides, with a free lateral gap `g` (body centred, straight track) and an elastic
   method (§5.3a, §6.1, §8.3, §10.4). With No, a warning is given when the entered w is larger than `w_rs`.
 * Free rotation, and the comfort radius when entered, are part of the car type's verdict.
 
+### 5.3c Further vertical displacements: body camber / sag, end deflection, pitch, track unevenness, rail head wear
+
+Optional, all 0 by default (the reference workbook has none of them). Car body: pre-camber `fc` (upward bow at mid-car,
+tare), sag `fs` (downward at mid-car, crush against tare), deflection at the car end upward `eu` / downward `ed`, pitch
+`Δzp` (height difference between the two pivots: different suspension state or wheel wear of the two bogies). Track:
+vertical unevenness `uv` (longitudinal level), vertical rail head wear `rw`.
+
+* Between the pivots, at `n` from a pivot, shape `σ = 4·n·(a − n)/a²` (1 at mid-car):
+  upward `fc·σ + uv`, downward `fs·σ + uv + rw`.
+* Beyond a pivot, at `n`, `ρ = n/nE` (1 at the car end): upward `eu·ρ + Δzp·n/a + uv`,
+  downward `ed·ρ + Δzp·n/a + uv + rw` (pitch about the far pivot: the overhang rises at one end and falls at the other).
+* Use: profile top + Σu + upward addition of the section ≤ KE top (§7.2); with *Upward movement combined with roll*
+  the addition is in `up` of the case (§6.1); body-mounted equipment `zu − Σd − vc − θ·yu − downward addition at
+  mid-car ≥ cb`; bogie-mounted equipment loses `uv + rw`; the gauge outline top and bottom per section (§7.3); the
+  route underframe height (§8.3).
+* EN 15273-2 heights (§10.7) keep their own terms (Table A.1); these inputs are not added there.
+
 ### 5.4 Theoretical flexibility coefficient and roll centre
 
 Roll-stiffness share per body end: ψ = 1 for an own bogie, ½ for a shared bogie. With ψ1, ψ2 of the two ends:

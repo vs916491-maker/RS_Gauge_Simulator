@@ -545,6 +545,8 @@
       row('Radial wheel wear used Δw', 'mm', function (d) { return d.bogie.dn_wheel; }, 1),
       row('Total downward movement Σd (' + (o.vert_state === 'inflated' ? 'inflated' : 'deflated') + ')', 'mm', function (d) { return d.dn_total; }, 1),
       row('Total upward movement Σu', 'mm', function (d) { return d.up_total; }, 1),
+      row('Camber / sag / pitch / unevenness / rail wear (§5.3c): up / down at mid-car', 'mm', function (d) { var v = d.vert(d.geo.a / 2, true); return { v: fmt(v.up, 1) + ' / ' + fmt(v.dn, 1) }; }),
+      row('… up / down at the car end', 'mm', function (d) { var v = d.vert(d.geo.n_end, false); return { v: fmt(v.up, 1) + ' / ' + fmt(v.dn, 1) }; }),
       row('Secondary lateral play used w*', 'mm', function (d) { return d.w_use; }, 1),
       row('w_i(R) / w_a(R) at 250 m (inside / outside)', 'mm', function (d) { return { v: fmt(d.wi(250), 1) + ' / ' + fmt(d.wa(250), 1) }; }),
       row('w_i(R) / w_a(R) at 150 m (inside / outside)', 'mm', function (d) { return { v: fmt(d.wi(150), 1) + ' / ' + fmt(d.wa(150), 1) }; }),
@@ -827,7 +829,7 @@
     opts.forEach(function (o) { sel.appendChild(el('option', { value: o[0], text: o[1], selected: o[0] === state.mcgSel })); });
     $('sres-mcg-hint').textContent = 'At every height: the largest half-width whose point stays inside the KE in every load case of the section (Method B movements). Top = KE top − Σu ' +
       (m.upRoll ? '(Σu combined with roll)' : '(' + fmt(m.up, 1) + ' mm, centre line)') + ' = ' + fmt(m.top, 1) + ' mm; bottom on the centre line = cb ' + fmt(m.cb, 0) + ' + Σd ' + fmt(m.dn, 1) +
-      ' + vertical curve ' + fmt(m.vc, 1) + ' = ' + fmt(m.bottom, 1) + ' mm, rising with the crush roll angle ' + fmt(m.th * 1000, 2) + ' mrad towards the side. Height step ' + fmt(m.step, 0) + ' mm, refined where needed.';
+      ' + vertical curve ' + fmt(m.vc, 1) + ' (+ sag / unevenness / rail wear, §5.3c) = ' + fmt(m.bottom, 1) + ' mm (whole car), rising with the crush roll angle ' + fmt(m.th * 1000, 2) + ' mrad towards the side. Height step ' + fmt(m.step, 0) + ' mm, refined where needed.';
     var both = r.study === 'both';
     roTable($('sres-mcg-info'), ['Section', 'Top', 'Bottom', 'Largest half-width', 'Points'].concat(both ? ['RS profile', 'RS margin side / top'] : [], ['Status']), mcgKeys(c).map(function (k) {
       var q = m[k];
